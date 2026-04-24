@@ -1,22 +1,30 @@
-# TokenSave 开发规范
+# Agent Rules for TokenSave.cloud
 
-## 分支策略
-- main 分支受保护，禁止直接提交
-- 所有变更通过 feature branch + PR 流程
-- coding_cat 不持有 main 写权限（Path B 模式）
+## Development Workflow
+1. Hermes Agent defines issue and assigns to coding_cat
+2. BG approves before implementation
+3. coding_cat creates feature branch (NOT direct to main)
+4. coding_cat opens PR targeting main
+5. guardian_cat reviews PR
+6. coding_cat fixes any review comments
+7. guardian_cat returns PASS
+8. BG approves merge
+9. Only then is the PR merged
 
-## PR 流程
-1. Hermes 定义 issue
-2. BG 批准 issue
-3. coding_cat 实现（feature branch）
-4. coding_cat 打开 PR targeting main
-5. guardian_cat 安全审查
-6. coding_cat 修复 review comments
-7. guardian_cat PASS
-8. BG 批准合并
+## Non-Negotiable Rules
+- Local-first: files never leave the device
+- No backend
+- No telemetry, analytics, tracking
+- No fetch/XMLHttpRequest/sendBeacon
+- No external LLM calls
+- No auto-apply or runtime write-path
+- No API key collection
+- node_modules/ in .gitignore — never commit node_modules
+- No secrets in repo
+- Every rule has named ID and evidence
+- Unknown model pricing must not default to cheap
+- Fix hints are CLI text only, never executed
 
-## 安全红线
-- 禁止提交 token/key/secret
-- 禁止 backend/telemetry/analytics
-- 禁止直接推送 main
-- 禁止引入外部网络调用（fetch/XMLHttpRequest/sendBeacon）
+## Issue Naming
+- Use format: I1, I2, I1.1, I2a, I2b, etc.
+- Prefix feature branches: feature/I2a-vite-scaffold
