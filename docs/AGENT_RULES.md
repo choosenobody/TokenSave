@@ -19,7 +19,7 @@
 - No external LLM calls
 - No auto-apply or runtime write-path
 - No API key collection
-- No committed node_modules
+- node_modules/ in .gitignore — never commit node_modules
 - No secrets in repo
 - Every rule has named ID and evidence
 - Unknown model pricing must not default to cheap
