@@ -20,3 +20,6 @@
 - 禁止 backend/telemetry/analytics
 - 禁止直接推送 main
 - 禁止引入外部网络调用（fetch/XMLHttpRequest/sendBeacon）
+
+## 依赖管理
+- node_modules/ 在 .gitignore 中 — 禁止提交 node_modules
