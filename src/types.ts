@@ -118,7 +118,6 @@ export interface RunRecord {
   token_count?: unknown;
   usage?: { total_tokens?: unknown; tokens?: unknown };
   metrics?: { tokens?: unknown };
-  [key: string]: unknown;
 
   // Error flag — one of these paths is populated
   error?: unknown;           // boolean | non-empty string | object
@@ -137,7 +136,7 @@ export interface RunRecord {
   model?: unknown;
   model_name?: unknown;
 
-  // Slot for other fields
+  // Catch-all for any other fields present in the record
   [key: string]: unknown;
 }
 
@@ -249,8 +248,8 @@ export interface State {
   sortDir: SortDirection;
 }
 
-/** Column used for sorting the job table. */
-export type SortKey = 'name' | 'cost' | 'tokens' | 'runs' | 'errors' | 'schedule' | 'rate';
+/** Column used for sorting the job table. Matches data-sort attribute values in index.html. */
+export type SortKey = 'name' | 'tokens' | 'cost' | 'frequency' | 'errorRate';
 
 /** Sort direction. */
 export type SortDirection = 'asc' | 'desc';
@@ -265,6 +264,6 @@ export type ParseJsonResult = Record<string, unknown>;
 /** Return type of parseJsonl(text, fileName).  Array of RunRecord-like objects. */
 export type ParseJsonlResult = RunRecord[];
 
-/** Return type of parseZipEntries(buffer).  Array of raw text entries. */
-export type ZipEntry = { name: string; content: string };
+/** Return type of parseZipEntries(buffer).  Array of {name, text} entries. */
+export type ZipEntry = { name: string; text: string };
 export type ParseZipResult = ZipEntry[];
