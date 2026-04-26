@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
     // Cost rates in USD per 1M tokens (input + output combined, approximate)
     // Unknown models default to MiniMax M2.7 rate
     const COST_RATES = [
@@ -1168,20 +1169,6 @@
       return schedule ? stringify(schedule) : "Unknown";
     }
 
-    function formatShortDuration(minutes) {
-      if (minutes < 60) {
-        return `${Math.round(minutes)}m`;
-      }
-      if (minutes % 1440 === 0) {
-        return `${Math.round(minutes / 1440)}d`;
-      }
-      if (minutes % 60 === 0) {
-        return `${Math.round(minutes / 60)}h`;
-      }
-      const hours = Math.floor(minutes / 60);
-      const remainder = Math.round(minutes % 60);
-      return `${hours}h ${remainder}m`;
-    }
 
     function detectCostRate(model) {
       const candidate = COST_RATES.find((rate) => rate.match.test(stringify(model)));
@@ -1234,60 +1221,6 @@
         return ["true", "1", "yes", "on"].includes(value.trim().toLowerCase());
       }
       return Boolean(value);
-    }
-
-    function formatInteger(value) {
-      return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value || 0);
-    }
-
-    function formatCurrency(value) {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: value < 1 ? 3 : 2,
-        maximumFractionDigits: value < 1 ? 3 : 2
-      }).format(value || 0);
-    }
-
-    function formatPercent(value) {
-      return `${(value * 100).toFixed(value >= 0.1 ? 1 : 2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}%`;
-    }
-
-    function formatDate(value) {
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) {
-        return stringify(value || "unknown");
-      }
-      return date.toLocaleString();
-    }
-
-    function stringify(value) {
-      return value == null ? "" : String(value);
-    }
-
-    function normalizeKey(value) {
-      return stringify(value).trim().toLowerCase();
-    }
-
-    function slugify(value) {
-      return stringify(value)
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-    }
-
-    function cleanFileStem(fileName) {
-      return stringify(fileName).split(/[\\/]/).pop().replace(/\.(jsonl|json|zip)$/i, "");
-    }
-
-    function escapeHtml(value) {
-      return stringify(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
     }
 
     function nextFrame() {
