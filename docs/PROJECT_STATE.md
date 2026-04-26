@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-26T19:05:00Z
-**Source**: GitHub `origin/main` at commit `018b0cb`
+**Last updated**: 2026-04-26T19:25:00Z
+**Source**: GitHub `origin/main` at commit `5b5111d`
 
 ---
 
@@ -15,15 +15,15 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `018b0cb` (PR #24 merge) |
+| Main branch SHA | `5b5111d` (PR #26 merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
-| src/main.ts | ~990 lines, `@ts-nocheck`, application logic (utils/constants/parser/domain helpers extracted) |
+| src/main.ts | ~965 lines, `@ts-nocheck`, application logic (ingest/aggregation/report/UI; utils/constants/parser/domain helpers extracted) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
-| src/domain.ts | 83 lines, 8 exported pure predicate/data-extraction helpers, imports stringify from utils |
+| src/domain.ts | ~110 lines, 9 exported pure helpers (8 predicates + classifyWaste), imports stringify from utils |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
@@ -37,6 +37,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #26 | I2b.6B: extract classifyWaste to src/domain.ts | 2026-04-26 | `5b5111d` |
+| #25 | I2b.6A-S: refresh docs/PROJECT_STATE.md after PR #24 | 2026-04-26 | `dd65cf3` |
 | #24 | I2b.6A: extract predicate helpers to src/domain.ts | 2026-04-26 | `018b0cb` |
 | #23 | I2b.5-S: refresh docs/PROJECT_STATE.md after PR #22 | 2026-04-26 | `b806005` |
 | #22 | I2b.5: extract parser helpers to src/parser.ts | 2026-04-26 | `3cdad15` |
@@ -69,8 +71,10 @@
 | I2b.5 | Extract parseJson / parseJsonl / parseZipEntries and ZIP parser helpers to src/parser.ts | #22 | CLOSED |
 | I2b.5-S | Refresh docs/PROJECT_STATE.md after I2b.5 | #23 | CLOSED |
 | I2b.6A | Extract extractTokenCount / isErrorRecord / isExecType / isSimpleCheck / isJobLike / isRunLike / isMetaLike / readBoolean to src/domain.ts | #24 | CLOSED |
+| I2b.6A-S | Refresh docs/PROJECT_STATE.md after PR #24 | #25 | CLOSED |
+| I2b.6B | Extract classifyWaste to src/domain.ts | #26 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A complete; I2b.6A-S in progress; I2b.6B and beyond not yet planned)
+**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B complete; I2b.6B-S in progress; I2b.6C and beyond not yet planned)
 
 ---
 
@@ -86,9 +90,9 @@ See: GitHub Issue #11
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers)
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction)
 
-**Next slice**: TBD — I2b.6B domain logic extraction (classifyWaste + fix helpers) pending BG plan approval. Do not start I2b.6B yet.
+**Next slice**: TBD — I2b.6C domain logic extraction pending BG plan approval. Do not start I2b.6C yet. Likely candidates for inspection: buildFixSuggestion, buildFixCards, or another small pure domain helper. detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
 
 **Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
 
@@ -138,14 +142,16 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **Choose next safe I2b slice** (pending BG approval).
 
-Current completed slices (I2b.1–I2b.5, I2b.6A) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate/domain helpers.
+Current completed slices (I2b.1–I2b.5, I2b.6A, I2b.6A-S, I2b.6B) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste.
 
-I2b.6A-S (docs refresh) in progress.
+I2b.6B-S (docs refresh) in progress.
 
 Next candidate:
-- **I2b.6B**: Domain logic — `classifyWaste`, `buildFixSuggestion`, `buildFixCards`, `analyzeDataset`, `finalizeStat`, `detectCostRate` → `src/domain.ts`
+- **I2b.6C**: Domain logic — candidates include `buildFixSuggestion`, `buildFixCards`, or another small pure domain helper — plan-only required before implementation.
 
-Do not start I2b.6B implementation yet. Plan-only required before implementation.
+detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
+
+Do not start I2b.6C implementation yet. Plan-only required before implementation.
 
 Each slice must be PR'd and reviewed independently. Rollback = `git revert <merge-commit>`.
 
