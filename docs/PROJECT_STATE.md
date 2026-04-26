@@ -38,6 +38,7 @@
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
 | #24 | I2b.6A: extract predicate helpers to src/domain.ts | 2026-04-26 | `018b0cb` |
+| #23 | I2b.5-S: refresh docs/PROJECT_STATE.md after PR #22 | 2026-04-26 | `b806005` |
 | #22 | I2b.5: extract parser helpers to src/parser.ts | 2026-04-26 | `3cdad15` |
 | #20 | I2b.4B: extract constants to src/constants.ts | 2026-04-26 | `df6a250` |
 | #19 | I2b.4S: refresh docs/PROJECT_STATE.md after I2b.4A | 2026-04-26 | `ccf3232` |
@@ -66,9 +67,10 @@
 | I2b.4B | Extract COST_RATES / FIX_LIBRARY / FIX_BADGES to src/constants.ts | #20 | CLOSED |
 | I2b.4B-S | Refresh docs/PROJECT_STATE.md after I2b.4B | #21 | CLOSED |
 | I2b.5 | Extract parseJson / parseJsonl / parseZipEntries and ZIP parser helpers to src/parser.ts | #22 | CLOSED |
+| I2b.5-S | Refresh docs/PROJECT_STATE.md after I2b.5 | #23 | CLOSED |
 | I2b.6A | Extract extractTokenCount / isErrorRecord / isExecType / isSimpleCheck / isJobLike / isRunLike / isMetaLike / readBoolean to src/domain.ts | #24 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.6A complete; I2b.6A-S in progress; I2b.6B and beyond not yet planned)
+**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A complete; I2b.6A-S in progress; I2b.6B and beyond not yet planned)
 
 ---
 
@@ -84,7 +86,7 @@ See: GitHub Issue #11
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.6A (predicate/domain helpers)
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers)
 
 **Next slice**: TBD — I2b.6B domain logic extraction (classifyWaste + fix helpers) pending BG plan approval. Do not start I2b.6B yet.
 
