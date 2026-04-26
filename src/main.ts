@@ -2,6 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { COST_RATES, FIX_LIBRARY, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
+import { extractTokenCount, isErrorRecord, isExecType, isSimpleCheck, isJobLike, isRunLike, isMetaLike, readBoolean } from './domain';
 
     const state = {
       report: null,
@@ -863,39 +864,6 @@ import { parseJson, parseJsonl, parseZipEntries } from './parser';
       errorMessage.classList.remove("visible");
     }
 
-    function extractTokenCount(record) {
-      const candidates = [
-        record.tokens,
-        record.total_tokens,
-        record.token_count,
-        record.usage && record.usage.total_tokens,
-        record.usage && record.usage.tokens,
-        record.metrics && record.metrics.tokens
-      ];
-
-      for (const candidate of candidates) {
-        const value = Number(candidate);
-        if (Number.isFinite(value) && value >= 0) {
-          return value;
-        }
-      }
-      return 0;
-    }
-
-    function isErrorRecord(record) {
-      if (typeof record.error === "boolean") {
-        return record.error;
-      }
-      if (typeof record.error === "string") {
-        return record.error.trim().length > 0 && record.error.toLowerCase() !== "false";
-      }
-      if (record.error && typeof record.error === "object") {
-        return true;
-      }
-      const status = stringify(record.status || record.result || "").toLowerCase();
-      return status === "error" || status === "failed" || status === "failure";
-    }
-
     function parseScheduleMinutes(schedule) {
       if (schedule == null) {
         return null;
@@ -995,52 +963,6 @@ import { parseJson, parseJsonl, parseZipEntries } from './parser';
       if (candidate) return candidate;
       // Unknown model — assume MiniMax M2.7 as default for OpenClaw users
       return { label: "MiniMax-M2.7 (default)", rate: 0.14 };
-    }
-
-    function isExecType(rawJob, promptText) {
-      const tokens = [
-        rawJob.type,
-        rawJob.taskType,
-        rawJob.mode,
-        rawJob.task,
-        rawJob.command,
-        promptText
-      ].filter(Boolean).join(" ").toLowerCase();
-      return /\b(exec|execute|execution|shell|command|terminal|run task|exec-type)\b/.test(tokens);
-    }
-
-    function isSimpleCheck(rawJob, promptText) {
-      const tokens = [
-        rawJob.type,
-        rawJob.taskType,
-        rawJob.name,
-        rawJob.description,
-        rawJob.prompt,
-        promptText
-      ].filter(Boolean).join(" ").toLowerCase();
-      return /\b(check|health|status|ping|monitor|probe|verify|heartbeat|smoke|lint)\b/.test(tokens);
-    }
-
-    function isJobLike(value) {
-      return !!value && typeof value === "object" && !Array.isArray(value) && ("id" in value || "name" in value) && ("schedule" in value || "model" in value || "task" in value || "type" in value || "prompt" in value);
-    }
-
-    function isRunLike(value) {
-      return !!value && typeof value === "object" && !Array.isArray(value) && ("tokens" in value || "timestamp" in value || "error" in value || "usage" in value);
-    }
-
-    function isMetaLike(value) {
-      return !!value && typeof value === "object" && !Array.isArray(value) && ("openclaw_version" in value || "export_date" in value);
-    }
-
-    function readBoolean(value) {
-      if (typeof value === "boolean") {
-        return value;
-      }
-      if (typeof value === "string") {
-        return ["true", "1", "yes", "on"].includes(value.trim().toLowerCase());
-      }
-      return Boolean(value);
     }
 
     function nextFrame() {
