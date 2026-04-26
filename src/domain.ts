@@ -81,3 +81,30 @@ export function readBoolean(value) {
   }
   return Boolean(value);
 }
+
+export function classifyWaste(job, errorRate, scheduleMinutes) {
+  const issues = [];
+  const agentTurn = readBoolean(job.raw.agentTurn ?? job.raw.agent_turn ?? job.raw.agent_turn_enabled ?? false);
+  const execType = isExecType(job.raw, job.promptText);
+  const simpleCheck = isSimpleCheck(job.raw, job.promptText);
+  const premiumModel = /opus|sonnet/i.test(job.model);
+  const highFrequencyExec = execType && scheduleMinutes != null && scheduleMinutes < 60;
+
+  if (agentTurn && execType && scheduleMinutes != null && scheduleMinutes < 30) {
+    issues.push("CRITICAL");
+  }
+  if (agentTurn && scheduleMinutes != null && !issues.includes("CRITICAL")) {
+    issues.push("LLM_AGENT_CRON");
+  }
+  if (errorRate > 0.1) {
+    issues.push("ERROR_WASTE");
+  }
+  if (premiumModel && simpleCheck) {
+    issues.push("PREMIUM_MODEL_WASTE");
+  }
+  if (highFrequencyExec && !issues.includes("CRITICAL")) {
+    issues.push("WARNING");
+  }
+
+  return issues.length ? issues : ["OK"];
+}
