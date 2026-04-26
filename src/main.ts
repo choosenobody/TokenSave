@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { COST_RATES, FIX_LIBRARY, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
-import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion } from './domain';
+import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs } from './domain';
 
     const state = {
       report: null,
@@ -335,27 +335,6 @@ import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike,
         topWaste,
         fixes: buildFixCards(activeJobs)
       };
-    }
-
-    function normalizeJobs(jobs) {
-      return jobs.map((job, index) => {
-        const id = stringify(job.id != null ? job.id : `job-${index + 1}`);
-        const name = stringify(job.name || job.title || `Unnamed Job ${index + 1}`);
-        const schedule = job.schedule ?? job.interval ?? job.frequency ?? job.cron ?? null;
-        const model = stringify(job.model || job.model_name || job.modelName || "Unknown");
-        const promptText = [job.task, job.type, job.description, job.prompt, name].filter(Boolean).join(" ");
-        return {
-          raw: job,
-          id,
-          lookupId: normalizeKey(id),
-          name,
-          slug: slugify(name),
-          schedule,
-          model,
-          promptText,
-          synthetic: false
-        };
-      });
     }
 
     function createJobStat(job) {
