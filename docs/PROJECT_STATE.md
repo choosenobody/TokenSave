@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-26T20:05:00Z
-**Source**: GitHub `origin/main` at commit `7655f15`
+**Last updated**: 2026-04-26T20:15:00Z
+**Source**: GitHub `origin/main` at commit `a4e846e`
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `7655f15` (PR #28 merge) |
+| Main branch SHA | `a4e846e` (PR #30 merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
@@ -23,7 +23,7 @@
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
-| src/domain.ts | ~125 lines, 10 exported pure helpers (8 predicates + classifyWaste + buildFixSuggestion), imports stringify from utils |
+| src/domain.ts | ~146 lines, 11 exported pure helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs), imports stringify/normalizeKey/slugify from utils |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
@@ -37,6 +37,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #30 | I2b.6D: extract normalizeJobs to src/domain.ts | 2026-04-26 | `a4e846e` |
+| #29 | I2b.6C-S: refresh docs/PROJECT_STATE.md after PR #28 | 2026-04-26 | `0ed482b` |
 | #28 | I2b.6C: extract buildFixSuggestion to src/domain.ts | 2026-04-26 | `7655f15` |
 | #27 | I2b.6B-S: refresh docs/PROJECT_STATE.md after PR #26 | 2026-04-26 | `c7e9cd0` |
 | #26 | I2b.6B: extract classifyWaste to src/domain.ts | 2026-04-26 | `5b5111d` |
@@ -77,8 +79,10 @@
 | I2b.6B | Extract classifyWaste to src/domain.ts | #26 | CLOSED |
 | I2b.6B-S | Refresh docs/PROJECT_STATE.md after PR #26 | #27 | CLOSED |
 | I2b.6C | Extract buildFixSuggestion to src/domain.ts | #28 | CLOSED |
+| I2b.6C-S | Refresh docs/PROJECT_STATE.md after PR #28 | #29 | CLOSED |
+| I2b.6D | Extract normalizeJobs to src/domain.ts | #30 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C complete; I2b.6C-S in progress; I2b.6D and beyond not yet planned)
+**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D complete; I2b.6D-S in progress; I2b.6E and beyond not yet planned)
 
 ---
 
@@ -94,9 +98,9 @@ See: GitHub Issue #11
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction)
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction), I2b.6C-S (docs refresh), I2b.6D (normalizeJobs extraction)
 
-**Next slice**: TBD — I2b.6D domain logic extraction pending BG plan approval. Do not start I2b.6D yet. Remaining candidates for inspection: buildFixCards (depends on FIX_LIBRARY), normalizeJobs, ensureSyntheticStat, resolveJob, applyRunRecord (data pipeline), finalizeStat (calls detectCostRate — excluded), analyzeDataset (aggregation pipeline). detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
+**Next slice**: TBD — I2b.6E domain logic extraction pending BG plan approval. Do not start I2b.6E yet. Remaining candidates for inspection: buildFixCards (depends on FIX_LIBRARY), ensureSyntheticStat, resolveJob, applyRunRecord (data pipeline), finalizeStat (calls detectCostRate — excluded), analyzeDataset (aggregation pipeline). detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
 
 **Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
 
@@ -146,16 +150,16 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **Choose next safe I2b slice** (pending BG approval).
 
-Current completed slices (I2b.1–I2b.5, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion.
+Current completed slices (I2b.1–I2b.5, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs.
 
-I2b.6C-S (docs refresh) in progress.
+I2b.6D-S (docs refresh) in progress.
 
 Next candidate:
-- **I2b.6D**: Domain logic — candidates include `buildFixCards` (FIX_LIBRARY coupling), `normalizeJobs`, `ensureSyntheticStat`, `resolveJob`, `applyRunRecord` — plan-only required before implementation.
+- **I2b.6E**: Domain logic — candidates include `ensureSyntheticStat`, `resolveJob`, `applyRunRecord` (data pipeline, low coupling, no pricing), `parseScheduleMinutes`, `formatFrequency` — plan-only required before implementation.
 
 detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
 
-Do not start I2b.6D implementation yet. Plan-only required before implementation.
+Do not start I2b.6E implementation yet. Plan-only required before implementation.
 
 Each slice must be PR'd and reviewed independently. Rollback = `git revert <merge-commit>`.
 
