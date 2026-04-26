@@ -124,3 +124,24 @@ export function buildFixSuggestion(badge, scheduleMinutes) {
   }
   return "Running within acceptable parameters.";
 }
+
+export function normalizeJobs(jobs) {
+  return jobs.map((job, index) => {
+    const id = stringify(job.id != null ? job.id : `job-${index + 1}`);
+    const name = stringify(job.name || job.title || `Unnamed Job ${index + 1}`);
+    const schedule = job.schedule ?? job.interval ?? job.frequency ?? job.cron ?? null;
+    const model = stringify(job.model || job.model_name || job.modelName || "Unknown");
+    const promptText = [job.task, job.type, job.description, job.prompt, name].filter(Boolean).join(" ");
+    return {
+      raw: job,
+      id,
+      lookupId: normalizeKey(id),
+      name,
+      slug: slugify(name),
+      schedule,
+      model,
+      promptText,
+      synthetic: false
+    };
+  });
+}
