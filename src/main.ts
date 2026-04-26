@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { COST_RATES, FIX_LIBRARY, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
-import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck } from './domain';
+import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion } from './domain';
 
     const state = {
       report: null,
@@ -452,22 +452,6 @@ import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike,
         badge: primary,
         fixSuggestion
       };
-    }
-
-    function buildFixSuggestion(badge, scheduleMinutes) {
-      if (badge === "CRITICAL") {
-        return "Reduce frequency (>= 30 min) or disable agent-turn mode.";
-      }
-      if (badge === "ERROR_WASTE") {
-        return "Check failed run logs for the error and fix the root cause.";
-      }
-      if (badge === "PREMIUM_MODEL_WASTE") {
-        return "Switch to a cheaper model like MiniMax M2.7 for this task type.";
-      }
-      if (badge === "WARNING") {
-        return "Consider slowing down the schedule to save tokens.";
-      }
-      return "Running within acceptable parameters.";
     }
 
     function buildFixCards(jobs) {
