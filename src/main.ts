@@ -1170,6 +1170,59 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
     }
 
 
+    function detectCostRate(model) {
+      const candidate = COST_RATES.find((rate) => rate.match.test(stringify(model)));
+      if (candidate) return candidate;
+      // Unknown model — assume MiniMax M2.7 as default for OpenClaw users
+      return { label: "MiniMax-M2.7 (default)", rate: 0.14 };
+    }
+
+    function isExecType(rawJob, promptText) {
+      const tokens = [
+        rawJob.type,
+        rawJob.taskType,
+        rawJob.mode,
+        rawJob.task,
+        rawJob.command,
+        promptText
+      ].filter(Boolean).join(" ").toLowerCase();
+      return /\b(exec|execute|execution|shell|command|terminal|run task|exec-type)\b/.test(tokens);
+    }
+
+    function isSimpleCheck(rawJob, promptText) {
+      const tokens = [
+        rawJob.type,
+        rawJob.taskType,
+        rawJob.name,
+        rawJob.description,
+        rawJob.prompt,
+        promptText
+      ].filter(Boolean).join(" ").toLowerCase();
+      return /\b(check|health|status|ping|monitor|probe|verify|heartbeat|smoke|lint)\b/.test(tokens);
+    }
+
+    function isJobLike(value) {
+      return !!value && typeof value === "object" && !Array.isArray(value) && ("id" in value || "name" in value) && ("schedule" in value || "model" in value || "task" in value || "type" in value || "prompt" in value);
+    }
+
+    function isRunLike(value) {
+      return !!value && typeof value === "object" && !Array.isArray(value) && ("tokens" in value || "timestamp" in value || "error" in value || "usage" in value);
+    }
+
+    function isMetaLike(value) {
+      return !!value && typeof value === "object" && !Array.isArray(value) && ("openclaw_version" in value || "export_date" in value);
+    }
+
+    function readBoolean(value) {
+      if (typeof value === "boolean") {
+        return value;
+      }
+      if (typeof value === "string") {
+        return ["true", "1", "yes", "on"].includes(value.trim().toLowerCase());
+      }
+      return Boolean(value);
+    }
+
     function nextFrame() {
       return new Promise((resolve) => requestAnimationFrame(() => resolve()));
     }
