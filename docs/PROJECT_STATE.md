@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-26T09:05:00Z
-**Source**: GitHub `origin/main` at commit `df6a250`
+**Last updated**: 2026-04-26T17:45:00Z
+**Source**: GitHub `origin/main` at commit `3cdad155`
 
 ---
 
@@ -15,11 +15,12 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `df6a250` (PR #20 merge) |
+| Main branch SHA | `3cdad155` (PR #22 merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
-| src/main.ts | 1,170 lines, `@ts-nocheck`, application logic (constants extracted) |
+| src/main.ts | 1,048 lines, `@ts-nocheck`, application logic (constants/parser/utils extracted) |
+| src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
@@ -35,6 +36,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #22 | I2b.5: extract parser helpers to src/parser.ts | 2026-04-26 | `3cdad15` |
 | #20 | I2b.4B: extract constants to src/constants.ts | 2026-04-26 | `df6a250` |
 | #19 | I2b.4S: refresh docs/PROJECT_STATE.md after I2b.4A | 2026-04-26 | `ccf3232` |
 | #18 | I2b.4A: extract 10 formatting/helpers to src/utils.ts | 2026-04-26 | `83cb8ba` |
@@ -60,8 +62,10 @@
 | I2b.4A | Extract 10 formatting/string helpers to src/utils.ts | #18 | CLOSED |
 | I2b.4S | Refresh docs/PROJECT_STATE.md after I2b.4A | #19 | CLOSED |
 | I2b.4B | Extract COST_RATES / FIX_LIBRARY / FIX_BADGES to src/constants.ts | #20 | CLOSED |
+| I2b.4B-S | Refresh docs/PROJECT_STATE.md after I2b.4B | #21 | CLOSED |
+| I2b.5 | Extract parseJson / parseJsonl / parseZipEntries and ZIP parser helpers to src/parser.ts | #22 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B complete; I2b.5 and beyond not yet started)
+**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5 complete; I2b.6 and beyond not yet planned)
 
 ---
 
@@ -77,9 +81,9 @@ See: GitHub Issue #11
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants)
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction)
 
-**Next slice**: TBD — I2b.5 parser extraction pending BG plan approval.
+**Next slice**: TBD — I2b.6 domain logic extraction pending BG plan approval. Do not start I2b.6 yet.
 
 **Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
 
@@ -129,14 +133,12 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **Choose next safe I2b slice** (pending BG approval).
 
-Current completed slices (I2b.1–I2b.4B) extracted: inline script, validation, types, formatting helpers, constants.
+Current completed slices (I2b.1–I2b.5) extracted: inline script, validation, types, formatting helpers, constants, parser.
 
 Next candidate:
-- **I2b.5**: Parsers — `parseJson`, `parseJsonl`, `parseZipEntries` → `src/parser.ts` (ZIP via native ArrayBuffer parsing, no jszip dependency)
+- **I2b.6**: Domain logic — `analyzeDataset`, `classifyWaste`, `detectCostRate`, predicate guards → `src/domain.ts`
 
-Future candidates:
-- **I2b.6**: Domain logic — `analyzeDataset`, `classifyWaste`, `detectCostRate`, predicate guards
-- **I2b.7**: Render/UI — DOM bindEvents, render functions → `src/render.ts`
+Do not start I2b.6 yet. Plan-only required before implementation.
 
 Each slice must be PR'd and reviewed independently. Rollback = `git revert <merge-commit>`.
 
