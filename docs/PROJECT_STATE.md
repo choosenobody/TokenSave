@@ -18,7 +18,7 @@
 | Main branch SHA | `83cb8ba` (PR #18 merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
-| index.html | 19.6 KB, monolithic script (2108 lines original, migrated to src/main.ts) |
+| index.html | HTML/CSS shell with module script reference to src/main.ts |
 | src/main.ts | 1,228 lines, `@ts-nocheck`, all application logic |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
@@ -37,7 +37,7 @@
 | #18 | I2b.4A: extract 10 formatting/helpers to src/utils.ts | 2026-04-26 | `83cb8ba` |
 | #17 | I2b.3: add src/types.ts — type inventory slice | 2026-04-26 | `f696b63` |
 | #16 | I2b.1: Migrate inline script to src/main.ts | 2026-04-25 | `0898562` |
-| #15 | I1.2: Add project state snapshot document | 2026-04-25 | `8469c91` |
+| #15 | I1.2: Add project state snapshot document | 2026-04-25 | `d19c4b5` |
 | #14 | I2a: Vite + TypeScript scaffold | 2026-04-25 | `69ab3e7` |
 | #13 | I1.1 corrective: replace docs with guardian_cat-reviewed versions | 2026-04-24 | `b09754c` |
 
@@ -52,7 +52,7 @@
 | I1.2 | Add project state snapshot document | #15 | CLOSED |
 | I2a | Vite + TypeScript scaffold | #14 | CLOSED |
 | I2b.1 | Migrate inline script to src/main.ts | #16 | CLOSED |
-| I2b.2 | Validation logic refactor | (direct merge) | CLOSED |
+| I2b.2 | Post-migration compatibility validation | No-code validation | CLOSED |
 | I2b.3 | Add src/types.ts — type inventory slice | #17 | CLOSED |
 | I2b.4A | Extract 10 formatting/string helpers to src/utils.ts | #18 | CLOSED |
 
@@ -88,10 +88,9 @@ See: GitHub Issue #11
 
 | Issue | Title | Status | Recommended Action |
 |-------|-------|--------|-------------------|
-| #12 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Superseded by PR #13**. Duplicate of #9. |
 | #11 | I2b: Migrate index.html logic into src modules | **OPEN** | **Active next issue.** Do not close. |
 | #10 | I2a: Vite + TypeScript scaffold | **OPEN** | **Completed by PR #14.** Recommend: close. |
-| #9 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Completed by PR #13.** Duplicate of #12. |
+| #9 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Completed by PR #13.** Duplicate of #12 (both superseded by #13). |
 | #8 | I2: Vite + TypeScript scaffold | **OPEN** | **Parent of I2a.** Recommend: close as completed by #10 and #11 (I2a done, I2b active). |
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
 | #6 | I7: No-network test and evidence bundle system | OPEN | Future issue. Not yet started. |
