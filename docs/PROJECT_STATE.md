@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-25T08:50:00Z
-**Source**: GitHub API + local `origin/main` checkout at commit `69ab3e7`
+**Last updated**: 2026-04-26T05:30:00Z
+**Source**: GitHub `origin/main` at commit `83cb8ba`
 
 ---
 
@@ -15,11 +15,16 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `69ab3e7` (PR #14 merge) |
+| Main branch SHA | `83cb8ba` (PR #18 merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
-| Root config | `index.html` (2108 lines, monolithic script) |
-| src/ | Empty directory (`.gitkeep` only) |
+| index.html | 19.6 KB, monolithic script (2108 lines original, migrated to src/main.ts) |
+| src/main.ts | 1,228 lines, `@ts-nocheck`, all application logic |
+| src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
+| src/utils.ts | 72 lines, 10 pure formatting/string helpers |
+| docs/AGENT_RULES.md | Development workflow rules |
+| docs/INCIDENTS.md | Incident log |
+| docs/PROJECT_STATE.md | This file |
 | dist/ | Not committed (gitignored) |
 | node_modules/ | Not committed (gitignored) |
 
@@ -29,6 +34,10 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #18 | I2b.4A: extract 10 formatting/helpers to src/utils.ts | 2026-04-26 | `83cb8ba` |
+| #17 | I2b.3: add src/types.ts — type inventory slice | 2026-04-26 | `f696b63` |
+| #16 | I2b.1: Migrate inline script to src/main.ts | 2026-04-25 | `0898562` |
+| #15 | I1.2: Add project state snapshot document | 2026-04-25 | `8469c91` |
 | #14 | I2a: Vite + TypeScript scaffold | 2026-04-25 | `69ab3e7` |
 | #13 | I1.1 corrective: replace docs with guardian_cat-reviewed versions | 2026-04-24 | `b09754c` |
 
@@ -39,8 +48,15 @@
 | Increment | Issue | PR | Status |
 |----------|-------|-----|--------|
 | I1 | Remove tracked node_modules and add .gitignore | Direct commit | CLOSED |
-| I1.1 | Harden .gitignore + add docs/AGENT_RULES.md + docs/INCIDENTS.md | #13 (corrective merge) | CLOSED |
+| I1.1 | Harden .gitignore + add docs/AGENT_RULES.md + docs/INCIDENTS.md | #13 | CLOSED |
+| I1.2 | Add project state snapshot document | #15 | CLOSED |
 | I2a | Vite + TypeScript scaffold | #14 | CLOSED |
+| I2b.1 | Migrate inline script to src/main.ts | #16 | CLOSED |
+| I2b.2 | Validation logic refactor | (direct merge) | CLOSED |
+| I2b.3 | Add src/types.ts — type inventory slice | #17 | CLOSED |
+| I2b.4A | Extract 10 formatting/string helpers to src/utils.ts | #18 | CLOSED |
+
+**I2b overall: IN PROGRESS** (sub-slices I2b.1–I2b.4A complete; I2b.4B, I2b.5, and beyond not yet started)
 
 ---
 
@@ -50,15 +66,19 @@
 See: GitHub Issue #11
 
 **Scope** (structure-preserving refactor only):
-- Extract separable logic from `index.html` into `src/` modules
+- Extract separable logic from `src/main.ts` into `src/` modules
 - Preserve all existing behavior (upload, parsing, report, UI)
 - Preserve local-only file processing
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation refactor), I2b.3 (types), I2b.4A (formatting helpers)
+
+**Next slice**: TBD — pending next-slice recommendation and BG approval.
+
 **Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
 
-**Recommended slice order**: utilities → constants → parsers → domain logic → UI
+**Recommended slice order** (from original I2b scope): utilities → constants → parsers → domain logic → UI
 
 ---
 
@@ -68,11 +88,11 @@ See: GitHub Issue #11
 
 | Issue | Title | Status | Recommended Action |
 |-------|-------|--------|-------------------|
-| #12 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Superseded by PR #13**. Issue #9 also appears to cover the same work. Recommend: close as duplicate of #9 or mark superseded. |
+| #12 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Superseded by PR #13**. Duplicate of #9. |
 | #11 | I2b: Migrate index.html logic into src modules | **OPEN** | **Active next issue.** Do not close. |
 | #10 | I2a: Vite + TypeScript scaffold | **OPEN** | **Completed by PR #14.** Recommend: close. |
-| #9 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Completed by PR #13.** Issue #12 appears to be a duplicate. Recommend: close #12, keep #9 open (or close both if #13 fully addressed the intent). |
-| #8 | I2: Vite + TypeScript scaffold | **OPEN** | **Parent of I2a.** I2a was split from this. Recommend: close as completed by #10 and #11 (I2a done, I2b active). |
+| #9 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Completed by PR #13.** Duplicate of #12. |
+| #8 | I2: Vite + TypeScript scaffold | **OPEN** | **Parent of I2a.** Recommend: close as completed by #10 and #11 (I2a done, I2b active). |
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
 | #6 | I7: No-network test and evidence bundle system | OPEN | Future issue. Not yet started. |
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Forbidden until I2b complete. |
@@ -103,23 +123,17 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ## Recommended Next Step
 
-**Start I2b** (Issue #11).
+**Choose next safe I2b slice** (pending BG approval).
 
-Implementation order suggestion:
-1. **I2b.1**: Extract utility functions + establish TypeScript type skeleton
-   - `src/types/index.ts` — domain types (JobStat, RunRecord, Report, etc.)
-   - `src/utils/format.ts` — pure formatting functions (escapeHtml, formatCurrency, etc.)
-   - `src/utils/model.ts` — model rate detection and token counting
+Current completed slices (I2b.1–I2b.4A) extracted: inline script, validation logic, types, formatting helpers.
 
-2. **I2b.2**: Extract constants (COST_RATES, FIX_LIBRARY, FIX_BADGES)
+Remaining extraction candidates (unordered):
+- **I2b.4B**: Constants — `COST_RATES`, `FIX_LIBRARY`, `FIX_BADGES` → `src/constants.ts`
+- **I2b.5**: Parsers — `parseJson`, `parseJsonl`, `parseZipEntries` → `src/parser.ts` (ZIP via native ArrayBuffer parsing, no jszip dependency)
+- **I2b.6**: Domain logic — `analyzeDataset`, `classifyWaste`, `detectCostRate`, predicate guards
+- **I2b.7**: Render/UI — DOM bindEvents, render functions → `src/render.ts`
 
-3. **I2b.3**: Extract file parsers (JSON, JSONL, ZIP)
-
-4. **I2b.4**: Extract domain logic (analyzeDataset, classifyWaste)
-
-5. **I2b.5**: Extract UI/render layer
-
-Each slice should be PR'd and reviewed independently. Rollback = `git revert <merge-commit>`.
+Each slice must be PR'd and reviewed independently. Rollback = `git revert <merge-commit>`.
 
 ---
 
