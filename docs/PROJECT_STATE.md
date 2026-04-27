@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-27T08:30:00Z
-**Source**: GitHub `origin/main` at commit `43930a0` (PR #34 I2b.6E merge)
+**Last updated**: 2026-04-27T12:35:00Z
+**Source**: GitHub `origin/main` at commit `6c5cf39` (PR #36 I2b.6F merge)
 
 ---
 
@@ -15,15 +15,15 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `43930a0` (PR #34 I2b.6E merge) |
+| Main branch SHA | `6c5cf39` (PR #36 I2b.6F merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
-| src/main.ts | ~905 lines, `@ts-nocheck`, application logic (ingest/aggregation/report/UI/fix-card helpers; finalizeStat/parseScheduleMinutes/formatFrequency/buildFixCards/detectCostRate remain; data pipeline helpers extracted to domain) |
+| src/main.ts | ~733 lines, `@ts-nocheck`, application logic (ingest/aggregation/report/UI/fix-card helpers; finalizeStat/buildFixCards/analyzeDataset/detectCostRate remain; data pipeline + schedule helpers extracted to domain) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
-| src/domain.ts | ~225 lines, 15 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord), imports stringify/normalizeKey/slugify/cleanFileStem from utils |
+| src/domain.ts | ~317 lines, 17 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
@@ -37,6 +37,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #36 | I2b.6F: extract schedule helpers to src/domain.ts | 2026-04-27 | `6c5cf39` |
 | #34 | I2b.6E: extract data pipeline helpers to src/domain.ts | 2026-04-27 | `43930a0` |
 | #32 | I2b.6D-H: fix normalizeJobs utils imports | 2026-04-27 | `6d974e2` |
 | #31 | I2b.6D-S: refresh docs/PROJECT_STATE.md after PR #30 (#31) | 2026-04-26 | `34f88f5` |
