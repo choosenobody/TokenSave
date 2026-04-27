@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { COST_RATES, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
-import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency } from './domain';
+import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
 import { buildFixCards } from './fixes';
 
     const state = {
@@ -635,24 +635,6 @@ import { buildFixCards } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
       }
       return `<span style="color:#a8b1d1;font-size:0.88rem">${escapeHtml(genericAction)}</span>`;
-    }
-
-    function compareJobs(left, right, key, direction) {
-      let result = 0;
-      if (key === "name") {
-        result = left.name.localeCompare(right.name);
-      } else if (key === "tokens") {
-        result = left.totalTokens - right.totalTokens;
-      } else if (key === "cost") {
-        result = left.totalCost - right.totalCost;
-      } else if (key === "frequency") {
-        const leftValue = left.scheduleMinutes == null ? Number.POSITIVE_INFINITY : left.scheduleMinutes;
-        const rightValue = right.scheduleMinutes == null ? Number.POSITIVE_INFINITY : right.scheduleMinutes;
-        result = leftValue - rightValue;
-      } else if (key === "errorRate") {
-        result = left.errorRate - right.errorRate;
-      }
-      return direction === "asc" ? result : -result;
     }
 
     function updateSortIndicators() {

@@ -313,3 +313,21 @@ export function formatFrequency(schedule, scheduleMinutes) {
   }
   return schedule ? stringify(schedule) : "Unknown";
 }
+
+export function compareJobs(left, right, key, direction) {
+  let result = 0;
+  if (key === "name") {
+    result = left.name.localeCompare(right.name);
+  } else if (key === "tokens") {
+    result = left.totalTokens - right.totalTokens;
+  } else if (key === "cost") {
+    result = left.totalCost - right.totalCost;
+  } else if (key === "frequency") {
+    const leftValue = left.scheduleMinutes == null ? Number.POSITIVE_INFINITY : left.scheduleMinutes;
+    const rightValue = right.scheduleMinutes == null ? Number.POSITIVE_INFINITY : right.scheduleMinutes;
+    result = leftValue - rightValue;
+  } else if (key === "errorRate") {
+    result = left.errorRate - right.errorRate;
+  }
+  return direction === "asc" ? result : -result;
+}
