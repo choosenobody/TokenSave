@@ -94,29 +94,19 @@
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D, I2b.6D-S, I2b.6D-H, I2b.6E, I2b.6F, I2b.6G, I2b.6H complete; post-I2b closure review pending)
+**I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
 
 ---
 
-## Active Next Issue
+## Next Action
 
-**I2b** — Migrate `index.html` logic into `src/` modules after I2a passes.
-See: GitHub Issue #11
+**Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
 
-**Scope** (structure-preserving refactor only):
-- Extract separable logic from `src/main.ts` into `src/` modules
-- Preserve all existing behavior (upload, parsing, report, UI)
-- Preserve local-only file processing
-- Keep Vite build working
-- Incremental slices (I2b.1, I2b.2, …)
-
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction), I2b.6C-S (docs refresh), I2b.6D (normalizeJobs extraction), I2b.6D-S (docs refresh), I2b.6D-H (normalizeJobs utils import hotfix), I2b.6E (data pipeline helpers extraction), I2b.6F (schedule helpers extraction), I2b.6G (buildFixCards → fixes.ts extraction), I2b.6H (compareJobs → domain.ts extraction)
-
-**Next slice**: Post-I2b.6H closure review. BG to decide next direction: close Issue #11, or open separate follow-up issue for UI module / pricing slice / app-shell architecture.
-
-**Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
-
-**Recommended slice order** (from original I2b scope): utilities → constants → parsers → domain logic → UI
+**Recommended follow-up** (requires separate BG approval):
+- UI module extraction (create `src/ui.ts`)
+- Pricing slice (`detectCostRate`/`finalizeStat` review)
+- App-shell architecture cleanup
+- No-network evidence/test work (Issue #6)
 
 ---
 
@@ -126,16 +116,16 @@ See: GitHub Issue #11
 
 | Issue | Title | Status | Recommended Action |
 |-------|-------|--------|-------------------|
-| #11 | I2b: Migrate index.html logic into src modules | **OPEN** | **Active next issue.** Do not close. |
+| #11 | I2b: Migrate index.html logic into src modules | **CLOSED** | All acceptance criteria met. All pure helpers extracted. |
 | #10 | I2a: Vite + TypeScript scaffold | **OPEN** | **Completed by PR #14.** Recommend: close. |
 | #9 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Completed by PR #13.** Duplicate of #12 (both superseded by #13). |
 | #8 | I2: Vite + TypeScript scaffold | **OPEN** | **Parent of I2a.** Recommend: close as completed by #10 and #11 (I2a done, I2b active). |
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
 | #6 | I7: No-network test and evidence bundle system | OPEN | Future issue. Not yet started. |
-| #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Forbidden until I2b complete. |
-| #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Forbidden until I2b complete. |
-| #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Future issue. Forbidden until I2b complete. |
-| #2 | I3: Add parser modules with tests | OPEN | Future issue. Forbidden until I2b complete. |
+| #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
+| #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
+| #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Future issue. Requires separate BG approval. |
+| #2 | I3: Add parser modules with tests | OPEN | Future issue. Requires separate BG approval. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
 
 ---
@@ -158,7 +148,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**Recommended Next Step**: Post-I2b.6H closure review. All safely extractable pure helpers have been migrated. Remaining main.ts code (~690 lines): orchestrator (analyzeDataset), pricing-coupled (finalizeStat, detectCostRate), DOM-coupled (render/UI helpers), ingest/file processing. BG to decide: close Issue #11, or open separate follow-up issue for UI module / pricing slice / app-shell architecture. See I2b.6H plan report for analysis.
+**Recommended Next Step**: Issue #11 (I2b) is now CLOSED. All safely extractable pure helpers have been migrated to `src/` modules. BG to decide next direction: approve a follow-up issue for UI module extraction, pricing slice review, app-shell cleanup, or no-network evidence/test work (Issue #6).
 
 Current completed slices (I2b.1–I2b.6G) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord), schedule helpers (parseScheduleMinutes / formatFrequency), buildFixCards (→ fixes.ts).
 
