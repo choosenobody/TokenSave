@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-27T19:59:00Z
-**Source**: GitHub `origin/main` at commit `f1d9685` (PR #44 I7A no-network regression test merge)
+**Last updated**: 2026-04-27T20:45:00Z
+**Source**: GitHub `origin/main` at commit `ad69001` (PR #46 Pricing-Extract + Pricing-Char merge)
 
 ---
 
@@ -15,18 +15,20 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `f1d9685` (PR #44 I7A no-network regression test merge) |
+| Main branch SHA | `ad69001` (PR #46 Pricing-Extract + Pricing-Char merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
-| src/main.ts | ~690 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/detectCostRate/render UI helpers; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
+| src/main.ts | ~680 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
 | src/domain.ts | ~317 lines, 18 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
+| src/pricing.ts | detectCostRate — extracted from src/main.ts; characterized via tests/pricing.test.ts |
+| tests/pricing.test.ts | Characterization tests for detectCostRate |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -39,6 +41,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #46 | feat(Pricing-Extract): extract detectCostRate to src/pricing.ts + add characterization tests | 2026-04-27 | `ad69001` |
 | #44 | I7A: no-network regression test — vitest + npm test script | 2026-04-27 | `f1d9685` |
 | #41 | I2b.6H: extract compareJobs to src/domain.ts | 2026-04-27 | `91716cd` |
 | #38 | I2b.6G: extract buildFixCards to src/fixes.ts | 2026-04-27 | `ae5b712` |
@@ -95,6 +98,7 @@
 | I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
+| I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -107,7 +111,7 @@
 
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
-- Pricing slice (`detectCostRate`/`finalizeStat` review)
+- Pricing slice — `finalizeStat` review pending; `detectCostRate` extracted and tested (PR #46)
 - App-shell architecture cleanup
 - No-network evidence/test work (Issue #6) — **I7A completed (PR #44); remaining slices pending**
 
