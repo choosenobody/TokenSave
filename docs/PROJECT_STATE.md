@@ -85,8 +85,9 @@
 | I2b.6D-S | Refresh docs/PROJECT_STATE.md after PR #30 | #31 | CLOSED |
 | I2b.6D-H | Fix normalizeJobs missing utils imports (normalizeKey/slugify) | #32 | CLOSED |
 | I2b.6E | Extract createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord to src/domain.ts | #34 | CLOSED |
+| I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D, I2b.6D-S, I2b.6D-H, I2b.6E complete; I2b.6F plan-only pending)
+**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D, I2b.6D-S, I2b.6D-H, I2b.6E, I2b.6F complete; I2b.6G plan-only pending)
 
 ---
 
@@ -102,9 +103,9 @@ See: GitHub Issue #11
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction), I2b.6C-S (docs refresh), I2b.6D (normalizeJobs extraction), I2b.6D-S (docs refresh), I2b.6D-H (normalizeJobs utils import hotfix), I2b.6E (data pipeline helpers extraction)
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction), I2b.6C-S (docs refresh), I2b.6D (normalizeJobs extraction), I2b.6D-S (docs refresh), I2b.6D-H (normalizeJobs utils import hotfix), I2b.6E (data pipeline helpers extraction), I2b.6F (schedule helpers extraction)
 
-**Next slice**: I2b.6F plan-only analysis. Candidates: parseScheduleMinutes, formatFrequency (pure formatters, no pipeline coupling), buildFixCards (deferred — FIX_LIBRARY coupling), finalizeStat (excluded — calls detectCostRate), analyzeDataset (deferred — top-level orchestrator). detectCostRate remains pricing-sensitive and excluded. Do not start I2b.6F implementation until BG approves plan.
+**Next slice**: I2b.6G plan-only analysis. Candidates: buildFixCards (deferred — FIX_LIBRARY coupling), finalizeStat (excluded — calls detectCostRate), analyzeDataset (deferred — top-level orchestrator), render/UI helpers (not in domain extraction scope). detectCostRate remains pricing-sensitive and excluded.
 
 **Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
 
@@ -150,9 +151,9 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**Recommended Next Step**: BG approves I2b.6F plan scope. Candidates: parseScheduleMinutes + formatFrequency (standalone pure formatters, no data-pipeline coupling, no pricing coupling). buildFixCards deferred until FIX_LIBRARY analysis. finalizeStat excluded. analyzeDataset deferred. Each slice must be PR'd and reviewed independently.
+**Recommended Next Step**: BG approves I2b.6G plan scope. Candidates: buildFixCards (deferred — FIX_LIBRARY coupling review), finalizeStat (excluded — calls detectCostRate), analyzeDataset (deferred — top-level orchestrator), render/UI helpers (not in domain scope unless BG approves separate slice). Each slice must be PR'd and reviewed independently.
 
-Current completed slices (I2b.1–I2b.5, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D, I2b.6D-S, I2b.6D-H, I2b.6E) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord).
+Current completed slices (I2b.1–I2b.6F) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord), schedule helpers (parseScheduleMinutes / formatFrequency).
 
 detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
 
