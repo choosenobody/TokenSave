@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `6c5cf39` (PR #36 I2b.6F merge) |
+| Main branch SHA | `ae5b712` (PR #38 I2b.6G merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
