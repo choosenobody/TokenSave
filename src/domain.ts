@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Extracted from src/main.ts — pure domain helpers.
 // No logic changed. No behavior changes.
-import { stringify, normalizeKey, slugify } from './utils';
+import { stringify, normalizeKey, slugify, cleanFileStem } from './utils';
 
 export function extractTokenCount(record) {
   const candidates = [
@@ -144,4 +144,80 @@ export function normalizeJobs(jobs) {
       synthetic: false
     };
   });
+}
+
+export function createJobStat(job) {
+  return {
+    ...job,
+    totalTokens: 0,
+    totalRuns: 0,
+    errorRuns: 0
+  };
+}
+
+export function ensureSyntheticStat(record, fileName, statsById) {
+  const inferredName = stringify(record.jobName || record.job_name || record.name || cleanFileStem(fileName) || "Unmapped Job");
+  const inferredId = normalizeKey(stringify(record.jobId || record.job_id || inferredName));
+  const key = `synthetic:${inferredId}`;
+
+  if (!statsById.has(key)) {
+    statsById.set(key, {
+      raw: {},
+      id: key,
+      lookupId: key,
+      name: inferredName,
+      slug: slugify(inferredName),
+      schedule: null,
+      model: stringify(record.model || record.model_name || "Unknown"),
+      promptText: inferredName,
+      synthetic: true,
+      totalTokens: 0,
+      totalRuns: 0,
+      errorRuns: 0
+    });
+  }
+
+  return statsById.get(key);
+}
+
+export function resolveJob(record, fileName, indexes) {
+  const fileStem = cleanFileStem(fileName);
+  const idCandidates = [
+    record.jobId,
+    record.job_id,
+    record.job && record.job.id,
+    fileStem
+  ].filter((value) => value != null).map((value) => normalizeKey(value));
+
+  for (const candidate of idCandidates) {
+    if (indexes.byId.has(candidate)) {
+      return indexes.byId.get(candidate);
+    }
+  }
+
+  const nameCandidates = [
+    record.jobName,
+    record.job_name,
+    record.job && record.job.name,
+    fileStem
+  ].filter(Boolean).map((value) => slugify(value));
+
+  for (const candidate of nameCandidates) {
+    if (indexes.bySlug.has(candidate)) {
+      return indexes.bySlug.get(candidate);
+    }
+  }
+
+  return null;
+}
+
+export function applyRunRecord(stat, record) {
+  stat.totalRuns += 1;
+  stat.totalTokens += extractTokenCount(record);
+  if (isErrorRecord(record)) {
+    stat.errorRuns += 1;
+  }
+  if ((stat.model === "Unknown" || !stat.model) && (record.model || record.model_name)) {
+    stat.model = stringify(record.model || record.model_name);
+  }
 }
