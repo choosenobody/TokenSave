@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Extracted from src/main.ts — pure domain helpers.
 // No logic changed. No behavior changes.
-import { stringify } from './utils';
+import { stringify, normalizeKey, slugify } from './utils';
 
 export function extractTokenCount(record) {
   const candidates = [
