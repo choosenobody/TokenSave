@@ -91,8 +91,8 @@
 | I2b.6D-H | Fix normalizeJobs missing utils imports (normalizeKey/slugify) | #32 | CLOSED |
 | I2b.6E | Extract createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord to src/domain.ts | #34 | CLOSED |
 | I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
-| I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
+| I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
 
@@ -150,7 +150,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **Recommended Next Step**: Issue #11 (I2b) is now CLOSED. All safely extractable pure helpers have been migrated to `src/` modules. BG to decide next direction: approve a follow-up issue for UI module extraction, pricing slice review, app-shell cleanup, or no-network evidence/test work (Issue #6).
 
-Current completed slices (I2b.1–I2b.6G) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord), schedule helpers (parseScheduleMinutes / formatFrequency), buildFixCards (→ fixes.ts).
+Current completed slices (I2b.1–I2b.6H) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord), schedule helpers (parseScheduleMinutes / formatFrequency), buildFixCards (→ fixes.ts), compareJobs (→ domain.ts).
 
 detectCostRate remains sensitive and must not be changed without explicit pricing-slice approval.
 
