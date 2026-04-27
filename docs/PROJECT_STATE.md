@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-27T13:30:00Z
-**Source**: GitHub `origin/main` at commit `ae5b712` (PR #38 I2b.6G merge)
+**Last updated**: 2026-04-27T07:15:00Z
+**Source**: GitHub `origin/main` at commit `91716cd` (PR #41 I2b.6H merge)
 
 ---
 
@@ -15,15 +15,15 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `ae5b712` (PR #38 I2b.6G merge) |
+| Main branch SHA | `91716cd` (PR #41 I2b.6H merge) |
 | Package manager | npm |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
-| src/main.ts | ~702 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/detectCostRate/render UI helpers; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
+| src/main.ts | ~690 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/detectCostRate/render UI helpers; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
-| src/domain.ts | ~317 lines, 17 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
+| src/domain.ts | ~317 lines, 18 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | docs/AGENT_RULES.md | Development workflow rules |
@@ -38,6 +38,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #41 | I2b.6H: extract compareJobs to src/domain.ts | 2026-04-27 | `91716cd` |
 | #38 | I2b.6G: extract buildFixCards to src/fixes.ts | 2026-04-27 | `ae5b712` |
 | #37 | I2b.6F-S: refresh docs/PROJECT_STATE.md after PR #36 | 2026-04-27 | `21c838c` |
 | #36 | I2b.6F: extract schedule helpers to src/domain.ts | 2026-04-27 | `6c5cf39` |
@@ -90,9 +91,10 @@
 | I2b.6D-H | Fix normalizeJobs missing utils imports (normalizeKey/slugify) | #32 | CLOSED |
 | I2b.6E | Extract createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord to src/domain.ts | #34 | CLOSED |
 | I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
+| I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 
-**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D, I2b.6D-S, I2b.6D-H, I2b.6E, I2b.6F, I2b.6G complete; I2b.6H plan-only pending)
+**I2b overall: IN PROGRESS** (sub-slices I2b.1, I2b.2, I2b.3, I2b.4A, I2b.4S, I2b.4B, I2b.4B-S, I2b.5, I2b.5-S, I2b.6A, I2b.6A-S, I2b.6B, I2b.6B-S, I2b.6C, I2b.6C-S, I2b.6D, I2b.6D-S, I2b.6D-H, I2b.6E, I2b.6F, I2b.6G, I2b.6H complete; post-I2b closure review pending)
 
 ---
 
@@ -108,9 +110,9 @@ See: GitHub Issue #11
 - Keep Vite build working
 - Incremental slices (I2b.1, I2b.2, …)
 
-**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction), I2b.6C-S (docs refresh), I2b.6D (normalizeJobs extraction), I2b.6D-S (docs refresh), I2b.6D-H (normalizeJobs utils import hotfix), I2b.6E (data pipeline helpers extraction), I2b.6F (schedule helpers extraction), I2b.6G (buildFixCards → fixes.ts extraction)
+**Completed I2b sub-slices**: I2b.1 (script migration), I2b.2 (validation), I2b.3 (types), I2b.4A (formatting helpers), I2b.4S (docs refresh), I2b.4B (constants), I2b.4B-S (docs refresh), I2b.5 (parser extraction), I2b.5-S (docs refresh), I2b.6A (predicate/domain helpers), I2b.6A-S (docs refresh), I2b.6B (classifyWaste extraction), I2b.6B-S (docs refresh), I2b.6C (buildFixSuggestion extraction), I2b.6C-S (docs refresh), I2b.6D (normalizeJobs extraction), I2b.6D-S (docs refresh), I2b.6D-H (normalizeJobs utils import hotfix), I2b.6E (data pipeline helpers extraction), I2b.6F (schedule helpers extraction), I2b.6G (buildFixCards → fixes.ts extraction), I2b.6H (compareJobs → domain.ts extraction)
 
-**Next slice**: I2b.6H plan-only analysis. Remaining candidates in src/main.ts: analyzeDataset (top-level orchestrator, deferred), finalizeStat (calls detectCostRate — excluded pending pricing slice), detectCostRate (pricing-sensitive, excluded). Render/UI helpers are out of scope unless BG approves a separate UI slice.
+**Next slice**: Post-I2b.6H closure review. BG to decide next direction: close Issue #11, or open separate follow-up issue for UI module / pricing slice / app-shell architecture.
 
 **Forbidden**: No new features, no new pricing model, no diagnose rules D1-D7, no pre-flight rules B1-B3/W1-W5, no backend, no telemetry.
 
@@ -156,7 +158,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**Recommended Next Step**: BG approves I2b.6H plan scope. Remaining candidates: analyzeDataset (orchestrator, deferred), finalizeStat (excluded — calls detectCostRate), detectCostRate (pricing-sensitive, excluded). Render/UI helpers are a separate decision. Each slice must be PR'd and reviewed independently.
+**Recommended Next Step**: Post-I2b.6H closure review. All safely extractable pure helpers have been migrated. Remaining main.ts code (~690 lines): orchestrator (analyzeDataset), pricing-coupled (finalizeStat, detectCostRate), DOM-coupled (render/UI helpers), ingest/file processing. BG to decide: close Issue #11, or open separate follow-up issue for UI module / pricing slice / app-shell architecture. See I2b.6H plan report for analysis.
 
 Current completed slices (I2b.1–I2b.6G) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord), schedule helpers (parseScheduleMinutes / formatFrequency), buildFixCards (→ fixes.ts).
 
