@@ -3,6 +3,7 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
 import { COST_RATES, FIX_LIBRARY, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
 import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency } from './domain';
+import { buildFixCards } from './fixes';
 
     const state = {
       report: null,
@@ -355,35 +356,6 @@ import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike,
         badge: primary,
         fixSuggestion
       };
-    }
-
-    function buildFixCards(jobs) {
-      const categoryMap = new Map();
-
-      jobs.forEach((job) => {
-        const categories = job.issues[0] === "OK" ? ["OK"] : job.issues;
-        categories.forEach((category) => {
-          if (!categoryMap.has(category)) {
-            categoryMap.set(category, []);
-          }
-          categoryMap.get(category).push(job);
-        });
-      });
-
-      const order = ["CRITICAL", "ERROR_WASTE", "PREMIUM_MODEL_WASTE", "WARNING", "OK"];
-      return order
-        .filter((category) => categoryMap.has(category))
-        .map((category) => ({
-          category,
-          config: FIX_LIBRARY[category],
-          jobs: categoryMap.get(category)
-            .sort((left, right) => {
-              const lw = left.totalTokens * left.errorRate;
-              const rw = right.totalTokens * right.errorRate;
-              return rw - lw;
-            })
-            .slice(0, 4)
-        }));
     }
 
     function renderReport(report) {
