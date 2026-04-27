@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
-import { COST_RATES, FIX_LIBRARY, FIX_BADGES } from './constants';
+import { COST_RATES, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
 import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency } from './domain';
 import { buildFixCards } from './fixes';
