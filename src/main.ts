@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { COST_RATES, FIX_LIBRARY, FIX_BADGES } from './constants';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
-import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord } from './domain';
+import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency } from './domain';
 
     const state = {
       report: null,
@@ -722,100 +722,6 @@ import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike,
       errorMessage.textContent = "";
       errorMessage.classList.remove("visible");
     }
-
-    function parseScheduleMinutes(schedule) {
-      if (schedule == null) {
-        return null;
-      }
-
-      if (typeof schedule === "object") {
-        // Handle { every: "15m" } or { every: "1h" } or { every: "1d" } style objects
-        const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? null;
-        if (everyVal != null && everyVal !== schedule) {
-          return parseScheduleMinutes(everyVal);
-        }
-        const nested = schedule.interval_minutes ?? schedule.intervalMinutes ?? schedule.minutes ?? schedule.cron ?? schedule.value;
-        if (nested != null && nested !== schedule) {
-          return parseScheduleMinutes(nested);
-        }
-      }
-
-      if (typeof schedule === "number" && Number.isFinite(schedule)) {
-        if (schedule >= 60_000) {
-          return schedule / 60_000;
-        }
-        return schedule;
-      }
-
-      const text = stringify(schedule).trim().toLowerCase();
-      if (!text) {
-        return null;
-      }
-
-      if (/hourly/.test(text)) {
-        return 60;
-      }
-      if (/daily/.test(text)) {
-        return 1440;
-      }
-
-      let match = text.match(/every\s+(\d+)\s*(minute|min|minutes|mins|m)\b/);
-      if (match) {
-        return Number(match[1]);
-      }
-
-      match = text.match(/every\s+(\d+)\s*(hour|hours|hr|hrs|h)\b/);
-      if (match) {
-        return Number(match[1]) * 60;
-      }
-
-      match = text.match(/^(\d+)\s*(minute|min|minutes|mins|m)\b/);
-      if (match) {
-        return Number(match[1]);
-      }
-
-      match = text.match(/^(\d+)\s*(hour|hours|hr|hrs|h)\b/);
-      if (match) {
-        return Number(match[1]) * 60;
-      }
-
-      match = text.match(/^(\d+)\s*(day|days|d)\b/);
-      if (match) {
-        return Number(match[1]) * 1440;
-      }
-
-      const cron = text.trim().split(/\s+/);
-      if (cron.length >= 5) {
-        if (cron[0].startsWith("*/")) {
-          return Number(cron[0].slice(2));
-        }
-        if (cron[0] === "0" && cron[1].startsWith("*/")) {
-          return Number(cron[1].slice(2)) * 60;
-        }
-        if (cron[0] === "0" && cron[1] === "*") {
-          return 60;
-        }
-        if (cron[0] === "0" && cron[1] === "0") {
-          return 1440;
-        }
-      }
-
-      return null;
-    }
-
-    function formatFrequency(schedule, scheduleMinutes) {
-      if (scheduleMinutes != null) {
-        return `Every ${formatShortDuration(scheduleMinutes)}`;
-      }
-      if (schedule && typeof schedule === "object") {
-        const nested = schedule.label ?? schedule.cron ?? schedule.every ?? schedule.interval ?? schedule.value;
-        if (nested != null) {
-          return stringify(nested);
-        }
-      }
-      return schedule ? stringify(schedule) : "Unknown";
-    }
-
 
     function detectCostRate(model) {
       const candidate = COST_RATES.find((rate) => rate.match.test(stringify(model)));

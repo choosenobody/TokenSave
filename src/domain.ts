@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Extracted from src/main.ts — pure domain helpers.
 // No logic changed. No behavior changes.
-import { stringify, normalizeKey, slugify, cleanFileStem } from './utils';
+import { stringify, normalizeKey, slugify, cleanFileStem, formatShortDuration } from './utils';
 
 export function extractTokenCount(record) {
   const candidates = [
@@ -220,4 +220,96 @@ export function applyRunRecord(stat, record) {
   if ((stat.model === "Unknown" || !stat.model) && (record.model || record.model_name)) {
     stat.model = stringify(record.model || record.model_name);
   }
+}
+
+export function parseScheduleMinutes(schedule) {
+  if (schedule == null) {
+    return null;
+  }
+
+  if (typeof schedule === "object") {
+    const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? null;
+    if (everyVal != null && everyVal !== schedule) {
+      return parseScheduleMinutes(everyVal);
+    }
+    const nested = schedule.interval_minutes ?? schedule.intervalMinutes ?? schedule.minutes ?? schedule.cron ?? schedule.value;
+    if (nested != null && nested !== schedule) {
+      return parseScheduleMinutes(nested);
+    }
+  }
+
+  if (typeof schedule === "number" && Number.isFinite(schedule)) {
+    if (schedule >= 60_000) {
+      return schedule / 60_000;
+    }
+    return schedule;
+  }
+
+  const text = stringify(schedule).trim().toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  if (/hourly/.test(text)) {
+    return 60;
+  }
+  if (/daily/.test(text)) {
+    return 1440;
+  }
+
+  let match = text.match(/every\s+(\d+)\s*(minute|min|minutes|mins|m)\b/);
+  if (match) {
+    return Number(match[1]);
+  }
+
+  match = text.match(/every\s+(\d+)\s*(hour|hours|hr|hrs|h)\b/);
+  if (match) {
+    return Number(match[1]) * 60;
+  }
+
+  match = text.match(/^(\d+)\s*(minute|min|minutes|mins|m)\b/);
+  if (match) {
+    return Number(match[1]);
+  }
+
+  match = text.match(/^(\d+)\s*(hour|hours|hr|hrs|h)\b/);
+  if (match) {
+    return Number(match[1]) * 60;
+  }
+
+  match = text.match(/^(\d+)\s*(day|days|d)\b/);
+  if (match) {
+    return Number(match[1]) * 1440;
+  }
+
+  const cron = text.trim().split(/\s+/);
+  if (cron.length >= 5) {
+    if (cron[0].startsWith("*/")) {
+      return Number(cron[0].slice(2));
+    }
+    if (cron[0] === "0" && cron[1].startsWith("*/")) {
+      return Number(cron[1].slice(2)) * 60;
+    }
+    if (cron[0] === "0" && cron[1] === "*") {
+      return 60;
+    }
+    if (cron[0] === "0" && cron[1] === "0") {
+      return 1440;
+    }
+  }
+
+  return null;
+}
+
+export function formatFrequency(schedule, scheduleMinutes) {
+  if (scheduleMinutes != null) {
+    return `Every ${formatShortDuration(scheduleMinutes)}`;
+  }
+  if (schedule && typeof schedule === "object") {
+    const nested = schedule.label ?? schedule.cron ?? schedule.every ?? schedule.interval ?? schedule.value;
+    if (nested != null) {
+      return stringify(nested);
+    }
+  }
+  return schedule ? stringify(schedule) : "Unknown";
 }
