@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-27T07:15:00Z
-**Source**: GitHub `origin/main` at commit `91716cd` (PR #41 I2b.6H merge)
+**Last updated**: 2026-04-27T19:59:00Z
+**Source**: GitHub `origin/main` at commit `f1d9685` (PR #44 I7A no-network regression test merge)
 
 ---
 
@@ -15,8 +15,9 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `91716cd` (PR #41 I2b.6H merge) |
+| Main branch SHA | `f1d9685` (PR #44 I7A no-network regression test merge) |
 | Package manager | npm |
+| package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
 | src/main.ts | ~690 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/detectCostRate/render UI helpers; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
@@ -38,6 +39,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #44 | I7A: no-network regression test — vitest + npm test script | 2026-04-27 | `f1d9685` |
 | #41 | I2b.6H: extract compareJobs to src/domain.ts | 2026-04-27 | `91716cd` |
 | #38 | I2b.6G: extract buildFixCards to src/fixes.ts | 2026-04-27 | `ae5b712` |
 | #37 | I2b.6F-S: refresh docs/PROJECT_STATE.md after PR #36 | 2026-04-27 | `21c838c` |
@@ -92,6 +94,7 @@
 | I2b.6E | Extract createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord to src/domain.ts | #34 | CLOSED |
 | I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
+| I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -106,7 +109,7 @@
 - UI module extraction (create `src/ui.ts`)
 - Pricing slice (`detectCostRate`/`finalizeStat` review)
 - App-shell architecture cleanup
-- No-network evidence/test work (Issue #6)
+- No-network evidence/test work (Issue #6) — **I7A completed (PR #44); remaining slices pending**
 
 ---
 
