@@ -14,6 +14,7 @@ describe('detectCostRate', () => {
     const r1 = detectCostRate("MiniMax M2.7");
     expect(r1.label).toBe("MiniMax M2.7");
     expect(r1.rate).toBe(0.14);
+    expect(r1.pricingSource).toBe("known-local");
   });
 
   // Test 3: MiniMax M2.5
@@ -21,6 +22,7 @@ describe('detectCostRate', () => {
     const r2 = detectCostRate("MiniMax M2.5");
     expect(r2.label).toBe("MiniMax M2.5");
     expect(r2.rate).toBe(0.12);
+    expect(r2.pricingSource).toBe("known-local");
   });
 
   // Test 4: GPT-4o
@@ -28,6 +30,7 @@ describe('detectCostRate', () => {
     const r3 = detectCostRate("gpt-4o");
     expect(r3.label).toBe("GPT-4o");
     expect(r3.rate).toBe(2.5);
+    expect(r3.pricingSource).toBe("known-local");
   });
 
   // Test 5: Claude Sonnet
@@ -35,6 +38,7 @@ describe('detectCostRate', () => {
     const r4 = detectCostRate("sonnet");
     expect(r4.label).toBe("Claude Sonnet");
     expect(r4.rate).toBe(3);
+    expect(r4.pricingSource).toBe("known-local");
   });
 
   // Test 6: Claude Opus
@@ -42,6 +46,7 @@ describe('detectCostRate', () => {
     const r5 = detectCostRate("opus");
     expect(r5.label).toBe("Claude Opus");
     expect(r5.rate).toBe(15);
+    expect(r5.pricingSource).toBe("known-local");
   });
 
   // Test 7: GPT-5-codex / codex
@@ -49,6 +54,7 @@ describe('detectCostRate', () => {
     const r6 = detectCostRate("codex");
     expect(r6.label).toBe("GPT-5-codex");
     expect(r6.rate).toBe(15);
+    expect(r6.pricingSource).toBe("known-local");
   });
 
   // Test 8: DeepSeek
@@ -56,12 +62,14 @@ describe('detectCostRate', () => {
     const r7 = detectCostRate("deepseek");
     expect(r7.label).toBe("DeepSeek Chat");
     expect(r7.rate).toBe(0.28);
+    expect(r7.pricingSource).toBe("known-local");
   });
 
   // Test 9: Unknown model fallback
   it('Unknown model fallback', () => {
     const r8 = detectCostRate("unknown-model-xyz");
-    expect(r8.label).toBe("MiniMax-M2.7 (default)");
-    expect(r8.rate).toBe(0.14);
+    expect(r8.label).toBe("Unknown model (conservative estimate)");
+    expect(r8.rate).toBe(15);
+    expect(r8.pricingSource).toBe("conservative-estimate");
   });
 });
