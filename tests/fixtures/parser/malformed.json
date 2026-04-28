@@ -1,0 +1,10 @@
+{
+  "jobs": [
+    {
+      "id": "job_001",
+      "model": "claude-opus-4",
+      "totalTokens": 100
+      "missing_comma": true
+    }
+  ]
+}

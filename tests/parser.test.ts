@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
 import { parseJson, parseJsonl, parseZipEntries } from '../src/parser.ts';
 
 // ---------------------------------------------------------------------------
@@ -219,5 +220,43 @@ describe('parseZipEntries', () => {
     zip.set(eocd, localHeader.length + centralDirEntry.length);
 
     await expect(parseZipEntries(zip.buffer)).rejects.toThrow('ZIP compression method 1 is not supported');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixture-based parser tests
+// ---------------------------------------------------------------------------
+
+describe('parseJson — fixtures', () => {
+  it('parses a realistic jobs JSON file', () => {
+    const content = readFileSync('tests/fixtures/parser/jobs.valid.json', 'utf8');
+    const result = parseJson(content);
+    expect(Array.isArray(result.jobs)).toBe(true);
+    expect(result.jobs.length).toBeGreaterThan(0);
+    expect(result.jobs[0]).toHaveProperty('model');
+    expect(result.jobs[0]).toHaveProperty('totalTokens');
+  });
+
+  it('throws on malformed JSON fixture with filename', () => {
+    expect(() => parseJson(readFileSync('tests/fixtures/parser/malformed.json', 'utf8'), 'malformed.json'))
+      .toThrow(/Malformed JSON in malformed.json/);
+  });
+});
+
+describe('parseJsonl — fixtures', () => {
+  it('parses a realistic run records JSONL file', () => {
+    const content = readFileSync('tests/fixtures/parser/runs.valid.jsonl', 'utf8');
+    const result = parseJsonl(content);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThanOrEqual(3);
+    result.forEach(record => {
+      expect(typeof record).toBe('object');
+      expect(record).toHaveProperty('runId');
+    });
+  });
+
+  it('throws on malformed JSONL fixture with filename and line number', () => {
+    expect(() => parseJsonl(readFileSync('tests/fixtures/parser/malformed.jsonl', 'utf8'), 'malformed.jsonl'))
+      .toThrow(/Malformed JSONL in malformed.jsonl at line 2/);
   });
 });

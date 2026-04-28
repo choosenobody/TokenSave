@@ -1,0 +1,3 @@
+{"runId":"run_a","model":"mini-max-24.12","totalTokens":4200,"status":"success","durationMs":1200,"errorCount":0}
+{"runId":"run_b","model":"gemini-2.0-flash","totalTokens":8900,"status":"success","durationMs":980,"errorCount":0}
+{"runId":"run_c","model":"claude-sonnet-4","totalTokens":6100,"status":"error","durationMs":450,"errorCount":1}
