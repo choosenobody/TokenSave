@@ -288,6 +288,8 @@ import { buildFixCards } from './fixes';
       const totalTokens = activeJobs.reduce((sum, job) => sum + job.totalTokens, 0);
       const totalCost = activeJobs.reduce((sum, job) => sum + job.totalCost, 0);
       const hasConservativeEstimates = activeJobs.some((job) => job.pricingSource === 'conservative-estimate');
+      const knownLocalCost = activeJobs.reduce((sum, job) => job.pricingSource === 'known-local' ? sum + job.totalCost : sum, 0);
+      const conservativeEstimateCost = activeJobs.reduce((sum, job) => job.pricingSource === 'conservative-estimate' ? sum + job.totalCost : sum, 0);
       const totalRuns = activeJobs.reduce((sum, job) => sum + job.totalRuns, 0);
       const totalErrors = activeJobs.reduce((sum, job) => sum + job.errorRuns, 0);
 
@@ -333,7 +335,9 @@ import { buildFixCards } from './fixes';
         totalWasteTokens,
         wasteRate: totalTokens ? totalWasteTokens / totalTokens : 0,
         totalCostSaving,
-        hasConservativeEstimates
+        hasConservativeEstimates,
+        knownLocalCost,
+        conservativeEstimateCost
       };
 
       return {
@@ -377,40 +381,79 @@ import { buildFixCards } from './fixes';
     }
 
     function renderSummary(summary, meta) {
-      const items = [
-        {
-          label: "Total Tokens",
-          value: formatInteger(summary.totalTokens),
-          help: "Aggregate tokens across all runs"
-        },
-        {
-          label: "Estimated Cost",
-          value: formatCurrency(summary.totalCost),
-          help: summary.hasConservativeEstimates
-            ? "Includes conservative estimates for unknown models"
-            : "Based on model-specific token pricing",
-          critical: true
-        },
-        {
-          label: "Error Rate",
-          value: formatPercent(summary.errorRate),
-          help: "Failed runs across all parsed jobs"
-        },
-        {
-          label: "Waste from Failures",
-          value: formatInteger(summary.totalWasteTokens) + " (" + formatPercent(summary.wasteRate) + ")",
-          help: "Tokens burned by failed runs — fix errors to reclaim",
-          group: "waste"
-        },
-        {
-          label: "Potential Saving",
-          value: formatCurrency(summary.totalCostSaving),
-          help: summary.hasConservativeEstimates
-            ? "Cost of waste tokens at each model's rate (excludes unknown models)"
-            : "Cost of those waste tokens at each model's rate",
-          group: "waste"
-        }
-      ];
+      const items = summary.hasConservativeEstimates
+        ? [
+            {
+              label: "Estimated Total Cost",
+              value: formatCurrency(summary.totalCost),
+              help: "Total estimated cost across all models",
+              critical: true
+            },
+            {
+              label: "Known Local Cost",
+              value: formatCurrency(summary.knownLocalCost),
+              help: "Based on identified models",
+              critical: true
+            },
+            {
+              label: "Conservative Unknown Exposure",
+              value: formatCurrency(summary.conservativeEstimateCost),
+              help: "Estimated cost for unknown models — may be high",
+              critical: true
+            },
+            {
+              label: "Total Tokens",
+              value: formatInteger(summary.totalTokens),
+              help: "Aggregate tokens across all runs"
+            },
+            {
+              label: "Error Rate",
+              value: formatPercent(summary.errorRate),
+              help: "Failed runs across all parsed jobs"
+            },
+            {
+              label: "Waste from Failures",
+              value: formatInteger(summary.totalWasteTokens) + " (" + formatPercent(summary.wasteRate) + ")",
+              help: "Tokens burned by failed runs — fix errors to reclaim",
+              group: "waste"
+            },
+            {
+              label: "Potential Saving",
+              value: formatCurrency(summary.totalCostSaving),
+              help: "Excludes conservative unknown exposure",
+              group: "waste"
+            }
+          ]
+        : [
+            {
+              label: "Estimated Cost",
+              value: formatCurrency(summary.totalCost),
+              help: "Based on model-specific token pricing",
+              critical: true
+            },
+            {
+              label: "Total Tokens",
+              value: formatInteger(summary.totalTokens),
+              help: "Aggregate tokens across all runs"
+            },
+            {
+              label: "Error Rate",
+              value: formatPercent(summary.errorRate),
+              help: "Failed runs across all parsed jobs"
+            },
+            {
+              label: "Waste from Failures",
+              value: formatInteger(summary.totalWasteTokens) + " (" + formatPercent(summary.wasteRate) + ")",
+              help: "Tokens burned by failed runs — fix errors to reclaim",
+              group: "waste"
+            },
+            {
+              label: "Potential Saving",
+              value: formatCurrency(summary.totalCostSaving),
+              help: "Cost of those waste tokens at each model's rate",
+              group: "waste"
+            }
+          ];
 
       summaryGrid.innerHTML = items.map((item) => `
         <article class="panel summary-card">
