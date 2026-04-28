@@ -10,11 +10,23 @@
 // Constant-data types (imported from src/main.ts top-level const declarations)
 // ---------------------------------------------------------------------------
 
+export type PricingSource =
+  | 'known-local'
+  | 'configured-plan-zero'
+  | 'configured-explicit'
+  | 'observed-model'
+  | 'observed-fallback'
+  | 'inferred-config-primary'
+  | 'inferred-config-fallback'
+  | 'conservative-estimate'
+  | 'unpriced';
+
 /** USD per 1M tokens (input + output combined).  Unknown models default to MiniMax M2.7 rate. */
 export interface CostRate {
   label: string;
   match: RegExp;
   rate: number;
+  pricingSource?: PricingSource;
 }
 
 /** Human-readable fix guidance attached to a waste category. */
@@ -210,6 +222,7 @@ export interface SummaryStats {
   totalWasteTokens: number;
   wasteRate: number;          // totalWasteTokens / totalTokens  (0 if no tokens)
   totalCostSaving: number;    // USD saving if waste is eliminated
+  hasConservativeEstimates?: boolean;
 }
 
 /**

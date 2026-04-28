@@ -287,6 +287,7 @@ import { buildFixCards } from './fixes';
       })).slice(0, 5);
       const totalTokens = activeJobs.reduce((sum, job) => sum + job.totalTokens, 0);
       const totalCost = activeJobs.reduce((sum, job) => sum + job.totalCost, 0);
+      const hasConservativeEstimates = activeJobs.some((job) => job.pricingSource === 'conservative-estimate');
       const totalRuns = activeJobs.reduce((sum, job) => sum + job.totalRuns, 0);
       const totalErrors = activeJobs.reduce((sum, job) => sum + job.errorRuns, 0);
 
@@ -310,6 +311,9 @@ import { buildFixCards } from './fixes';
         }
         // Premium model saving: difference between current model rate and MiniMax M2.7 rate
         let modelSavingTokens = 0;
+        if (job.pricingSource === 'conservative-estimate') {
+          return; // don't count toward savings
+        }
         if (job.badge === "PREMIUM_MODEL_WASTE") {
           const premiumRate = job.rate.rate;
           const cheapRate = 0.14; // MiniMax M2.7
@@ -327,7 +331,8 @@ import { buildFixCards } from './fixes';
         errorRate: totalRuns ? totalErrors / totalRuns : 0,
         totalWasteTokens,
         wasteRate: totalTokens ? totalWasteTokens / totalTokens : 0,
-        totalCostSaving
+        totalCostSaving,
+        hasConservativeEstimates
       };
 
       return {
@@ -349,6 +354,7 @@ import { buildFixCards } from './fixes';
       return {
         ...stat,
         rate,
+        pricingSource: rate.pricingSource,
         totalCost: (stat.totalTokens / 1_000_000) * rate.rate,
         errorRate,
         scheduleMinutes,
@@ -379,7 +385,9 @@ import { buildFixCards } from './fixes';
         {
           label: "Estimated Cost",
           value: formatCurrency(summary.totalCost),
-          help: "Based on model-specific token pricing",
+          help: summary.hasConservativeEstimates
+            ? "Includes conservative estimates for unknown models"
+            : "Based on model-specific token pricing",
           critical: true
         },
         {
@@ -396,7 +404,9 @@ import { buildFixCards } from './fixes';
         {
           label: "Potential Saving",
           value: formatCurrency(summary.totalCostSaving),
-          help: "Cost of those waste tokens at each model's rate",
+          help: summary.hasConservativeEstimates
+            ? "Cost of waste tokens at each model's rate (excludes unknown models)"
+            : "Cost of those waste tokens at each model's rate",
           group: "waste"
         }
       ];
