@@ -135,14 +135,14 @@
 | Issue | Title | Status | Recommended Action |
 |-------|-------|--------|-------------------|
 | #11 | I2b: Migrate index.html logic into src modules | **CLOSED** | All acceptance criteria met. All pure helpers extracted. |
-|| #10 | I2a: Vite + TypeScript scaffold with minimal behavior changes | **CLOSED** | Completed by PR #14. Closed 2026-04-28. ||
-|| #9 | I1.1: Harden .gitignore and add process docs | **CLOSED** | Completed by PR #13. Closed 2026-04-28. ||
-|| #8 | I2: Vite + TypeScript scaffold | **CLOSED** | Parent of I2a. Completed by PR #14 and PR #11. Closed 2026-04-28. ||
+| #10 | I2a: Vite + TypeScript scaffold with minimal behavior changes | **CLOSED** | Completed by PR #14. Closed 2026-04-28. |
+| #9 | I1.1: Harden .gitignore and add process docs | **CLOSED** | Completed by PR #13. Closed 2026-04-28. |
+| #8 | I2: Vite + TypeScript scaffold | **CLOSED** | Parent of I2a. Completed by PR #14 and Issue #11 / I2b. Closed 2026-04-28. |
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
-|| #6 | I7: No-network test and evidence bundle system | OPEN | I7A (no-network regression test) completed by PR #44. I7B (evidence bundle system) remains pending. ||
+| #6 | I7: No-network test and evidence bundle system | OPEN | I7A no-network regression test completed by PR #44. I7B evidence bundle system remains pending. |
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
-|| #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced: I3.2B (conservative-estimate fallback) and I3.2C-A (split pricing UI) completed. Full issue scope requires separate BG decision. ||
+| #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
 | #2 | I3: Add parser modules with tests | OPEN | Future issue. Requires separate BG approval. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
 
