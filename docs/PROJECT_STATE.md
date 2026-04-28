@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-28T14:33:00Z
-**Source**: GitHub `origin/main` at commit `a8a765c` (PR #50 I3.2C-A split pricing exposure in Summary UI merge)
+**Last updated**: 2026-04-28T15:40:00Z
+**Source**: GitHub `origin/main` at commit `aa6ff12` (PR #51 docs refresh; PR #50 split pricing exposure; stale issues #8/#9/#10 closed)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `a8a765c` (PR #50 I3.2C-A split pricing exposure in Summary UI merge) |
+| Main branch SHA | `aa6ff12` (PR #51 docs refresh; PR #50 split pricing exposure; stale issues #8/#9/#10 closed) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -41,6 +41,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #51 | docs(PROJECT_STATE): refresh PROJECT_STATE.md after PR #50 | 2026-04-28 | `aa6ff12` |
 | #50 | feat(I3.2C-A): split pricing exposure in Summary UI | 2026-04-28 | `a8a765c` |
 | #48 | feat(I3.2B): Pricing-Confidence — conservative-estimate fallback + pricingSource tracking | 2026-04-28 | `c668b74` |
 | #47 | docs: refresh PROJECT_STATE.md after PR #46 (Pricing-Char) | 2026-04-28 | `58471cf` |
@@ -134,14 +135,14 @@
 | Issue | Title | Status | Recommended Action |
 |-------|-------|--------|-------------------|
 | #11 | I2b: Migrate index.html logic into src modules | **CLOSED** | All acceptance criteria met. All pure helpers extracted. |
-| #10 | I2a: Vite + TypeScript scaffold | **OPEN** | **Completed by PR #14.** Recommend: close. |
-| #9 | I1.1: Harden .gitignore and add process docs | **OPEN** | **Completed by PR #13.** Duplicate of #12 (both superseded by #13). |
-| #8 | I2: Vite + TypeScript scaffold | **OPEN** | **Parent of I2a.** Recommend: close as completed by #10 and #11 (I2a done, I2b active). |
+|| #10 | I2a: Vite + TypeScript scaffold with minimal behavior changes | **CLOSED** | Completed by PR #14. Closed 2026-04-28. ||
+|| #9 | I1.1: Harden .gitignore and add process docs | **CLOSED** | Completed by PR #13. Closed 2026-04-28. ||
+|| #8 | I2: Vite + TypeScript scaffold | **CLOSED** | Parent of I2a. Completed by PR #14 and PR #11. Closed 2026-04-28. ||
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
-| #6 | I7: No-network test and evidence bundle system | OPEN | Future issue. Not yet started. |
+|| #6 | I7: No-network test and evidence bundle system | OPEN | I7A (no-network regression test) completed by PR #44. I7B (evidence bundle system) remains pending. ||
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
-| #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Future issue. Requires separate BG approval. |
+|| #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced: I3.2B (conservative-estimate fallback) and I3.2C-A (split pricing UI) completed. Full issue scope requires separate BG decision. ||
 | #2 | I3: Add parser modules with tests | OPEN | Future issue. Requires separate BG approval. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
 
