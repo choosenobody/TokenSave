@@ -23,10 +23,10 @@
 | src/main.ts | ~680 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
-| src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
+| src/types.ts | ~282 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, etc.) + PricingSource union type + hasConservativeEstimates |
+| src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | src/domain.ts | ~317 lines, 18 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
-| src/types.ts | ~282 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, etc.) + PricingSource union type + hasConservativeEstimates |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
 | docs/AGENT_RULES.md | Development workflow rules |
