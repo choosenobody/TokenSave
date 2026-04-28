@@ -1,0 +1,24 @@
+{
+  "jobs": [
+    {
+      "id": "job_001",
+      "model": "claude-opus-4-5",
+      "totalTokens": 15200,
+      "inputTokens": 12000,
+      "outputTokens": 3200,
+      "durationMs": 4821,
+      "errorCount": 0,
+      "finishReason": "stop"
+    },
+    {
+      "id": "job_002",
+      "model": "gpt-4o",
+      "totalTokens": 8750,
+      "inputTokens": 7000,
+      "outputTokens": 1750,
+      "durationMs": 2310,
+      "errorCount": 0,
+      "finishReason": "stop"
+    }
+  ]
+}
