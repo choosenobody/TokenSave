@@ -121,7 +121,7 @@
 
 **Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
 
-**I3A (Parser-Char-Tests) — CLOSED.** Added 12 characterization tests for parseJson / parseJsonl / parseZipEntries in tests/parser.test.ts. No src changes. Full Issue #2 parser module test coverage remains open pending separate BG decision.
+**I3A (Parser-Char-Tests) — CLOSED.** Added 12 characterization tests for parseJson / parseJsonl / parseZipEntries in tests/parser.test.ts. No src changes.
 
 **I3B (Parser-Fixture-Tests) — CLOSED.** Added 4 fixture-based tests using realistic text fixtures under tests/fixtures/parser/. I3A + I3B together provide comprehensive inline + fixture coverage for parseJson and parseJsonl. No src changes.
 
@@ -153,7 +153,7 @@
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
-| #2 | I3: Add parser modules with tests | OPEN | I3A (PR #53): 12 inline characterization tests for parseJson/parseJsonl/parseZipEntries. I3B (PR #55): 4 fixture-based tests for parseJson/parseJsonl using tests/fixtures/parser/. Combined 16 tests. src/parser.ts unchanged. Issue #2 remains open pending BG decision on remaining scope. |
+| #2 | I3: Add parser modules with tests | **CLOSED** | I3A (PR #53): 12 inline characterization tests. I3B (PR #55): 4 fixture-based tests. Combined 16 tests in tests/parser.test.ts. src/parser.ts unchanged. Closed 2026-04-28. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
 
 ---
