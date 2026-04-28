@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-28T09:37:00Z
-**Source**: GitHub `origin/main` at commit `c668b74` (PR #48 I3.2B Pricing-Confidence merge)
+**Last updated**: 2026-04-28T14:33:00Z
+**Source**: GitHub `origin/main` at commit `a8a765c` (PR #50 I3.2C-A split pricing exposure in Summary UI merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `c668b74` (PR #48 I3.2B Pricing-Confidence merge) |
+| Main branch SHA | `a8a765c` (PR #50 I3.2C-A split pricing exposure in Summary UI merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -23,7 +23,7 @@
 | src/main.ts | ~680 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
-| src/types.ts | ~282 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, etc.) + PricingSource union type + hasConservativeEstimates |
+| src/types.ts | ~285 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | src/domain.ts | ~317 lines, 18 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
@@ -41,6 +41,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #50 | feat(I3.2C-A): split pricing exposure in Summary UI | 2026-04-28 | `a8a765c` |
 | #48 | feat(I3.2B): Pricing-Confidence — conservative-estimate fallback + pricingSource tracking | 2026-04-28 | `c668b74` |
 | #47 | docs: refresh PROJECT_STATE.md after PR #46 (Pricing-Char) | 2026-04-28 | `58471cf` |
 | #46 | feat(Pricing-Extract): extract detectCostRate to src/pricing.ts + add characterization tests | 2026-04-27 | `ad69001` |
@@ -102,6 +103,7 @@
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
+| I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -113,6 +115,8 @@
 **Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
 
 **I3.2B (Pricing-Confidence) — CLOSED.** Unknown model fallback now uses highest known positive rate (15) as conservative estimate. PricingSource tracking implemented. Conservative-estimate jobs included in totalCost, excluded from precise totalCostSaving.
+
+**I3.2C-A (Pricing-Exposure-UI) — CLOSED.** Summary UI now shows split exposure: Known Local Cost card (precise), Conservative Unknown Exposure card (estimated), and Estimated Total Cost card. Simple single Estimated Cost card preserved when all costs are known.
 
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
@@ -161,7 +165,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**Recommended Next Step**: I3.2B (Pricing-Confidence) is now CLOSED. Next priority: UI module extraction, pricing slice config-cost work, or no-network evidence/test work (Issue #6). BG to decide.
+**Recommended Next Step**: I3.2C-A (Pricing-Exposure-UI) is now CLOSED. Next priority: UI module extraction, pricing slice config-cost work, or no-network evidence/test work (Issue #6). BG to decide.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
