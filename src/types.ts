@@ -21,7 +21,7 @@ export type PricingSource =
   | 'conservative-estimate'
   | 'unpriced';
 
-/** USD per 1M tokens (input + output combined).  Unknown models default to MiniMax M2.7 rate. */
+/** USD per 1M tokens (input + output combined).  PricingSource indicates whether the rate is known-local, conservative-estimate, or another future source. */
 export interface CostRate {
   label: string;
   match: RegExp;
