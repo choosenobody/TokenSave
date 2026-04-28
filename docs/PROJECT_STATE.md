@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-28T18:05:00Z
-**Source**: GitHub `origin/main` at commit `47893ee` (PR #53 I3A parser characterization tests; PR #52 docs refresh after stale issue cleanup; PR #51 docs refresh after PR #50)
+**Last updated**: 2026-04-28T19:30:00Z
+**Source**: GitHub `origin/main` at commit `ab322e3` (PR #55 I3B fixture-based parser tests; supersedes PR #53 I3A characterization tests; PR #54 docs refresh after PR #53)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `47893ee` (PR #53 I3A parser characterization tests; PR #52 docs refresh after stale issue cleanup; PR #51 docs refresh after PR #50) |
+| Main branch SHA | `ab322e3` (PR #55 I3B fixture-based parser tests; supersedes PR #53 I3A characterization tests; PR #54 docs refresh after PR #53) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -29,7 +29,7 @@
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
-| tests/parser.test.ts | 223 lines, 12 characterization tests for parseJson / parseJsonl / parseZipEntries |
+| tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -42,6 +42,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #55 | test(I3B): add fixture-based parser tests for Issue #2 | 2026-04-28 | `ab322e3` |
 | #53 | test(I3A): add parser characterization tests for parseJson / parseJsonl / parseZipEntries | 2026-04-28 | `47893ee` |
 | #52 | docs(PROJECT_STATE): refresh after issue cleanup #8 #9 #10 | 2026-04-28 | `fd77591` |
 | #51 | docs(I3.2C-A-S): refresh PROJECT_STATE.md after PR #50 | 2026-04-28 | `aa6ff12` |
@@ -108,7 +109,8 @@
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
-| I3A (Parser-Char-Tests) | Add parser characterization tests for parseJson / parseJsonl / parseZipEntries — 12 tests covering valid, malformed, edge cases | #53 | CLOSED |
+| I3A (Parser-Char-Tests) | Add parser characterization tests for parseJson / parseJsonl / parseZipEntries — 12 inline tests covering valid, malformed, edge cases | #53 | CLOSED |
+| I3B (Parser-Fixture-Tests) | Add fixture-based parser tests for parseJson / parseJsonl — 4 fixture tests using tests/fixtures/parser/ jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl | #55 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -120,6 +122,8 @@
 **Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
 
 **I3A (Parser-Char-Tests) — CLOSED.** Added 12 characterization tests for parseJson / parseJsonl / parseZipEntries in tests/parser.test.ts. No src changes. Full Issue #2 parser module test coverage remains open pending separate BG decision.
+
+**I3B (Parser-Fixture-Tests) — CLOSED.** Added 4 fixture-based tests using realistic text fixtures under tests/fixtures/parser/. I3A + I3B together provide comprehensive inline + fixture coverage for parseJson and parseJsonl. No src changes.
 
 **I3.2B (Pricing-Confidence) — CLOSED.** Unknown model fallback now uses highest known positive rate (15) as conservative estimate. PricingSource tracking implemented. Conservative-estimate jobs included in totalCost, excluded from precise totalCostSaving.
 
@@ -149,7 +153,7 @@
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
-| #2 | I3: Add parser modules with tests | OPEN | I3A parser characterization tests (PR #53) added — 12 tests covering parseJson / parseJsonl / parseZipEntries. src/parser.ts unchanged. Full Issue #2 scope (additional module-level integration tests) remains open pending separate BG approval. |
+| #2 | I3: Add parser modules with tests | OPEN | I3A (PR #53): 12 inline characterization tests for parseJson/parseJsonl/parseZipEntries. I3B (PR #55): 4 fixture-based tests for parseJson/parseJsonl using tests/fixtures/parser/. Combined 16 tests. src/parser.ts unchanged. Issue #2 remains open pending BG decision on remaining scope. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
 
 ---
