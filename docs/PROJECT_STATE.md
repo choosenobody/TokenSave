@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-27T20:45:00Z
-**Source**: GitHub `origin/main` at commit `ad69001` (PR #46 Pricing-Extract + Pricing-Char merge)
+**Last updated**: 2026-04-28T09:37:00Z
+**Source**: GitHub `origin/main` at commit `c668b74` (PR #48 I3.2B Pricing-Confidence merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `ad69001` (PR #46 Pricing-Extract + Pricing-Char merge) |
+| Main branch SHA | `c668b74` (PR #48 I3.2B Pricing-Confidence merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -26,9 +26,9 @@
 | src/types.ts | 269 lines, domain types (JobStat, RunRecord, Report, etc.) |
 | src/domain.ts | ~317 lines, 18 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
-| src/utils.ts | 72 lines, 10 pure formatting/string helpers |
-| src/pricing.ts | detectCostRate — extracted from src/main.ts; characterized via tests/pricing.test.ts |
-| tests/pricing.test.ts | Characterization tests for detectCostRate |
+| src/types.ts | ~282 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, etc.) + PricingSource union type + hasConservativeEstimates |
+| src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
+| tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -41,6 +41,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #48 | feat(I3.2B): Pricing-Confidence — conservative-estimate fallback + pricingSource tracking | 2026-04-28 | `c668b74` |
+| #47 | docs: refresh PROJECT_STATE.md after PR #46 (Pricing-Char) | 2026-04-28 | `58471cf` |
 | #46 | feat(Pricing-Extract): extract detectCostRate to src/pricing.ts + add characterization tests | 2026-04-27 | `ad69001` |
 | #44 | I7A: no-network regression test — vitest + npm test script | 2026-04-27 | `f1d9685` |
 | #41 | I2b.6H: extract compareJobs to src/domain.ts | 2026-04-27 | `91716cd` |
@@ -99,6 +101,7 @@
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
+| I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -109,11 +112,14 @@
 
 **Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
 
+**I3.2B (Pricing-Confidence) — CLOSED.** Unknown model fallback now uses highest known positive rate (15) as conservative estimate. PricingSource tracking implemented. Conservative-estimate jobs included in totalCost, excluded from precise totalCostSaving.
+
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
-- Pricing slice — `finalizeStat` review pending; `detectCostRate` extracted and tested (PR #46)
+- Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**
 - App-shell architecture cleanup
 - No-network evidence/test work (Issue #6) — **I7A completed (PR #44); remaining slices pending**
+- Observed-fallback and inferred-config pricing sources remain unimplemented (future work)
 
 ---
 
@@ -155,7 +161,9 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**Recommended Next Step**: Issue #11 (I2b) is now CLOSED. All safely extractable pure helpers have been migrated to `src/` modules. BG to decide next direction: approve a follow-up issue for UI module extraction, pricing slice review, app-shell cleanup, or no-network evidence/test work (Issue #6).
+**Recommended Next Step**: I3.2B (Pricing-Confidence) is now CLOSED. Next priority: UI module extraction, pricing slice config-cost work, or no-network evidence/test work (Issue #6). BG to decide.
+
+Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
 Current completed slices (I2b.1–I2b.6H) extracted: inline script, validation, types, formatting helpers, constants, parser, predicate helpers, classifyWaste, buildFixSuggestion, normalizeJobs, normalizeJobs utils import fix, data pipeline helpers (createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord), schedule helpers (parseScheduleMinutes / formatFrequency), buildFixCards (→ fixes.ts), compareJobs (→ domain.ts).
 
