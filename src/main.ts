@@ -384,6 +384,12 @@ import { buildFixCards } from './fixes';
       const items = summary.hasConservativeEstimates
         ? [
             {
+              label: "Estimated Total Cost",
+              value: formatCurrency(summary.totalCost),
+              help: "Total estimated cost across all models",
+              critical: true
+            },
+            {
               label: "Known Local Cost",
               value: formatCurrency(summary.knownLocalCost),
               help: "Based on identified models",
