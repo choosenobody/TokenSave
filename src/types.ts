@@ -109,6 +109,7 @@ export interface JobStat extends NormalizedJob {
  */
 export interface FinalizedJob extends JobStat {
   rate: CostRate;
+  pricingSource?: PricingSource;
   totalCost: number;          // (totalTokens / 1_000_000) * rate.rate
   errorRate: number;          // totalRuns > 0 ? totalErrors / totalRuns : 0
   scheduleMinutes: number | null;
@@ -223,6 +224,8 @@ export interface SummaryStats {
   wasteRate: number;          // totalWasteTokens / totalTokens  (0 if no tokens)
   totalCostSaving: number;    // USD saving if waste is eliminated
   hasConservativeEstimates?: boolean;
+  knownLocalCost: number;        // sum of totalCost where pricingSource === 'known-local'
+  conservativeEstimateCost: number; // sum of totalCost where pricingSource === 'conservative-estimate'
 }
 
 /**
