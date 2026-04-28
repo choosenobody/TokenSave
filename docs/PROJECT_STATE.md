@@ -44,6 +44,7 @@
 |----|-------|--------|-------------|
 | #53 | test(I3A): add parser characterization tests for parseJson / parseJsonl / parseZipEntries | 2026-04-28 | `47893ee` |
 | #52 | docs(PROJECT_STATE): refresh after issue cleanup #8 #9 #10 | 2026-04-28 | `fd77591` |
+| #51 | docs(I3.2C-A-S): refresh PROJECT_STATE.md after PR #50 | 2026-04-28 | `aa6ff12` |
 | #50 | feat(I3.2C-A): split pricing exposure in Summary UI | 2026-04-28 | `a8a765c` |
 | #48 | feat(I3.2B): Pricing-Confidence — conservative-estimate fallback + pricingSource tracking | 2026-04-28 | `c668b74` |
 | #47 | docs: refresh PROJECT_STATE.md after PR #46 (Pricing-Char) | 2026-04-28 | `58471cf` |
