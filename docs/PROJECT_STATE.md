@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-28T15:40:00Z
-**Source**: GitHub `origin/main` at commit `aa6ff12` (PR #51 docs refresh; PR #50 split pricing exposure; stale issues #8/#9/#10 closed)
+**Last updated**: 2026-04-28T18:05:00Z
+**Source**: GitHub `origin/main` at commit `47893ee` (PR #53 I3A parser characterization tests; PR #52 docs refresh after stale issue cleanup; PR #51 docs refresh after PR #50)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `aa6ff12` (PR #51 docs refresh; PR #50 split pricing exposure; stale issues #8/#9/#10 closed) |
+| Main branch SHA | `47893ee` (PR #53 I3A parser characterization tests; PR #52 docs refresh after stale issue cleanup; PR #51 docs refresh after PR #50) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -29,6 +29,7 @@
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
+| tests/parser.test.ts | 223 lines, 12 characterization tests for parseJson / parseJsonl / parseZipEntries |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -41,7 +42,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
-| #51 | docs(PROJECT_STATE): refresh PROJECT_STATE.md after PR #50 | 2026-04-28 | `aa6ff12` |
+| #53 | test(I3A): add parser characterization tests for parseJson / parseJsonl / parseZipEntries | 2026-04-28 | `47893ee` |
+| #52 | docs(PROJECT_STATE): refresh PROJECT_STATE.md after PR #50 | 2026-04-28 | `aa6ff12` |
 | #50 | feat(I3.2C-A): split pricing exposure in Summary UI | 2026-04-28 | `a8a765c` |
 | #48 | feat(I3.2B): Pricing-Confidence — conservative-estimate fallback + pricingSource tracking | 2026-04-28 | `c668b74` |
 | #47 | docs: refresh PROJECT_STATE.md after PR #46 (Pricing-Char) | 2026-04-28 | `58471cf` |
@@ -105,6 +107,7 @@
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
+| I3A (Parser-Char-Tests) | Add parser characterization tests for parseJson / parseJsonl / parseZipEntries — 12 tests covering valid, malformed, edge cases | #53 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -114,6 +117,8 @@
 ## Next Action
 
 **Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
+
+**I3A (Parser-Char-Tests) — CLOSED.** Added 12 characterization tests for parseJson / parseJsonl / parseZipEntries in tests/parser.test.ts. No src changes. Full Issue #2 parser module test coverage remains open pending separate BG decision.
 
 **I3.2B (Pricing-Confidence) — CLOSED.** Unknown model fallback now uses highest known positive rate (15) as conservative estimate. PricingSource tracking implemented. Conservative-estimate jobs included in totalCost, excluded from precise totalCostSaving.
 
@@ -143,7 +148,7 @@
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
-| #2 | I3: Add parser modules with tests | OPEN | Future issue. Requires separate BG approval. |
+| #2 | I3: Add parser modules with tests | OPEN | I3A parser characterization tests (PR #53) added — 12 tests covering parseJson / parseJsonl / parseZipEntries. src/parser.ts unchanged. Full Issue #2 scope (additional module-level integration tests) remains open pending separate BG approval. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
 
 ---
