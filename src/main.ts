@@ -310,18 +310,19 @@ import { buildFixCards } from './fixes';
           }
         }
         // Premium model saving: difference between current model rate and MiniMax M2.7 rate
+        // Conservative-estimate jobs are included in totalWasteTokens but excluded from totalCostSaving
+        const isConservativeEstimate = job.pricingSource === 'conservative-estimate';
         let modelSavingTokens = 0;
-        if (job.pricingSource === 'conservative-estimate') {
-          return; // don't count toward savings
-        }
-        if (job.badge === "PREMIUM_MODEL_WASTE") {
+        if (!isConservativeEstimate && job.badge === "PREMIUM_MODEL_WASTE") {
           const premiumRate = job.rate.rate;
           const cheapRate = 0.14; // MiniMax M2.7
           modelSavingTokens = Math.round(job.totalTokens * Math.max(0, (premiumRate - cheapRate) / premiumRate));
         }
         const jobWasteTokens = errorWastedTokens + scheduleWastedTokens + modelSavingTokens;
         totalWasteTokens += jobWasteTokens;
-        totalCostSaving += job.rate.rate * jobWasteTokens / 1_000_000;
+        if (!isConservativeEstimate) {
+          totalCostSaving += job.rate.rate * jobWasteTokens / 1_000_000;
+        }
       });
 
       const summary = {
