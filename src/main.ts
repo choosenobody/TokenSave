@@ -3,7 +3,7 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
 import { parseJson, parseJsonl, parseZipEntries } from './parser';
-import { classifyWaste, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
+import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
 import { buildFixCards } from './fixes';
 
     const state = {
@@ -354,6 +354,7 @@ import { buildFixCards } from './fixes';
       const errorRate = stat.totalRuns ? stat.errorRuns / stat.totalRuns : 0;
       const scheduleMinutes = parseScheduleMinutes(stat.schedule);
       const issues = classifyWaste(stat, errorRate, scheduleMinutes);
+      const evidence = buildWasteEvidence(stat, errorRate, scheduleMinutes);
       const primary = issues[0] || "OK";
       const fixSuggestion = buildFixSuggestion(primary, scheduleMinutes);
       return {
@@ -366,7 +367,8 @@ import { buildFixCards } from './fixes';
         frequencyLabel: formatFrequency(stat.schedule, scheduleMinutes),
         issues,
         badge: primary,
-        fixSuggestion
+        fixSuggestion,
+        evidence
       };
     }
 
