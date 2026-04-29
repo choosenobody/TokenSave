@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-29T09:15:00Z
-**Source**: GitHub `origin/main` at commit `49db5d7` (PR #61 I5-D5 D5 unknown-model pricing diagnostic; supersedes PR #60)
+**Last updated**: 2026-04-29T10:15:00Z
+**Source**: GitHub `origin/main` at commit `921debe` (PR #63 I5-D6 zero-token abnormal run diagnostic; supersedes PR #62)
 
 ---
 
@@ -15,13 +15,13 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `49db5d7` (PR #61 I5-D5 D5 unknown-model pricing diagnostic; squash merge) |
+| Main branch SHA | `921debe` (PR #63 I5-D6 zero-token abnormal run diagnostic; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
 | src/types.ts | ~335 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
-| src/rules.ts | ~50 lines, pure D-rule functions (diagnoseD5UnknownModelPricing); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
+| src/rules.ts | ~180 lines, pure D-rule functions (diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
 | src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/main.ts | ~682 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
@@ -32,7 +32,7 @@
 | tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
-| tests/rules.test.ts | ~80 lines, 8 tests for diagnoseD5UnknownModelPricing; DiagnoseRuleResult contract tests |
+| tests/rules.test.ts | ~230 lines, 21 tests (8 D5 tests + 13 D6 tests) for DiagnoseRuleResult contract and rule firing conditions |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -45,6 +45,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #63 | feat(I5-D6): add diagnoseD6ZeroTokenAbnormalRun | 2026-04-29 | `921debe` |
 | #61 | feat(I5-D5): D5 unknown-model pricing diagnostic | 2026-04-29 | `49db5d7` |
 | #59 | feat(I7B): add WasteEvidence type + buildWasteEvidence for waste classification | 2026-04-29 | `9564e11` |
 | #55 | test(I3B): add fixture-based parser tests for Issue #2 | 2026-04-28 | `ab322e3` |
@@ -113,6 +114,7 @@
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
 | I7B (Evidence-Bundle) | Add WasteEvidence type + buildWasteEvidence for waste classification (Issue #6 sub-slice) | #59 | CLOSED |
 | I5-D5 (Diagnose-D5) | D5 unknown-model pricing diagnostic — diagnoseD5UnknownModelPricing pure function + DiagnoseRuleResult contract with nested evidence bundle (Issue #4 sub-slice) | #61 | CLOSED |
+| I5-D6 (Diagnose-D6) | D6 zero-token abnormal run diagnostic — diagnoseD6ZeroTokenAbnormalRun pure function; fires when totalRuns > 0 AND totalTokens === 0; 13 new tests (Issue #4 sub-slice) | #63 | CLOSED |
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
@@ -138,7 +140,9 @@
 
 **I7B (Evidence-Bundle) — CLOSED.** Added WasteEvidence type + buildWasteEvidence for waste classification. 7 new tests in tests/evidence.test.ts. Total test suite now 34 tests. Evidence bundle minimal slice complete; additional slices remain pending.
 
-**I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N complete. Issue #4 remains OPEN (D1-D4, D6-D7 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 remains OPEN (D1, D2, D3, D4, D7 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+
+**I5-D6 (Diagnose-D6) — CLOSED.** Added diagnoseD6ZeroTokenAbnormalRun pure function in src/rules.ts. Fires when totalRuns > 0 AND totalTokens === 0; returns null otherwise. Handles missing/non-finite values gracefully without throwing. 13 tests in tests/rules.test.ts. D1-D7 sub-slice 2 of N complete. Issue #4 remains OPEN (D1, D2, D3, D4, D7 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
