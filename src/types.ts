@@ -217,10 +217,15 @@ export type DiagnoseSeverity = 'critical' | 'warning' | 'info';
  * Separate from WasteEvidence to keep D-rules and classifyWaste concerns independent.
  */
 export interface DiagnoseEvidence {
+  /** Rule ID this evidence belongs to */
   ruleId: DiagnoseRuleId;
+  /** Human-readable explanation of why the rule fired */
   explanation: string;
+  /** Which input fields were consulted */
   sourceFields: string[];
+  /** The observed value of the key field */
   observedValue: unknown;
+  /** Comparison threshold if applicable */
   threshold?: unknown;
 }
 
@@ -229,14 +234,16 @@ export interface DiagnoseEvidence {
  * Returns null if the rule did not fire for this job.
  */
 export interface DiagnoseRuleResult {
+  /** Which D-rule fired */
   ruleId: DiagnoseRuleId;
-  fired: boolean;
+  /** Severity of the finding */
   severity: DiagnoseSeverity;
-  explanation: string;
-  sourceFields: string[];
-  observedValue: unknown;
-  threshold?: unknown;
+  /** Human-readable summary */
+  message: string;
+  /** Job identifiers this finding applies to */
   affectedJobIds: string[];
+  /** Structured evidence bundle for this rule firing */
+  evidence: DiagnoseEvidence;
 }
 
 // ---------------------------------------------------------------------------
