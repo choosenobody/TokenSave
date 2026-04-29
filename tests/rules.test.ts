@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun } from '../src/rules';
+import { diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob } from '../src/rules';
 
 describe('diagnoseD5UnknownModelPricing', () => {
   it('fires when model is unknown (pricingSource === conservative-estimate)', () => {
@@ -409,5 +409,256 @@ describe('diagnoseD3PremiumModelOnSimpleJob', () => {
     // Only title contains "heartbeat" → should fire
     const result3 = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Sonnet', title: 'heartbeat monitor' });
     expect(result3).not.toBeNull();
+  });
+});
+
+describe('diagnoseD7ExactDuplicateActiveJob', () => {
+  it('fires when two active jobs have identical model + schedule + task config', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D7');
+    expect(result!.severity).toBe('warning');
+    expect(result!.affectedJobIds).toHaveLength(2);
+    expect(result!.affectedJobIds).toContain('job-1');
+    expect(result!.affectedJobIds).toContain('job-2');
+  });
+
+  it('fires when three active jobs share the same model + schedule + task', () => {
+    const jobs = [
+      { id: 'job-a', model: 'Claude Sonnet', schedule: 'hourly', task: 'status check', active: true },
+      { id: 'job-b', model: 'Claude Sonnet', schedule: 'hourly', task: 'status check', active: true },
+      { id: 'job-c', model: 'Claude Sonnet', schedule: 'hourly', task: 'status check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D7');
+    expect(result!.affectedJobIds).toHaveLength(3);
+    expect(result!.affectedJobIds).toContain('job-a');
+    expect(result!.affectedJobIds).toContain('job-b');
+    expect(result!.affectedJobIds).toContain('job-c');
+  });
+
+  it('does NOT fire when only one active job exists', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when active jobs have different models', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+      { id: 'job-2', model: 'Claude Sonnet', schedule: '30 min', task: 'health check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when active jobs have different schedules', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '60 min', task: 'health check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when active jobs have different task/prompt content', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'status check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).toBeNull();
+  });
+
+  it('ignores inactive/disabled jobs in duplicate check', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: false },
+      { id: 'job-3', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+    ];
+    // Only one active (job-1 and job-3), so no duplicate group of >= 2 active jobs
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    // Actually job-1 and job-3 are both active with same config → should fire
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+    expect(result!.affectedJobIds).toContain('job-1');
+    expect(result!.affectedJobIds).toContain('job-3');
+  });
+
+  it('ignores enabled=false jobs in duplicate check', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', enabled: false },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'health check', enabled: true },
+      { id: 'job-3', model: 'GPT-4o', schedule: '30 min', task: 'health check', enabled: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+    expect(result!.affectedJobIds).not.toContain('job-1');
+  });
+
+  it('ignores disabled=true jobs in duplicate check', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', disabled: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'health check', disabled: false },
+      { id: 'job-3', model: 'GPT-4o', schedule: '30 min', task: 'health check', disabled: false },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+    expect(result!.affectedJobIds).not.toContain('job-1');
+  });
+
+  it('missing active/enabled fields default to active (jobs included)', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check' },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'health check' },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+  });
+
+  it('affectedJobIds includes id, falls back to name, then title', () => {
+    const jobs = [
+      { id: 'job-id-1', model: 'GPT-4o', schedule: '30 min', task: 'check' },
+      { name: 'job-name-2', model: 'GPT-4o', schedule: '30 min', task: 'check' },
+      { title: 'job-title-3', model: 'GPT-4o', schedule: '30 min', task: 'check' },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(3);
+    expect(result!.affectedJobIds).toContain('job-id-1');
+    expect(result!.affectedJobIds).toContain('job-name-2');
+    expect(result!.affectedJobIds).toContain('job-title-3');
+  });
+
+  it('evidence includes ruleId/sourceFields/observedValue/threshold', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'health check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.evidence.ruleId).toBe('D7');
+    expect(result!.evidence.sourceFields).toEqual(
+      expect.arrayContaining(['model', 'schedule', 'task', 'type', 'description', 'prompt', 'active', 'enabled', 'disabled'])
+    );
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.duplicateKey).toBeDefined();
+    expect(ov.duplicateCount).toBe(2);
+    expect(ov.affectedJobs).toHaveLength(2);
+    const th = result!.evidence.threshold as Record<string, unknown>;
+    expect(th.minDuplicateCount).toBe(2);
+  });
+
+  it('does not mutate input jobs array or job objects', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+    ];
+    const jobsCopy = JSON.stringify(jobs);
+    diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(JSON.stringify(jobs)).toBe(jobsCopy);
+  });
+
+  it('handles empty array gracefully (returns null)', () => {
+    const result = diagnoseD7ExactDuplicateActiveJob([]);
+    expect(result).toBeNull();
+  });
+
+  it('handles all-inactive array gracefully (returns null)', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'check', active: false },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'check', disabled: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).toBeNull();
+  });
+
+  it('handles jobs with insufficient config (no model or no schedule) gracefully', () => {
+    const jobs = [
+      { id: 'job-1', model: '', schedule: '30 min', task: 'check', active: true },
+      { id: 'job-2', model: '', schedule: '30 min', task: 'check', active: true },
+    ];
+    // No model → skipped → no active jobs with sufficient config → null
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).toBeNull();
+  });
+
+  it('duplicate key is case-insensitive and trims whitespace', () => {
+    const jobs = [
+      { id: 'job-1', model: '  GPT-4o  ', schedule: '  30 min  ', task: '  health check  ', active: true },
+      { id: 'job-2', model: 'gpt-4o', schedule: '30 min', task: 'health check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+  });
+
+  it('schedule aliases (interval, frequency, cron) are normalized', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+      { id: 'job-2', model: 'GPT-4o', interval: '30 min', task: 'check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+  });
+
+  it('model aliases (model_name, modelName) are normalized', () => {
+    const jobs = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+      { id: 'job-2', model_name: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toHaveLength(2);
+  });
+
+  it('task content includes type, description, prompt fields', () => {
+    // description differs → should NOT fire
+    const jobs1 = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', task: 'check', description: 'desc-a', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', task: 'check', description: 'desc-b', active: true },
+    ];
+    expect(diagnoseD7ExactDuplicateActiveJob(jobs1)).toBeNull();
+
+    // prompt differs → should NOT fire
+    const jobs2 = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', prompt: 'do health check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', prompt: 'do status check', active: true },
+    ];
+    expect(diagnoseD7ExactDuplicateActiveJob(jobs2)).toBeNull();
+
+    // type differs → should NOT fire
+    const jobs3 = [
+      { id: 'job-1', model: 'GPT-4o', schedule: '30 min', type: 'check', active: true },
+      { id: 'job-2', model: 'GPT-4o', schedule: '30 min', type: 'monitor', active: true },
+    ];
+    expect(diagnoseD7ExactDuplicateActiveJob(jobs3)).toBeNull();
+  });
+
+  it('first duplicate group is used when multiple groups exist', () => {
+    // Two separate duplicate groups; only the first (by insertion order) should fire
+    const jobs = [
+      { id: 'dup-group-a-1', model: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+      { id: 'dup-group-a-2', model: 'GPT-4o', schedule: '30 min', task: 'check', active: true },
+      { id: 'dup-group-b-1', model: 'Claude Sonnet', schedule: '60 min', task: 'check', active: true },
+      { id: 'dup-group-b-2', model: 'Claude Sonnet', schedule: '60 min', task: 'check', active: true },
+    ];
+    const result = diagnoseD7ExactDuplicateActiveJob(jobs);
+    expect(result).not.toBeNull();
+    // Should fire on the first duplicate group (GPT-4o 30min)
+    expect(result!.affectedJobIds).toHaveLength(2);
+    expect(result!.affectedJobIds).toContain('dup-group-a-1');
+    expect(result!.affectedJobIds).toContain('dup-group-a-2');
   });
 });
