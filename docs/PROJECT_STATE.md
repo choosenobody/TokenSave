@@ -21,7 +21,7 @@
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
 | src/types.ts | ~303 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
-| src/domain.ts | ~404 lines, 20 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + computeWasteSignals + buildWasteEvidence), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
+| src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/main.ts | ~682 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
