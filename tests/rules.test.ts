@@ -172,6 +172,33 @@ describe('diagnoseD4AgentTurnCronBurn', () => {
     expect(ov.agentTurn).toBe(true);
   });
 
+  it('fires when agentTurn=true and cron alias is frequent (15 min < 60)', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, cron: '*/15 * * * *' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D4');
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.scheduleMinutes).toBe(15);
+    expect(ov.agentTurn).toBe(true);
+  });
+
+  it('fires when agentTurn=true and interval alias is frequent (30 min < 60)', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, interval: 'every 30 minutes' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D4');
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.scheduleMinutes).toBe(30);
+    expect(ov.agentTurn).toBe(true);
+  });
+
+  it('fires when agentTurn=true and frequency alias is frequent (45 min < 60)', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, frequency: 'every 45 mins' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D4');
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.scheduleMinutes).toBe(45);
+    expect(ov.agentTurn).toBe(true);
+  });
+
   it('does NOT fire when agentTurn=false', () => {
     const result = diagnoseD4AgentTurnCronBurn({ agentTurn: false, schedule: '30 min' });
     expect(result).toBeNull();
