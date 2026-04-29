@@ -1,4 +1,5 @@
 import { detectCostRate } from './pricing';
+import { parseScheduleMinutes, readBoolean } from './domain';
 import type { DiagnoseRuleResult, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence } from './types';
 
 // Re-export for consumers
@@ -116,6 +117,87 @@ export function diagnoseD6ZeroTokenAbnormalRun(job: {
       threshold: {
         totalRunsGreaterThan: 0,
         totalTokensEquals: 0,
+      },
+    },
+  };
+}
+
+/**
+ * D4: Agent-turn cron burn diagnostic.
+ *
+ * Fires when agentTurn is enabled with a schedule that runs more than once per hour.
+ * Agent-turn mode is expensive for frequent cron-like jobs that don't need an LLM agent.
+ *
+ * @param job - a job-like object with agentTurn and schedule fields
+ * @returns DiagnoseRuleResult if fired, null if the rule does not apply
+ */
+export function diagnoseD4AgentTurnCronBurn(job: {
+  agentTurn?: unknown;
+  agent_turn?: unknown;
+  agent_turn_enabled?: unknown;
+  schedule?: unknown;
+  interval?: unknown;
+  frequency?: unknown;
+  cron?: unknown;
+  id?: unknown;
+  name?: unknown;
+  title?: unknown;
+}): DiagnoseRuleResult | null {
+  // Read agentTurn from any alias
+  const rawAgentTurn = job.agentTurn ?? job.agent_turn ?? job.agent_turn_enabled;
+  const agentTurn = readBoolean(rawAgentTurn);
+
+  // Read schedule from any alias
+  const schedule = job.schedule ?? job.interval ?? job.frequency ?? job.cron;
+
+  // Must have agentTurn = true
+  if (!agentTurn) {
+    return null;
+  }
+
+  // Schedule must exist
+  if (schedule == null) {
+    return null;
+  }
+
+  // Parse schedule minutes
+  const scheduleMinutes = parseScheduleMinutes(schedule);
+
+  // Must be finite
+  if (scheduleMinutes == null || !Number.isFinite(scheduleMinutes)) {
+    return null;
+  }
+
+  // Must be > 0 and < 60
+  if (scheduleMinutes <= 0 || scheduleMinutes >= 60) {
+    return null;
+  }
+
+  // Determine best available stable identifier for affectedJobIds
+  const affectedJobIds: string[] = [];
+  if (job.id != null) affectedJobIds.push(String(job.id));
+  else if (job.name != null) affectedJobIds.push(String(job.name));
+  else if (job.title != null) affectedJobIds.push(String(job.title));
+
+  const ruleId: DiagnoseRuleId = 'D4';
+
+  return {
+    ruleId,
+    severity: 'warning',
+    message: `Agent-turn mode is enabled with a schedule of ${scheduleMinutes} minutes. This is wasteful — agent-turn is expensive and cron-like jobs do not need an LLM agent.`,
+    affectedJobIds,
+    evidence: {
+      ruleId,
+      explanation: `Agent-turn mode is enabled with a schedule of ${scheduleMinutes} minutes (less than 60 min). Frequent agent-turn jobs waste tokens on cron-like work that does not need an LLM agent.`,
+      sourceFields: ['agentTurn', 'schedule', 'scheduleMinutes'],
+      observedValue: {
+        agentTurn: true,
+        schedule,
+        scheduleMinutes,
+      },
+      threshold: {
+        agentTurnEquals: true,
+        scheduleMinutesLessThan: 60,
       },
     },
   };
