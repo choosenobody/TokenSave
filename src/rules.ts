@@ -1,5 +1,5 @@
 import { detectCostRate } from './pricing';
-import { parseScheduleMinutes, readBoolean } from './domain';
+import { parseScheduleMinutes, readBoolean, isSimpleCheck } from './domain';
 import type { DiagnoseRuleResult, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence } from './types';
 
 // Re-export for consumers
@@ -117,6 +117,119 @@ export function diagnoseD6ZeroTokenAbnormalRun(job: {
       threshold: {
         totalRunsGreaterThan: 0,
         totalTokensEquals: 0,
+      },
+    },
+  };
+}
+
+/**
+ * D3: Premium model on simple job diagnostic.
+ *
+ * Fires when ALL true:
+ *   1. isSimpleCheck(job, promptText) === true
+ *   2. costInfo.pricingSource === 'known-local'
+ *   3. referenceCostInfo.pricingSource === 'known-local'
+ *   4. referenceRate is finite and > 0
+ *   5. rateMultiplier >= 5 (where rateMultiplier = costInfo.rate / referenceRate)
+ *
+ * referenceRate is derived from detectCostRate('MiniMax M2.7').rate
+ *
+ * Using an expensive model (e.g., Claude Opus at 15) for a simple check job is wasteful.
+ *
+ * @param job - a job-like object with model/model_name/modelName, task, type, description, prompt, name, title, id fields
+ * @returns DiagnoseRuleResult if fired, null if the rule does not apply
+ */
+export function diagnoseD3PremiumModelOnSimpleJob(job: {
+  model?: unknown;
+  model_name?: unknown;
+  modelName?: unknown;
+  task?: unknown;
+  type?: unknown;
+  description?: unknown;
+  prompt?: unknown;
+  name?: unknown;
+  title?: unknown;
+  id?: unknown;
+}): DiagnoseRuleResult | null {
+  // Extract model from any alias
+  const model = String(job.model ?? job.model_name ?? job.modelName ?? '');
+
+  // Model must not be empty
+  if (!model) {
+    return null;
+  }
+
+  // Build promptText for isSimpleCheck detection
+  const promptText = [
+    job.task, job.type, job.description, job.prompt, job.name, job.title
+  ].filter(Boolean).join(' ');
+
+  // isSimpleCheck must return true
+  const simpleCheck = isSimpleCheck(job, promptText);
+  if (!simpleCheck) {
+    return null;
+  }
+
+  // Reference model for rate comparison
+  const REFERENCE_MODEL = 'MiniMax M2.7';
+  const referenceCostInfo = detectCostRate(REFERENCE_MODEL);
+  const referenceRate = referenceCostInfo.rate;
+
+  // Guardrails for reference
+  if (referenceCostInfo.pricingSource !== 'known-local') {
+    return null;
+  }
+  if (!Number.isFinite(referenceRate) || referenceRate <= 0) {
+    return null;
+  }
+
+  // Cost info for the job's model
+  const costInfo = detectCostRate(model);
+
+  // Model must be known-local (D5 handles unknown models)
+  if (costInfo.pricingSource !== 'known-local') {
+    return null;
+  }
+
+  // Compute rate multiplier
+  const rateMultiplier = costInfo.rate / referenceRate;
+  const MIN_RATE_MULTIPLIER = 5;
+
+  // Rate multiplier must meet or exceed threshold
+  if (rateMultiplier < MIN_RATE_MULTIPLIER) {
+    return null;
+  }
+
+  // Determine best available stable identifier for affectedJobIds
+  const affectedJobIds: string[] = [];
+  if (job.id != null) affectedJobIds.push(String(job.id));
+  else if (job.name != null) affectedJobIds.push(String(job.name));
+  else if (job.title != null) affectedJobIds.push(String(job.title));
+
+  const ruleId: DiagnoseRuleId = 'D3';
+
+  return {
+    ruleId,
+    severity: 'warning',
+    message: `Model "${model}" (rate ${costInfo.rate}) is being used for a simple check job but costs more than ${MIN_RATE_MULTIPLIER}x the reference model. Consider a lighter, cheaper model for simple checks.`,
+    affectedJobIds,
+    evidence: {
+      ruleId,
+      explanation: `Model "${model}" with rate ${costInfo.rate} is used on a simple check job, but the rate is ${rateMultiplier.toFixed(2)}x the reference model rate (based on TokenSave's bundled pricing table). Using premium models on simple jobs is wasteful.`,
+      sourceFields: ['model', 'pricingSource', 'rate', 'referenceModel', 'referenceRate', 'rateMultiplier', 'simpleCheck'],
+      observedValue: {
+        model,
+        pricingSource: costInfo.pricingSource,
+        rate: costInfo.rate,
+        referenceModel: REFERENCE_MODEL,
+        referenceRate,
+        rateMultiplier,
+        simpleCheck: true,
+      },
+      threshold: {
+        pricingSourceEquals: 'known-local',
+        minRateMultiplier: MIN_RATE_MULTIPLIER,
+        simpleCheckEquals: true,
       },
     },
   };
