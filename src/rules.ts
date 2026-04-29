@@ -315,3 +315,166 @@ export function diagnoseD4AgentTurnCronBurn(job: {
     },
   };
 }
+
+/**
+ * D7: Exact duplicate active job diagnostic.
+ *
+ * Fires when two or more active jobs share the same effective configuration
+ * (model + schedule + task/prompt/type/description).
+ *
+ * Active jobs are those that are NOT explicitly disabled:
+ * - active !== false
+ * - enabled !== false
+ * - disabled !== true
+ * (missing fields default to active)
+ *
+ * Jobs without sufficient config (no model or no schedule) are skipped.
+ *
+ * @param jobs - array of job-like objects
+ * @returns DiagnoseRuleResult if fired, null if no duplicates found
+ */
+export function diagnoseD7ExactDuplicateActiveJob(jobs: {
+  id?: unknown;
+  name?: unknown;
+  title?: unknown;
+  model?: unknown;
+  model_name?: unknown;
+  modelName?: unknown;
+  schedule?: unknown;
+  interval?: unknown;
+  frequency?: unknown;
+  cron?: unknown;
+  task?: unknown;
+  type?: unknown;
+  description?: unknown;
+  prompt?: unknown;
+  active?: unknown;
+  enabled?: unknown;
+  disabled?: unknown;
+  [key: string]: unknown;
+}[]): DiagnoseRuleResult | null {
+  // --- Step 1: Filter active jobs and build duplicate key ---
+  type JobEntry = {
+    job: Record<string, unknown>;
+    duplicateKey: string;
+  };
+
+  const activeJobs: JobEntry[] = [];
+
+  for (const job of jobs) {
+    // Determine active status — only explicit values determine inactivity:
+    // active === false, enabled === false, disabled === true
+    // Missing fields → active (included)
+    if (
+      (job as Record<string, unknown>).active === false ||
+      (job as Record<string, unknown>).enabled === false ||
+      (job as Record<string, unknown>).disabled === true
+    ) {
+      continue;
+    }
+
+    // Build normalized model key
+    const modelRaw = job.model ?? job.model_name ?? job.modelName;
+    const model = typeof modelRaw === 'string' ? modelRaw.trim().toLowerCase() : '';
+
+    // Build normalized schedule key
+    const scheduleRaw = job.schedule ?? job.interval ?? job.frequency ?? job.cron;
+    const schedule = typeof scheduleRaw === 'string' ? scheduleRaw.trim().toLowerCase() : '';
+
+    // Skip jobs with insufficient config (both model AND schedule must be present)
+    if (!model || !schedule) {
+      continue;
+    }
+
+    // Build task content key
+    const taskContent = [job.task, job.type, job.description, job.prompt]
+      .map(v => (typeof v === 'string' ? v.trim() : ''))
+      .filter(v => v.length > 0)
+      .join('|')
+      .toLowerCase();
+
+    const duplicateKey = `${model}::${schedule}::${taskContent}`;
+
+    activeJobs.push({ job, duplicateKey });
+  }
+
+  // --- Step 2: Group by duplicate key ---
+  const groupMap = new Map<string, JobEntry[]>();
+  for (const entry of activeJobs) {
+    const existing = groupMap.get(entry.duplicateKey);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      groupMap.set(entry.duplicateKey, [entry]);
+    }
+  }
+
+  // --- Step 3: Find first group with count >= 2 ---
+  let duplicateGroup: JobEntry[] | null = null;
+  let duplicateKey = '';
+
+  for (const [key, group] of groupMap) {
+    if (group.length >= 2) {
+      duplicateGroup = group;
+      duplicateKey = key;
+      break; // Use first duplicate group
+    }
+  }
+
+  if (!duplicateGroup) {
+    return null;
+  }
+
+  // --- Step 4: Build affectedJobIds (id → name → title fallback) ---
+  const affectedJobIds: string[] = [];
+  const affectedJobs: { id?: unknown; name?: unknown; title?: unknown; model?: unknown; schedule?: unknown }[] = [];
+
+  for (const entry of duplicateGroup) {
+    const j = entry.job;
+    if (j.id != null) {
+      affectedJobIds.push(String(j.id));
+    } else if (j.name != null) {
+      affectedJobIds.push(String(j.name));
+    } else if (j.title != null) {
+      affectedJobIds.push(String(j.title));
+    }
+
+    // Build observed affected job entry
+    affectedJobs.push({
+      id: j.id,
+      name: j.name,
+      title: j.title,
+      model: j.model ?? j.model_name ?? j.modelName,
+      schedule: j.schedule ?? j.interval ?? j.frequency ?? j.cron,
+    });
+  }
+
+  const ruleId: DiagnoseRuleId = 'D7';
+  const duplicateCount = duplicateGroup.length;
+
+  // --- Step 5: Build explanation ---
+  const sampleJob = duplicateGroup[0].job;
+  const sampleModel = String(sampleJob.model ?? sampleJob.model_name ?? sampleJob.modelName ?? '');
+  const sampleSchedule = String(sampleJob.schedule ?? sampleJob.interval ?? sampleJob.frequency ?? sampleJob.cron ?? '');
+  const explanation = `Found ${duplicateCount} active jobs with identical model ("${sampleModel}") and schedule ("${sampleSchedule}"). These jobs are duplicates and may cause redundant work or billing duplication.`;
+
+  return {
+    ruleId,
+    severity: 'warning',
+    message: `Duplicate active jobs detected: ${duplicateCount} jobs share the same model and schedule configuration. Review for redundancy.`,
+    affectedJobIds,
+    evidence: {
+      ruleId,
+      explanation,
+      sourceFields: ['model', 'schedule', 'task', 'type', 'description', 'prompt', 'active', 'enabled', 'disabled'],
+      observedValue: {
+        duplicateKey,
+        duplicateCount,
+        affectedJobs,
+      },
+      threshold: {
+        minDuplicateCount: 2,
+      },
+    },
+  };
+}
