@@ -317,6 +317,67 @@ export function diagnoseD4AgentTurnCronBurn(job: {
 }
 
 /**
+ * D1: Aggregate failure loop detection.
+ *
+ * Detects jobs with a high failure rate across multiple runs,
+ * suggesting a persistent failure loop pattern.
+ *
+ * This is aggregate failure-ratio detection only.
+ * It does NOT prove the same error repeats consecutively or within a time window.
+ *
+ * @param job - a job-like object with totalRuns and errorRuns fields
+ * @returns DiagnoseRuleResult if fired, null if the rule does not apply
+ */
+export function diagnoseD1FailureLoopDetection(job: {
+  totalRuns?: unknown;
+  errorRuns?: unknown;
+  id?: unknown;
+  name?: unknown;
+  title?: unknown;
+}): DiagnoseRuleResult | null {
+  // Parse totalRuns — must be a finite number >= 3
+  const totalRuns = typeof job.totalRuns === 'number' && Number.isFinite(job.totalRuns)
+    ? job.totalRuns
+    : NaN;
+
+  // Parse errorRuns — must be a finite number >= 0
+  const errorRuns = typeof job.errorRuns === 'number' && Number.isFinite(job.errorRuns)
+    ? job.errorRuns
+    : NaN;
+
+  // Guard: insufficient runs or invalid aggregates
+  if (!Number.isFinite(totalRuns) || totalRuns < 3) { return null; }
+  if (!Number.isFinite(errorRuns) || errorRuns < 0 || errorRuns > totalRuns) { return null; }
+
+  const errorRate = errorRuns / totalRuns;
+
+  // Fire if >= 80% of runs are errors
+  if (errorRate < 0.8) { return null; }
+
+  // Build affectedJobIds (id → name → title)
+  const affectedJobIds: string[] = [];
+  if (job.id != null) { affectedJobIds.push(String(job.id)); }
+  else if (job.name != null) { affectedJobIds.push(String(job.name)); }
+  else if (job.title != null) { affectedJobIds.push(String(job.title)); }
+
+  const result: DiagnoseRuleResult = {
+    ruleId: 'D1',
+    severity: 'warning',
+    affectedJobIds,
+    message: `Job failed ${errorRuns}/${totalRuns} runs (${(errorRate * 100).toFixed(1)}% error rate). This pattern suggests a persistent failure loop.`,
+    evidence: {
+      ruleId: 'D1',
+      explanation: `Aggregate failure ratio is ${(errorRate * 100).toFixed(1)}% (${errorRuns} errors / ${totalRuns} total runs). Threshold: >= 80% error rate with at least 3 runs.`,
+      sourceFields: ['totalRuns', 'errorRuns', 'errorRate'],
+      observedValue: { totalRuns, errorRuns, errorRate },
+      threshold: { minTotalRuns: 3, minErrorRate: 0.8 },
+    },
+  };
+
+  return result;
+}
+
+/**
  * D7: Exact duplicate active job diagnostic.
  *
  * Fires when two or more active jobs share the same effective configuration

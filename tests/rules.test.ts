@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob } from '../src/rules';
+import { diagnoseD1FailureLoopDetection, diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob } from '../src/rules';
 
 describe('diagnoseD5UnknownModelPricing', () => {
   it('fires when model is unknown (pricingSource === conservative-estimate)', () => {
@@ -660,5 +660,122 @@ describe('diagnoseD7ExactDuplicateActiveJob', () => {
     expect(result!.affectedJobIds).toHaveLength(2);
     expect(result!.affectedJobIds).toContain('dup-group-a-1');
     expect(result!.affectedJobIds).toContain('dup-group-a-2');
+  });
+});
+
+describe('diagnoseD1FailureLoopDetection', () => {
+  // --- Firing cases ---
+
+  it('fires when totalRuns=5, errorRuns=4 (errorRate=0.8)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 4, id: 'job-1' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D1');
+    expect(result!.severity).toBe('warning');
+    expect(result!.affectedJobIds).toEqual(['job-1']);
+  });
+
+  it('fires when totalRuns=3, errorRuns=3 (errorRate=1.0)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 3, errorRuns: 3, id: 'job-2' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D1');
+  });
+
+  it('fires when totalRuns=10, errorRuns=8 (errorRate=0.8, at boundary)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 10, errorRuns: 8 });
+    expect(result).not.toBeNull();
+  });
+
+  it('fires when totalRuns=100, errorRuns=90 (errorRate=0.9)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 100, errorRuns: 90 });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D1');
+  });
+
+  // --- Non-firing cases ---
+
+  it('does NOT fire when totalRuns=2 (below minimum run count)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 2, errorRuns: 2 });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when totalRuns=5, errorRuns=3 (errorRate=0.6)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 3 });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when totalRuns=5, errorRuns=0 (no errors)', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 0 });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when totalRuns=0, errorRuns=0', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 0, errorRuns: 0 });
+    expect(result).toBeNull();
+  });
+
+  it('handles empty job {} gracefully and returns null', () => {
+    const result = diagnoseD1FailureLoopDetection({});
+    expect(result).toBeNull();
+  });
+
+  it('rejects string totalRuns, e.g. totalRuns="5"', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: '5' as unknown as number, errorRuns: 4 });
+    expect(result).toBeNull();
+  });
+
+  it('rejects string errorRuns, e.g. errorRuns="4"', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: '4' as unknown as number });
+    expect(result).toBeNull();
+  });
+
+  it('rejects NaN totalRuns', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: NaN, errorRuns: 3 });
+    expect(result).toBeNull();
+  });
+
+  it('rejects Infinity totalRuns', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: Infinity, errorRuns: 3 });
+    expect(result).toBeNull();
+  });
+
+  it('rejects negative errorRuns', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: -1 });
+    expect(result).toBeNull();
+  });
+
+  it('rejects errorRuns greater than totalRuns', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 3, errorRuns: 5 });
+    expect(result).toBeNull();
+  });
+
+  // --- Structure tests ---
+
+  it('affectedJobIds uses id → name → title fallback', () => {
+    const byId = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 4, id: 'the-id' });
+    expect(byId!.affectedJobIds).toEqual(['the-id']);
+
+    const byName = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 4, name: 'the-name' });
+    expect(byName!.affectedJobIds).toEqual(['the-name']);
+
+    const byTitle = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 4, title: 'the-title' });
+    expect(byTitle!.affectedJobIds).toEqual(['the-title']);
+  });
+
+  it('evidence includes ruleId/sourceFields/observedValue/threshold', () => {
+    const result = diagnoseD1FailureLoopDetection({ totalRuns: 5, errorRuns: 4, id: 'test' });
+    expect(result!.evidence.ruleId).toBe('D1');
+    expect(result!.evidence.sourceFields).toEqual(['totalRuns', 'errorRuns', 'errorRate']);
+    const obs = result!.evidence.observedValue as { totalRuns: number; errorRuns: number; errorRate: number };
+    expect(obs.totalRuns).toBe(5);
+    expect(obs.errorRuns).toBe(4);
+    expect(obs.errorRate).toBe(0.8);
+    expect(result!.evidence.threshold).toEqual({ minTotalRuns: 3, minErrorRate: 0.8 });
+  });
+
+  it('does not mutate the input job', () => {
+    const job = Object.freeze({ totalRuns: 5, errorRuns: 4, id: 'test' });
+    const before = JSON.stringify(job);
+    diagnoseD1FailureLoopDetection(job);
+    expect(JSON.stringify(job)).toBe(before);
   });
 });
