@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diagnoseD5UnknownModelPricing } from '../src/rules';
+import { diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun } from '../src/rules';
 
 describe('diagnoseD5UnknownModelPricing', () => {
   it('fires when model is unknown (pricingSource === conservative-estimate)', () => {
@@ -56,5 +56,89 @@ describe('diagnoseD5UnknownModelPricing', () => {
       const result = diagnoseD5UnknownModelPricing({ model: m });
       expect(result).toBeNull();
     }
+  });
+});
+
+describe('diagnoseD6ZeroTokenAbnormalRun', () => {
+  it('fires for totalRuns > 0 and totalTokens === 0', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 5, totalTokens: 0 });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D6');
+    expect(result!.severity).toBe('warning');
+    expect(result!.evidence.ruleId).toBe('D6');
+  });
+
+  it('does NOT fire for totalRuns === 0 and totalTokens === 0', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 0, totalTokens: 0 });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire for totalTokens > 0', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 5, totalTokens: 1234 });
+    expect(result).toBeNull();
+  });
+
+  it('handles missing totals gracefully (no throw)', () => {
+    expect(() => diagnoseD6ZeroTokenAbnormalRun({})).not.toThrow();
+    expect(diagnoseD6ZeroTokenAbnormalRun({})).toBeNull();
+  });
+
+  it('handles undefined values gracefully', () => {
+    expect(() => diagnoseD6ZeroTokenAbnormalRun({ totalRuns: undefined, totalTokens: undefined })).not.toThrow();
+    expect(diagnoseD6ZeroTokenAbnormalRun({ totalRuns: undefined, totalTokens: undefined })).toBeNull();
+  });
+
+  it('handles non-finite values gracefully', () => {
+    expect(() => diagnoseD6ZeroTokenAbnormalRun({ totalRuns: NaN, totalTokens: NaN })).not.toThrow();
+    expect(diagnoseD6ZeroTokenAbnormalRun({ totalRuns: NaN, totalTokens: NaN })).toBeNull();
+    expect(() => diagnoseD6ZeroTokenAbnormalRun({ totalRuns: Infinity, totalTokens: Infinity })).not.toThrow();
+    expect(diagnoseD6ZeroTokenAbnormalRun({ totalRuns: Infinity, totalTokens: Infinity })).toBeNull();
+  });
+
+  it('evidence includes ruleId, sourceFields, observedValue, and threshold', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 3, totalTokens: 0 });
+    expect(result).not.toBeNull();
+    expect(result!.evidence.ruleId).toBe('D6');
+    expect(result!.evidence.sourceFields).toContain('totalRuns');
+    expect(result!.evidence.sourceFields).toContain('totalTokens');
+    expect(result!.evidence.observedValue).toEqual({ totalRuns: 3, totalTokens: 0 });
+    expect(result!.evidence.threshold).toEqual({ totalRunsGreaterThan: 0, totalTokensEquals: 0 });
+  });
+
+  it('affectedJobIds uses job.id when present', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 1, totalTokens: 0, id: 'job-abc' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('job-abc');
+  });
+
+  it('affectedJobIds uses job.name when id not present', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 1, totalTokens: 0, name: 'Test Job' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('Test Job');
+  });
+
+  it('affectedJobIds uses job.title when id and name not present', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 1, totalTokens: 0, title: 'Test Title' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('Test Title');
+  });
+
+  it('affectedJobIds is empty when no identifier fields present', () => {
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: 1, totalTokens: 0 });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toEqual([]);
+  });
+
+  it('does not mutate the input job', () => {
+    const job = { totalRuns: 10, totalTokens: 0, id: 'test-job' } as const;
+    const before = JSON.stringify(job);
+    diagnoseD6ZeroTokenAbnormalRun(job);
+    expect(JSON.stringify(job)).toBe(before);
+  });
+
+  it('handles string numeric values for totals', () => {
+    // The function accepts unknown types but only fires when they parse to the right numeric values
+    const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: '5', totalTokens: 0 });
+    expect(result).toBeNull(); // string '5' is not a finite number, so it won't match
   });
 });
