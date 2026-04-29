@@ -203,6 +203,50 @@ export interface WasteEvidence {
 export type TopWasteJob = FinalizedJob;
 
 // ---------------------------------------------------------------------------
+// Diagnostic rule types (Issue #4 / I5 D-rules)
+// ---------------------------------------------------------------------------
+
+/** D-rule IDs defined in Issue #4 */
+export type DiagnoseRuleId = 'D1' | 'D2' | 'D3' | 'D4' | 'D5' | 'D6' | 'D7';
+
+/** Severity level for a D-rule result */
+export type DiagnoseSeverity = 'critical' | 'warning' | 'info';
+
+/**
+ * Evidence for a single fired D-rule.
+ * Separate from WasteEvidence to keep D-rules and classifyWaste concerns independent.
+ */
+export interface DiagnoseEvidence {
+  /** Rule ID this evidence belongs to */
+  ruleId: DiagnoseRuleId;
+  /** Human-readable explanation of why the rule fired */
+  explanation: string;
+  /** Which input fields were consulted */
+  sourceFields: string[];
+  /** The observed value of the key field */
+  observedValue: unknown;
+  /** Comparison threshold if applicable */
+  threshold?: unknown;
+}
+
+/**
+ * Result of running a single D-rule diagnostic.
+ * Returns null if the rule did not fire for this job.
+ */
+export interface DiagnoseRuleResult {
+  /** Which D-rule fired */
+  ruleId: DiagnoseRuleId;
+  /** Severity of the finding */
+  severity: DiagnoseSeverity;
+  /** Human-readable summary */
+  message: string;
+  /** Job identifiers this finding applies to */
+  affectedJobIds: string[];
+  /** Structured evidence bundle for this rule firing */
+  evidence: DiagnoseEvidence;
+}
+
+// ---------------------------------------------------------------------------
 // Dataset / aggregation types
 // ---------------------------------------------------------------------------
 
