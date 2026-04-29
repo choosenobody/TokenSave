@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-29T08:25:00Z
-**Source**: GitHub `origin/main` at commit `dda118c` (PR #67 I5-D3 premium-model-on-simple-job diagnostic; squash merge)
+**Last updated**: 2026-04-29T10:35:00Z
+**Source**: GitHub `origin/main` at commit `f040f1b` (PR #69 I5-D7 exact-duplicate-active-job diagnostic; squash merge)
 
 ---
 
@@ -15,13 +15,13 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `dda118c` (PR #67 I5-D3 premium-model-on-simple-job diagnostic; squash merge) |
+| Main branch SHA | `f040f1b` (PR #69 I5-D7 exact-duplicate-active-job diagnostic; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
 | src/types.ts | ~335 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
-| src/rules.ts | ~370 lines, pure D-rule functions (diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
+| src/rules.ts | ~480 lines, pure D-rule functions (diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
 | src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/main.ts | ~682 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
@@ -32,7 +32,7 @@
 | tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
-| tests/rules.test.ts | ~460 lines, 58 D-rule tests (19 D3 tests + 16 D4 tests + 10 D5 tests + 13 D6 tests) for DiagnoseRuleResult contract and rule firing conditions |
+| tests/rules.test.ts | ~665 lines, 113 D-rule tests (21 D7 tests + 19 D3 tests + 16 D4 tests + 10 D5 tests + 13 D6 tests) for DiagnoseRuleResult contract and rule firing conditions |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -45,6 +45,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #69 | feat(I5-D7): add diagnoseD7ExactDuplicateActiveJob | 2026-04-29 | `f040f1b` |
 | #67 | feat(I5-D3): add diagnoseD3PremiumModelOnSimpleJob | 2026-04-29 | `dda118c` |
 | #65 | feat(I5-D4): add diagnoseD4AgentTurnCronBurn agent-turn cron burn diagnostic | 2026-04-29 | `46796dc` |
 | #63 | feat(I5-D6): add diagnoseD6ZeroTokenAbnormalRun | 2026-04-29 | `921debe` |
@@ -119,6 +120,7 @@
 | I5-D6 (Diagnose-D6) | D6 zero-token abnormal run diagnostic — diagnoseD6ZeroTokenAbnormalRun pure function; fires when totalRuns > 0 AND totalTokens === 0; 13 new tests (Issue #4 sub-slice) | #63 | CLOSED |
 | I5-D4 (Diagnose-D4) | D4 agent-turn cron burn diagnostic — diagnoseD4AgentTurnCronBurn pure function; fires when agentTurn=true AND scheduleMinutes ∈ (0, 60); reads agentTurn (agentTurn/agent_turn/agent_turn_enabled) and schedule (schedule/interval/frequency/cron) aliases; 16 tests (Issue #4 sub-slice) | #65 | CLOSED |
 | I5-D3 (Diagnose-D3) | D3 premium-model-on-simple-job diagnostic — diagnoseD3PremiumModelOnSimpleJob pure function; fires when isSimpleCheck(job,promptText) AND pricingSource='known-local' AND rateMultiplier >= 5; uses MiniMax M2.7 as v1 bundled-pricing reference model; 19 tests (Issue #4 sub-slice) | #67 | CLOSED |
+| I5-D7 (Diagnose-D7) | D7 exact-duplicate-active-job diagnostic — diagnoseD7ExactDuplicateActiveJob pure function; fires when >= 2 active jobs share same model+schedule+task config; active filter (active/disabled/enabled aliases); duplicate key from normalized model+schedule+task/type/description/prompt; 21 tests (Issue #4 sub-slice) | #69 | CLOSED |
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
@@ -148,11 +150,11 @@
 
 **Project pricing architecture decision (BG/GPT-5.5):** TokenSave uses two pricing layers: (1) TokenSave maintained pricing baseline with version/lastUpdated metadata; (2) User preference/override layer (simple controls: provider/pricing mode, enterprise discount, model price override, reference preference). Users should not be required to manually import pricing files. Any future online pricing update must be explicit/transparent and must not send user export/config/model usage data out of the browser.
 
-**I5-D4 (Diagnose-D4) — CLOSED.** Added diagnoseD4AgentTurnCronBurn pure function in src/rules.ts. Fires when agentTurn=true AND scheduleMinutes ∈ (0, 60). Reads agentTurn aliases (agentTurn/agent_turn/agent_turn_enabled) and schedule aliases (schedule/interval/frequency/cron). 16 tests in tests/rules.test.ts. D1-D7 sub-slice 3 of N. Issue #4 remains OPEN (D1, D2, D7 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D4 (Diagnose-D4) — CLOSED.** Added diagnoseD4AgentTurnCronBurn pure function in src/rules.ts. Fires when agentTurn=true AND scheduleMinutes ∈ (0, 60). Reads agentTurn aliases (agentTurn/agent_turn/agent_turn_enabled) and schedule aliases (schedule/interval/frequency/cron). 16 tests in tests/rules.test.ts. D1-D7 sub-slice 3 of N. Issue #4 remains OPEN (D1, D2 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**I5-D6 (Diagnose-D6) — CLOSED.** Added diagnoseD6ZeroTokenAbnormalRun pure function in src/rules.ts. Fires when totalRuns > 0 AND totalTokens === 0; returns null otherwise. Handles missing/non-finite values gracefully without throwing. 13 tests in tests/rules.test.ts. D1-D7 sub-slice 2 of N. Issue #4 remains OPEN (D1, D2, D7 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D6 (Diagnose-D6) — CLOSED.** Added diagnoseD6ZeroTokenAbnormalRun pure function in src/rules.ts. Fires when totalRuns > 0 AND totalTokens === 0; returns null otherwise. Handles missing/non-finite values gracefully without throwing. 13 tests in tests/rules.test.ts. D1-D7 sub-slice 2 of N. Issue #4 remains OPEN (D1, D2 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 remains OPEN (D1, D2, D7 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 remains OPEN (D1, D2 pending). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
@@ -201,7 +203,9 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**Recommended Next Step**: I5-D3 (Diagnose-D3) is now CLOSED. D3 uses 5× relative multiplier in v1; MiniMax M2.7 is v1 bundled-pricing reference model only. Next priority: D1, D7 (remaining Issue #4 slices), UI module extraction, or no-network evidence/test work (Issue #6). BG to decide.
+**I5-D7 (Diagnose-D7) — CLOSED.** Added diagnoseD7ExactDuplicateActiveJob pure function in src/rules.ts. Fires when >= 2 active jobs share same model+schedule+task/type/description/prompt config. Active filter: active/disabled/enabled aliases; missing active/enabled → active (default). Duplicate key: normalized (trim + lowercase) model + schedule + task concat. 21 tests in tests/rules.test.ts. D1-D7 sub-slice 5 of N. Issue #4 D-rule progress: D3/D4/D5/D6/D7 CLOSED; D1/D2 pending. Issue #4 remains OPEN pending BG decision. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+
+**Recommended Next Step**: I5-D7 is now CLOSED. Issue #4 (I5: D1-D7) is now majority-complete: D3/D4/D5/D6/D7 CLOSED, D1/D2 remain OPEN. Next: D1 and D2 implementation (remaining Issue #4 slices), or Issue #6 evidence bundle expansion, or UI module extraction. BG to decide.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
