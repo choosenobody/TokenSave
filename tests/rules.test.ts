@@ -779,3 +779,308 @@ describe('diagnoseD1FailureLoopDetection', () => {
     expect(JSON.stringify(job)).toBe(before);
   });
 });
+
+// ---------------------------------------------------------------------------
+// D2: Burst Spend Detection
+// ---------------------------------------------------------------------------
+
+import { diagnoseD2BurstSpend } from '../src/rules';
+
+describe('diagnoseD2BurstSpend', () => {
+  // Helper: create a timestamp N minutes from now (ms)
+  const minutesFromNow = (n: number): number =>
+    Date.now() + n * 60 * 1000;
+
+  // Helper: build a run record
+  // MiniMax M2.7 rate = $0.14/Mtok
+  // $0.14/M × 1M = $0.14 per million tokens
+  // 100M tokens = $14, 120M tokens = $16.80, 357M tokens = $49.98 ≈ $50
+  const makeRecord = (overrides: Record<string, unknown>): Record<string, unknown> => ({
+    timestamp: minutesFromNow(0),
+    tokens: 1000,
+    model: 'MiniMax M2.7',
+    jobId: 'job-alpha',
+    ...overrides,
+  });
+
+  // Cost helpers
+  const usd = (tokens: number, rate = 0.14) =>
+    Math.round((tokens / 1_000_000) * rate * 100) / 100;
+
+  describe('fires when', () => {
+    it('3 distinct jobs have total cost exactly $50 (floor exact)', () => {
+      // Total $50+ with MiniMax M2.7 ($0.14/M):
+      // 120M + 120M + 118M = 358M tokens → 358 × $0.14/M = $50.12 ≥ $50
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 118_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).ruleId).toBe('D2');
+      expect((result as any).severity).toBe('info');
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('3 distinct jobs exceed $50 in 60-minute window', () => {
+      // ~120M × 3 = ~360M tokens → ~$50.40
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(20), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.totalWindowCost).toBeGreaterThan(50);
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+  });
+
+  describe('does NOT fire when', () => {
+    it('only 2 distinct jobs are present', () => {
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(20), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }), // same as job-b
+      ];
+      expect(diagnoseD2BurstSpend(records)).toBeNull();
+    });
+
+    it('3 jobs total cost is below $50', () => {
+      // 70M tokens × $0.14/M = $9.80 per job × 3 = $29.40 — below $50
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 70_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 70_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 70_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      expect(diagnoseD2BurstSpend(records)).toBeNull();
+    });
+
+    it('only 1 distinct job repeated many times', () => {
+      const records = [
+        ...[0, 5, 10, 15, 20, 25, 30, 35, 40, 45].map((i) =>
+          makeRecord({ timestamp: minutesFromNow(i), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-single' })
+        ),
+      ];
+      expect(diagnoseD2BurstSpend(records)).toBeNull();
+    });
+  });
+
+  describe('boundary: 60-minute window', () => {
+    it('fires when last record is exactly at 60 minutes', () => {
+      // t=0, t=30, t=60 all within 60-min window
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(30), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(60), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.windowDurationMinutes).toBe(60);
+    });
+
+    it('does NOT fire when records span more than 60 minutes', () => {
+      // t=0: job-a, t=61: job-b, t=62: job-c
+      // Window from t=0: only job-a (< 3 distinct)
+      // Window from t=61: job-b + job-c = 2 distinct (< 3)
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),   tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(61), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(62), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      expect(diagnoseD2BurstSpend(records)).toBeNull();
+    });
+  });
+
+  describe('skips invalid records', () => {
+    it('skips records with missing/unparseable timestamp', () => {
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+        makeRecord({ timestamp: 'not-a-date', tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-d' }),
+        makeRecord({ timestamp: NaN,           tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-e' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('skips records with missing/unparseable tokens', () => {
+      // 3 valid jobs × 200M tokens × $0.14/M = $28 × 3 = $84 ≥ $50
+      // job-c (tokens=null), job-d (tokens=Infinity), job-e (tokens=-100) all skipped
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 200_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 200_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 200_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+        makeRecord({ timestamp: minutesFromNow(15), tokens: null,       model: 'MiniMax M2.7', jobId: 'job-d' }),
+        makeRecord({ timestamp: minutesFromNow(20), tokens: Infinity,  model: 'MiniMax M2.7', jobId: 'job-e' }),
+        makeRecord({ timestamp: minutesFromNow(25), tokens: -100,      model: 'MiniMax M2.7', jobId: 'job-f' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('skips records with missing model', () => {
+      // 3 valid jobs × 180M tokens × $0.14/M = $25.20 each = $75.60 ≥ $50
+      // job-c has model='', gets skipped but doesn't reduce distinct count
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 180_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 180_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 180_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+        makeRecord({ timestamp: minutesFromNow(15), tokens: 180_000_000, model: '',            jobId: 'job-d' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('skips records with no parseable job identity', () => {
+      // 3 valid jobs × 180M tokens × $0.14/M = $25.20 each = $75.60 ≥ $50
+      // job-c has jobId=null, gets skipped but doesn't reduce distinct count
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 180_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 180_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 180_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+        makeRecord({ timestamp: minutesFromNow(15), tokens: 180_000_000, model: 'MiniMax M2.7', jobId: null }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+  });
+
+  describe('alias support', () => {
+    it('supports created_at, startedAt, time as timestamp aliases', () => {
+      const records = [
+        { created_at: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' },
+        { startedAt:  minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' },
+        { time:       minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' },
+      ] as Record<string, unknown>[];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('supports total_tokens, token_count, usage.total_tokens as token aliases', () => {
+      const records = [
+        { timestamp: minutesFromNow(0),  total_tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' },
+        { timestamp: minutesFromNow(5),  token_count:  120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' },
+        { timestamp: minutesFromNow(10), usage: { total_tokens: 120_000_000 }, model: 'MiniMax M2.7', jobId: 'job-c' },
+      ] as Record<string, unknown>[];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('supports model_name and modelName as model aliases', () => {
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7',         jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 120_000_000, model_name: 'MiniMax M2.7',   jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, modelName: 'MiniMax M2.7',   jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(3);
+    });
+
+    it('supports job_id, job.name, jobName, job_name, name, title as job identity aliases', () => {
+      // 6 valid jobs × 120M tokens × $0.14/M = $16.80 each = $100.80 ≥ $50
+      // job: { name: 'job-beta' } uses its own jobObj?.name path correctly
+      // Each record built with explicit job field override (no base job_id conflict).
+      const records = [
+        { timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', job_id:   'job-alpha' },
+        { timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', job:      { name: 'job-beta' } },
+        { timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobName:  'job-gamma' },
+        { timestamp: minutesFromNow(15), tokens: 120_000_000, model: 'MiniMax M2.7', job_name: 'job-delta' },
+        { timestamp: minutesFromNow(20), tokens: 120_000_000, model: 'MiniMax M2.7', name:     'job-epsilon' },
+        { timestamp: minutesFromNow(25), tokens: 120_000_000, model: 'MiniMax M2.7', title:    'job-zeta' },
+      ];
+      const result = diagnoseD2BurstSpend(records as any);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.observedValue.distinctJobCount).toBe(6);
+    });
+  });
+
+  describe('conservative-estimate models', () => {
+    it('participate in burst detection and are labeled as conservative-estimate', () => {
+      // MiniMax M2.7 ($0.14/M known-local): 120M tokens = $16.80
+      // unknown-model (conservative-estimate at $15/M): 120M tokens = $1,800
+      // But to test conservative-estimate labeling, use:
+      // job-a: known-local, $16.80
+      // job-b: unknown-model, $1,800 (conservative-estimate)
+      // job-c: known-local, $16.80
+      // Total = ~$1,834 ≥ $50, 3 distinct jobs
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7',    jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'unknown-model',  jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7',   jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      const breakdown = (result as any).evidence.observedValue.pricingSourceBreakdown;
+      expect(breakdown.knownLocal).toBeGreaterThan(0);
+      expect(breakdown.conservativeEstimate).toBeGreaterThan(0);
+      const affectedJobs: any[] = (result as any).evidence.observedValue.affectedJobs;
+      const jobB = affectedJobs.find((j: any) => j.jobKey === 'job-b');
+      expect(jobB).toBeDefined();
+      expect(jobB.pricingSource).toBe('conservative-estimate');
+    });
+  });
+
+  describe('message and evidence shape', () => {
+    it('message says "detected" and "review" — not "waste"', () => {
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).message.toLowerCase()).toMatch(/detected|review/);
+      expect((result as any).message.toLowerCase()).not.toMatch(/waste/);
+    });
+
+    it('evidence includes ruleId, sourceFields, observedValue, threshold', () => {
+      const records = [
+        makeRecord({ timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' }),
+        makeRecord({ timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' }),
+        makeRecord({ timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' }),
+      ];
+      const result = diagnoseD2BurstSpend(records);
+      expect(result).not.toBeNull();
+      expect((result as any).evidence.ruleId).toBe('D2');
+      expect(Array.isArray((result as any).evidence.sourceFields)).toBe(true);
+      expect((result as any).evidence.sourceFields.length).toBeGreaterThan(0);
+      expect((result as any).evidence.observedValue.windowDurationMinutes).toBe(60);
+      expect((result as any).evidence.threshold.minDistinctJobs).toBe(3);
+      expect((result as any).evidence.threshold.absoluteFloorUsd).toBe(50);
+    });
+
+    it('does not mutate the input records array', () => {
+      const records = [
+        { timestamp: minutesFromNow(0),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-a' },
+        { timestamp: minutesFromNow(5),  tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-b' },
+        { timestamp: minutesFromNow(10), tokens: 120_000_000, model: 'MiniMax M2.7', jobId: 'job-c' },
+      ];
+      const frozen = records.map((r) => Object.freeze(r));
+      const before = JSON.stringify(frozen);
+      diagnoseD2BurstSpend(frozen);
+      expect(JSON.stringify(frozen)).toBe(before);
+    });
+
+    it('returns null for empty array', () => {
+      expect(diagnoseD2BurstSpend([])).toBeNull();
+    });
+
+    it('returns null when all records are skipped', () => {
+      const records = [
+        { timestamp: 'invalid', tokens: null, model: '', jobId: null },
+        { timestamp: undefined, tokens: NaN, model: '   ', jobId: undefined },
+      ] as Record<string, unknown>[];
+      expect(diagnoseD2BurstSpend(records)).toBeNull();
+    });
+  });
+});

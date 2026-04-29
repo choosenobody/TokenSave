@@ -1,5 +1,6 @@
 import { detectCostRate } from './pricing';
 import { parseScheduleMinutes, readBoolean, isSimpleCheck } from './domain';
+import { stringify } from './utils';
 import type { DiagnoseRuleResult, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence } from './types';
 
 // Re-export for consumers
@@ -535,6 +536,225 @@ export function diagnoseD7ExactDuplicateActiveJob(jobs: {
       },
       threshold: {
         minDuplicateCount: 2,
+      },
+    },
+  };
+}
+
+// -----------------------------------------------------------------------------
+// D2: Burst Spend Detection
+// -----------------------------------------------------------------------------
+
+
+/**
+ * D2: Burst spend concentration diagnostic.
+ *
+ * Scans all run-like records for the strongest rolling 60-minute window
+ * where spend is concentrated across >= 3 distinct jobs.
+ *
+ * This is a REVIEW signal, not a waste proof. Burst spend may reflect normal
+ * batch work, launch activity, team peak usage, or intentional scheduling.
+ *
+ * Key design decisions:
+ * - Reads raw RunRecord[] (not FinalizedJob[]) so it can access timestamp/model
+ *   fields that get aggregated away in finalizeStat().
+ * - Uses detectCostRate() for per-record cost estimation.
+ * - Skips records missing parseable timestamp, model, positive tokens, or job id.
+ * - Labels conservative-estimate models explicitly in evidence.
+ * - Does NOT claim potential savings; D2 is purely informational.
+ * - Severity is 'info', not 'warning' or 'critical'.
+ *
+ * @param records - array of run-like records with timestamp, model, token, job-identity fields
+ * @returns DiagnoseRuleResult if a burst window is found, null otherwise
+ */
+export function diagnoseD2BurstSpend(
+  records: Record<string, unknown>[]
+): DiagnoseRuleResult | null {
+  if (!Array.isArray(records) || records.length === 0) {
+    return null;
+  }
+
+  // --- Step 1: Parse and validate each record ---
+  type ParsedRecord = {
+    timestamp: number;      // ms since epoch
+    model: string;          // normalised model name or ''
+    totalTokens: number;    // positive finite token count
+    jobKey: string;         // stable job identity string
+    pricingSource: 'known-local' | 'conservative-estimate';
+  };
+
+  const parsed: ParsedRecord[] = [];
+  for (const rec of records) {
+    // --- Timestamp ---
+    const tsRaw =
+      rec.timestamp ??
+      rec.createdAt ??
+      rec.created_at ??
+      rec.startedAt ??
+      rec.started_at ??
+      rec.time;
+    if (tsRaw == null) continue;
+    const ts = Number(new Date(tsRaw).getTime());
+    if (!Number.isFinite(ts) || ts <= 0) continue;
+
+    // --- Token count ---
+    const tokensRaw =
+      rec.tokens ??
+      rec.total_tokens ??
+      rec.token_count ??
+      (rec.usage as Record<string, unknown>)?.total_tokens ??
+      (rec.usage as Record<string, unknown>)?.tokens ??
+      (rec.metrics as Record<string, unknown>)?.tokens;
+    if (tokensRaw == null) continue;
+    const tokens = Number(tokensRaw);
+    if (!Number.isFinite(tokens) || tokens <= 0) continue;
+
+    // --- Model ---
+    const modelRaw = String(
+      rec.model ?? rec.model_name ?? rec.modelName ?? ''
+    );
+    if (!modelRaw) continue;
+    const costInfo = detectCostRate(modelRaw);
+    const pricingSource: 'known-local' | 'conservative-estimate' =
+      costInfo.pricingSource === 'known-local'
+        ? 'known-local'
+        : 'conservative-estimate';
+
+    // --- Job identity ---
+    // Handle rec.job as an object { id, name } separately from top-level string fields.
+    // Using stringify() to safely convert any value to string before trimming.
+    const jobObj = rec.job as Record<string, unknown> | null | undefined;
+    const jobKey = (
+      stringify(rec.jobId) ||
+      stringify(rec.job_id) ||
+      stringify(jobObj?.id) ||
+      stringify(jobObj?.name) ||
+      stringify(rec.jobName) ||
+      stringify(rec.job_name) ||
+      stringify(rec.name) ||
+      stringify(rec.title) ||
+      stringify(rec.job) ||         // rec.job as a plain string (not an object)
+      ''
+    ).trim();
+    if (!jobKey || jobKey === '[object Object]') continue;
+
+    parsed.push({ timestamp: ts, model: modelRaw, totalTokens: tokens, jobKey, pricingSource });
+  }
+
+  if (parsed.length === 0) {
+    return null;
+  }
+
+  // --- Step 2: Sort by timestamp ---
+  parsed.sort((a, b) => a.timestamp - b.timestamp);
+
+  // --- Step 3: Rolling 60-minute window scan ---
+  // For each record as window start, find the strongest (highest cost) window.
+  // We track the best window seen across all starting points.
+  const WINDOW_MS = 60 * 60 * 1000; // 60 minutes in ms
+  const MIN_DISTINCT_JOBS = 3;
+  const ABSOLUTE_FLOOR_USD = 50;
+
+  type WindowAccum = {
+    startIdx: number;
+    endIdx: number;     // inclusive
+    totalCost: number;
+    distinctJobs: Set<string>;
+    knownLocalCost: number;
+    conservativeCost: number;
+  };
+
+  let best: WindowAccum | null = null;
+
+  for (let i = 0; i < parsed.length; i++) {
+    const windowStartTs = parsed[i].timestamp;
+    const windowEndTs = windowStartTs + WINDOW_MS;
+
+    let totalCost = 0;
+    let knownLocalCost = 0;
+    let conservativeCost = 0;
+    const distinctJobs = new Set<string>();
+
+    for (let j = i; j < parsed.length; j++) {
+      if (parsed[j].timestamp > windowEndTs) break;
+
+      const rateInfo = detectCostRate(parsed[j].model);
+      const recordCost = (parsed[j].totalTokens / 1_000_000) * rateInfo.rate;
+      totalCost += recordCost;
+      if (parsed[j].pricingSource === 'known-local') {
+        knownLocalCost += recordCost;
+      } else {
+        conservativeCost += recordCost;
+      }
+      distinctJobs.add(parsed[j].jobKey);
+
+      // Track best window (highest total cost)
+      if (
+        distinctJobs.size >= MIN_DISTINCT_JOBS &&
+        totalCost >= ABSOLUTE_FLOOR_USD &&
+        (best === null || totalCost > best.totalCost)
+      ) {
+        best = { startIdx: i, endIdx: j, totalCost, distinctJobs: new Set(distinctJobs), knownLocalCost, conservativeCost };
+      }
+    }
+  }
+
+  if (best === null) {
+    return null;
+  }
+
+  // --- Step 4: Build affectedJobs list from window records ---
+  const windowRecords = parsed.slice(best.startIdx, best.endIdx + 1);
+  const jobKeys = Array.from(best.distinctJobs);
+  const affectedJobs = jobKeys.map((key) => {
+    const recs = windowRecords.filter((r) => r.jobKey === key);
+    const jobCost = recs.reduce((sum, r) => {
+      const ri = detectCostRate(r.model);
+      return sum + (r.totalTokens / 1_000_000) * ri.rate;
+    }, 0);
+    const { pricingSource } = recs[0];
+    return { jobKey: key, totalCost: jobCost, pricingSource };
+  });
+
+  // --- Step 5: Build explanation ---
+  const windowStart = new Date(parsed[best.startIdx].timestamp).toISOString();
+  const windowEnd = new Date(parsed[best.endIdx].timestamp).toISOString();
+  const ruleId: DiagnoseRuleId = 'D2';
+
+  const explanation =
+    `${best.distinctJobs.size} distinct jobs spent $${best.totalCost.toFixed(2)} ` +
+    `in a 60-minute window (${windowStart} – ${windowEnd}). ` +
+    `This represents a concentrated spend spike that warrants review ` +
+    `to confirm it was intended.`;
+
+  return {
+    ruleId,
+    severity: 'info',
+    message: `Spend concentration detected: ${best.distinctJobs.size} jobs spent $${best.totalCost.toFixed(2)} in 60 minutes. Review this burst to confirm it was intended.`,
+    affectedJobIds: jobKeys,
+    evidence: {
+      ruleId,
+      explanation,
+      sourceFields: ['timestamp', 'createdAt', 'created_at', 'startedAt', 'started_at', 'time',
+        'tokens', 'total_tokens', 'token_count', 'usage.total_tokens', 'usage.tokens', 'metrics.tokens',
+        'model', 'model_name', 'modelName',
+        'jobId', 'job_id', 'job.id', 'job.name', 'jobName', 'job_name', 'name', 'title'],
+      observedValue: {
+        windowStart,
+        windowEnd,
+        windowDurationMinutes: 60,
+        totalWindowCost: Math.round(best.totalCost * 100) / 100,
+        distinctJobCount: best.distinctJobs.size,
+        affectedJobs,
+        pricingSourceBreakdown: {
+          knownLocal: Math.round(best.knownLocalCost * 100) / 100,
+          conservativeEstimate: Math.round(best.conservativeCost * 100) / 100,
+        },
+      },
+      threshold: {
+        windowMinutes: 60,
+        minDistinctJobs: MIN_DISTINCT_JOBS,
+        absoluteFloorUsd: ABSOLUTE_FLOOR_USD,
       },
     },
   };
