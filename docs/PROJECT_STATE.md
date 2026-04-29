@@ -207,7 +207,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D7 (Diagnose-D7) — CLOSED.** Added diagnoseD7ExactDuplicateActiveJob pure function in src/rules.ts. Fires when >= 2 active jobs share same model+schedule+task/type/description/prompt config. Active filter: active/disabled/enabled aliases; missing active/enabled → active (default). Duplicate key: normalized (trim + lowercase) model + schedule + task concat. 21 tests in tests/rules.test.ts. D1-D7 sub-slice 5 of N. Issue #4 D-rule progress: D1/D3/D4/D5/D6/D7 CLOSED; D2 pending. Issue #4 remains OPEN pending D2 and BG decision. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**Recommended Next Step**: I5-D7 is now CLOSED. Issue #4 (I5: D1-D7) is now majority-complete: D1/D3/D4/D5/D6/D7 CLOSED, D2 remains OPEN. Next: D2 implementation (last remaining Issue #4 slice), or Issue #6 evidence bundle expansion, or UI module extraction. BG to decide.
+**Recommended Next Step**: I5-D1 is now CLOSED. Issue #4 D-rule progress: D1/D3/D4/D5/D6/D7 CLOSED; D2 remains pending. Next: D2 plan-only before implementation, or Issue #6 evidence bundle expansion, or UI module extraction. BG to decide.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
