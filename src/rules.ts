@@ -1,5 +1,5 @@
 import { detectCostRate } from './pricing';
-import { parseScheduleMinutes, readBoolean } from './domain';
+import { parseScheduleMinutes, readBoolean, isSimpleCheck } from './domain';
 import type { DiagnoseRuleResult, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence } from './types';
 
 // Re-export for consumers
@@ -117,6 +117,90 @@ export function diagnoseD6ZeroTokenAbnormalRun(job: {
       threshold: {
         totalRunsGreaterThan: 0,
         totalTokensEquals: 0,
+      },
+    },
+  };
+}
+
+/**
+ * D3: Premium model on simple job diagnostic.
+ *
+ * Fires when isSimpleCheck === true AND the model is known-local (in pricing database)
+ * AND the model's rate exceeds the premium threshold: referenceRate * premiumMultiplier.
+ *
+ * referenceRate = detectCostRate('MiniMax M2.7').rate = 0.14
+ * premiumMultiplier = 10 (constant)
+ * threshold = 1.40
+ *
+ * Using an expensive model (e.g., Claude Opus at 15) for a simple check job is wasteful.
+ *
+ * @param job - a job-like object with model, isSimpleCheck, id, name, title fields
+ * @returns DiagnoseRuleResult if fired, null if the rule does not apply
+ */
+export function diagnoseD3PremiumModelOnSimpleJob(job: {
+  model?: unknown;
+  isSimpleCheck?: unknown;
+  id?: unknown;
+  name?: unknown;
+  title?: unknown;
+}): DiagnoseRuleResult | null {
+  // isSimpleCheck must be exactly true
+  if (job.isSimpleCheck !== true) {
+    return null;
+  }
+
+  // Model must be a finite string
+  const model =
+    typeof job.model === 'string' && job.model.length > 0 ? job.model : null;
+
+  if (model === null) {
+    return null;
+  }
+
+  const costInfo = detectCostRate(model);
+
+  // Model must be known-local (D5 handles unknown models)
+  if (costInfo.pricingSource !== 'known-local') {
+    return null;
+  }
+
+  // Constants
+  const REFERENCE_RATE = 0.14; // MiniMax M2.7 rate
+  const PREMIUM_MULTIPLIER = 10;
+  const THRESHOLD = 1.40; // referenceRate * premiumMultiplier = 0.14 * 10
+
+  // Model rate must exceed threshold
+  if (!(costInfo.rate > THRESHOLD)) {
+    return null;
+  }
+
+  // Determine best available stable identifier for affectedJobIds
+  const affectedJobIds: string[] = [];
+  if (job.id != null) affectedJobIds.push(String(job.id));
+  else if (job.name != null) affectedJobIds.push(String(job.name));
+  else if (job.title != null) affectedJobIds.push(String(job.title));
+
+  const ruleId: DiagnoseRuleId = 'D3';
+
+  return {
+    ruleId,
+    severity: 'warning',
+    message: `Model "${model}" (rate ${costInfo.rate}) is being used for a simple check job but exceeds the premium threshold (${THRESHOLD}). Consider a lighter, cheaper model for simple checks.`,
+    affectedJobIds,
+    evidence: {
+      ruleId,
+      explanation: `Model "${model}" with rate ${costInfo.rate} is used on a simple check job, but the premium threshold is ${THRESHOLD} (reference rate ${REFERENCE_RATE} × multiplier ${PREMIUM_MULTIPLIER}). Using premium models on simple jobs is wasteful.`,
+      sourceFields: ['model', 'isSimpleCheck', 'modelRate', 'referenceRate', 'premiumMultiplier'],
+      observedValue: {
+        model,
+        isSimpleCheck: true,
+        modelRate: costInfo.rate,
+        referenceRate: REFERENCE_RATE,
+        premiumMultiplier: PREMIUM_MULTIPLIER,
+      },
+      threshold: {
+        premiumMultiplier: PREMIUM_MULTIPLIER,
+        minFiringRate: THRESHOLD,
       },
     },
   };

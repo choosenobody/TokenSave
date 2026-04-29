@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun } from '../src/rules';
+import { diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun } from '../src/rules';
 
 describe('diagnoseD5UnknownModelPricing', () => {
   it('fires when model is unknown (pricingSource === conservative-estimate)', () => {
@@ -251,6 +251,139 @@ describe('diagnoseD4AgentTurnCronBurn', () => {
     const job = { agentTurn: true, schedule: '30 min', id: 'test-job' } as const;
     const before = JSON.stringify(job);
     diagnoseD4AgentTurnCronBurn(job);
+    expect(JSON.stringify(job)).toBe(before);
+  });
+});
+
+describe('diagnoseD3PremiumModelOnSimpleJob', () => {
+  // --- Firing cases ---
+
+  it('fires when Claude Opus + isSimpleCheck=true', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D3');
+    expect(result!.severity).toBe('warning');
+    expect(result!.evidence.ruleId).toBe('D3');
+  });
+
+  it('fires when GPT-5-codex + isSimpleCheck=true', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'GPT-5-codex', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D3');
+    expect(result!.severity).toBe('warning');
+  });
+
+  it('fires when GPT-4o + isSimpleCheck=true', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'GPT-4o', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D3');
+    expect(result!.severity).toBe('warning');
+  });
+
+  it('fires when Claude Sonnet + isSimpleCheck=true', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Sonnet', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D3');
+    expect(result!.severity).toBe('warning');
+  });
+
+  // --- Non-firing cases: rate below threshold ---
+
+  it('does NOT fire for MiniMax M2.7 + isSimpleCheck=true (rate 0.14 <= 1.40)', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'MiniMax M2.7', isSimpleCheck: true });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire for MiniMax M2.5 + isSimpleCheck=true (rate 0.12 <= 1.40)', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'MiniMax M2.5', isSimpleCheck: true });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire for DeepSeek Chat + isSimpleCheck=true (rate 0.28 <= 1.40)', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'DeepSeek Chat', isSimpleCheck: true });
+    expect(result).toBeNull();
+  });
+
+  // --- Non-firing cases: isSimpleCheck not true ---
+
+  it('does NOT fire when isSimpleCheck=false', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: false });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when isSimpleCheck=undefined', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: undefined });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when isSimpleCheck=NaN', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: NaN });
+    expect(result).toBeNull();
+  });
+
+  // --- Non-firing cases: unknown model (D5 territory) ---
+
+  it('does NOT fire for unknown model + isSimpleCheck=true (D5 territory)', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'completely-unknown-model-xyz', isSimpleCheck: true });
+    expect(result).toBeNull();
+  });
+
+  // --- Non-firing cases: model missing ---
+
+  it('does NOT fire when model is missing + isSimpleCheck=true', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ isSimpleCheck: true });
+    expect(result).toBeNull();
+  });
+
+  // --- Structural tests ---
+
+  it('evidence.observedValue includes modelRate, referenceRate (0.14), premiumMultiplier (10)', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.modelRate).toBe(15);
+    expect(ov.referenceRate).toBe(0.14);
+    expect(ov.premiumMultiplier).toBe(10);
+    expect(ov.model).toBe('Claude Opus');
+    expect(ov.isSimpleCheck).toBe(true);
+  });
+
+  it('evidence.threshold includes premiumMultiplier and minFiringRate', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    const th = result!.evidence.threshold as Record<string, unknown>;
+    expect(th.premiumMultiplier).toBe(10);
+    expect(th.minFiringRate).toBe(1.40);
+  });
+
+  it('affectedJobIds uses id when present', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true, id: 'job-abc' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('job-abc');
+  });
+
+  it('affectedJobIds uses name when id not present', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true, name: 'My Job' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('My Job');
+  });
+
+  it('affectedJobIds uses title when id and name not present', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true, title: 'My Title' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('My Title');
+  });
+
+  it('affectedJobIds is empty when no identifier fields present', () => {
+    const result = diagnoseD3PremiumModelOnSimpleJob({ model: 'Claude Opus', isSimpleCheck: true });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toEqual([]);
+  });
+
+  it('does not mutate the input job', () => {
+    const job = { model: 'Claude Opus', isSimpleCheck: true, id: 'test-job' } as const;
+    const before = JSON.stringify(job);
+    diagnoseD3PremiumModelOnSimpleJob(job);
     expect(JSON.stringify(job)).toBe(before);
   });
 });
