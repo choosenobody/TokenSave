@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun } from '../src/rules';
+import { diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun } from '../src/rules';
 
 describe('diagnoseD5UnknownModelPricing', () => {
   it('fires when model is unknown (pricingSource === conservative-estimate)', () => {
@@ -140,5 +140,90 @@ describe('diagnoseD6ZeroTokenAbnormalRun', () => {
     // The function accepts unknown types but only fires when they parse to the right numeric values
     const result = diagnoseD6ZeroTokenAbnormalRun({ totalRuns: '5', totalTokens: 0 });
     expect(result).toBeNull(); // string '5' is not a finite number, so it won't match
+  });
+});
+
+describe('diagnoseD4AgentTurnCronBurn', () => {
+  it('fires when agentTurn=true and scheduleMinutes=30 (< 60)', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: '30 min' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D4');
+    expect(result!.severity).toBe('warning');
+    expect(result!.evidence.ruleId).toBe('D4');
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.scheduleMinutes).toBe(30);
+    expect(ov.agentTurn).toBe(true);
+    expect(result!.evidence.threshold).toEqual({ agentTurnEquals: true, scheduleMinutesLessThan: 60 });
+  });
+
+  it('fires when agent_turn=true and scheduleMinutes=30', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agent_turn: true, schedule: 'every 30 min' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D4');
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.agentTurn).toBe(true);
+  });
+
+  it('fires when agent_turn_enabled=true and scheduleMinutes=30', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agent_turn_enabled: true, schedule: '30m' });
+    expect(result).not.toBeNull();
+    expect(result!.ruleId).toBe('D4');
+    const ov = result!.evidence.observedValue as Record<string, unknown>;
+    expect(ov.agentTurn).toBe(true);
+  });
+
+  it('does NOT fire when agentTurn=false', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: false, schedule: '30 min' });
+    expect(result).toBeNull();
+  });
+
+  it('does NOT fire when scheduleMinutes >= 60 (e.g., 60, 120, 1440)', () => {
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: '60 min' })).toBeNull();
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: '120 min' })).toBeNull();
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: 'daily' })).toBeNull();
+  });
+
+  it('does NOT fire when scheduleMinutes <= 0', () => {
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: '0 min' })).toBeNull();
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: '-30 min' })).toBeNull();
+  });
+
+  it('does NOT fire when schedule is missing', () => {
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true })).toBeNull();
+  });
+
+  it('does NOT fire when schedule is unparseable', () => {
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: 'not-a-valid-schedule' })).toBeNull();
+  });
+
+  it('handles non-finite scheduleMinutes (NaN, Infinity) gracefully', () => {
+    // parseScheduleMinutes returns null for unparseable strings, which leads to null return
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: NaN })).toBeNull();
+    expect(diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: Infinity })).toBeNull();
+  });
+
+  it('affectedJobIds uses id for affectedJobIds', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: 'every 30 minutes', id: 'job-123' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('job-123');
+  });
+
+  it('affectedJobIds uses name fallback when no id', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: 'every 30 minutes', name: 'My Job' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('My Job');
+  });
+
+  it('affectedJobIds uses title fallback when no id/name', () => {
+    const result = diagnoseD4AgentTurnCronBurn({ agentTurn: true, schedule: 'every 30 minutes', title: 'My Title' });
+    expect(result).not.toBeNull();
+    expect(result!.affectedJobIds).toContain('My Title');
+  });
+
+  it('does not mutate the input job', () => {
+    const job = { agentTurn: true, schedule: '30 min', id: 'test-job' } as const;
+    const before = JSON.stringify(job);
+    diagnoseD4AgentTurnCronBurn(job);
+    expect(JSON.stringify(job)).toBe(before);
   });
 });
