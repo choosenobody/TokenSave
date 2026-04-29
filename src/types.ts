@@ -117,6 +117,7 @@ export interface FinalizedJob extends JobStat {
   issues: WasteCategory[];    // all detected waste categories
   badge: WasteCategory;       // primary (highest-severity) waste category
   fixSuggestion: string;
+  evidence: WasteEvidence[];  // structured explanation for each fired category
 }
 
 /**
@@ -180,6 +181,23 @@ export type WasteCategory =
   | 'PREMIUM_MODEL_WASTE'
   | 'WARNING'
   | 'OK';
+
+/**
+ * Structured evidence explaining why a WasteCategory was assigned.
+ * Attached to each category in a FinalizedJob's evidence array.
+ */
+export interface WasteEvidence {
+  /** Which waste category this evidence explains */
+  ruleId: WasteCategory;
+  /** Human-readable explanation of why this category fired */
+  explanation: string;
+  /** Which input fields were consulted for this determination */
+  sourceFields: string[];
+  /** The observed value of the key field */
+  observedValue: unknown;
+  /** The threshold used for comparison (if applicable) */
+  threshold?: unknown;
+}
 
 /** Summary row in the "Top Waste" panel.  Same shape as FinalizedJob. */
 export type TopWasteJob = FinalizedJob;

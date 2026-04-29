@@ -82,13 +82,38 @@ export function readBoolean(value) {
   return Boolean(value);
 }
 
-export function classifyWaste(job, errorRate, scheduleMinutes) {
-  const issues = [];
+export function buildFixSuggestion(badge, scheduleMinutes) {
+  if (badge === "CRITICAL") {
+    return "Reduce frequency (>= 30 min) or disable agent-turn mode.";
+  }
+  if (badge === "ERROR_WASTE") {
+    return "Check failed run logs for the error and fix the root cause.";
+  }
+  if (badge === "PREMIUM_MODEL_WASTE") {
+    return "Switch to a cheaper model like MiniMax M2.7 for this task type.";
+  }
+  if (badge === "WARNING") {
+    return "Consider slowing down the schedule to save tokens.";
+  }
+  return "Running within acceptable parameters.";
+}
+
+/**
+ * Shared private helper — computes all boolean waste signals in one pass.
+ * Used by both classifyWaste and buildWasteEvidence to stay in sync.
+ */
+function computeWasteSignals(job, scheduleMinutes) {
   const agentTurn = readBoolean(job.raw.agentTurn ?? job.raw.agent_turn ?? job.raw.agent_turn_enabled ?? false);
   const execType = isExecType(job.raw, job.promptText);
   const simpleCheck = isSimpleCheck(job.raw, job.promptText);
   const premiumModel = /opus|sonnet/i.test(job.model);
   const highFrequencyExec = execType && scheduleMinutes != null && scheduleMinutes < 60;
+  return { agentTurn, execType, simpleCheck, premiumModel, highFrequencyExec };
+}
+
+export function classifyWaste(job, errorRate, scheduleMinutes) {
+  const { agentTurn, execType, simpleCheck, premiumModel, highFrequencyExec } = computeWasteSignals(job, scheduleMinutes);
+  const issues = [];
 
   if (agentTurn && execType && scheduleMinutes != null && scheduleMinutes < 30) {
     issues.push("CRITICAL");
@@ -109,20 +134,70 @@ export function classifyWaste(job, errorRate, scheduleMinutes) {
   return issues.length ? issues : ["OK"];
 }
 
-export function buildFixSuggestion(badge, scheduleMinutes) {
-  if (badge === "CRITICAL") {
-    return "Reduce frequency (>= 30 min) or disable agent-turn mode.";
+/**
+ * Build structured evidence explaining why each waste category was assigned.
+ * Mirrors classifyWaste logic exactly — both use computeWasteSignals internally.
+ */
+export function buildWasteEvidence(job, errorRate, scheduleMinutes) {
+  const { agentTurn, execType, simpleCheck, premiumModel, highFrequencyExec } = computeWasteSignals(job, scheduleMinutes);
+  const evidence = [];
+
+  // CRITICAL: agentTurn && execType && scheduleMinutes < 30
+  if (agentTurn && execType && scheduleMinutes != null && scheduleMinutes < 30) {
+    evidence.push({
+      ruleId: "CRITICAL",
+      explanation: "CRITICAL: Agent-turn mode combined with an exec/command task running more than twice per hour is extremely wasteful.",
+      sourceFields: ["agentTurn", "execType", "scheduleMinutes"],
+      observedValue: scheduleMinutes,
+      threshold: 30
+    });
   }
-  if (badge === "ERROR_WASTE") {
-    return "Check failed run logs for the error and fix the root cause.";
+
+  // LLM_AGENT_CRON: agentTurn && scheduleMinutes != null (suppressed by CRITICAL)
+  if (agentTurn && scheduleMinutes != null && !evidence.some(e => e.ruleId === "CRITICAL")) {
+    evidence.push({
+      ruleId: "LLM_AGENT_CRON",
+      explanation: "Agent-turn mode on a frequent schedule wastes tokens on cron-like work that does not need an LLM agent.",
+      sourceFields: ["agentTurn", "scheduleMinutes"],
+      observedValue: scheduleMinutes,
+      threshold: null
+    });
   }
-  if (badge === "PREMIUM_MODEL_WASTE") {
-    return "Switch to a cheaper model like MiniMax M2.7 for this task type.";
+
+  // ERROR_WASTE: errorRate > 0.1
+  if (errorRate > 0.1) {
+    evidence.push({
+      ruleId: "ERROR_WASTE",
+      explanation: "High error rate indicates the job is failing frequently, wasting tokens on failed runs.",
+      sourceFields: ["errorRate"],
+      observedValue: errorRate,
+      threshold: 0.1
+    });
   }
-  if (badge === "WARNING") {
-    return "Consider slowing down the schedule to save tokens.";
+
+  // PREMIUM_MODEL_WASTE: premiumModel && simpleCheck
+  if (premiumModel && simpleCheck) {
+    evidence.push({
+      ruleId: "PREMIUM_MODEL_WASTE",
+      explanation: "A premium model is being used for a simple monitoring/check task that does not need advanced reasoning.",
+      sourceFields: ["model", "simpleCheck"],
+      observedValue: job.model,
+      threshold: null
+    });
   }
-  return "Running within acceptable parameters.";
+
+  // WARNING: highFrequencyExec (suppressed by CRITICAL)
+  if (highFrequencyExec && !evidence.some(e => e.ruleId === "CRITICAL")) {
+    evidence.push({
+      ruleId: "WARNING",
+      explanation: "Exec/command task running more than once per hour; consider a slower schedule to reduce waste.",
+      sourceFields: ["execType", "scheduleMinutes"],
+      observedValue: scheduleMinutes,
+      threshold: 60
+    });
+  }
+
+  return evidence;
 }
 
 export function normalizeJobs(jobs) {
