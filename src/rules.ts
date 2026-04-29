@@ -317,12 +317,6 @@ export function diagnoseD4AgentTurnCronBurn(job: {
 }
 
 /**
- * D7: Exact duplicate active job diagnostic.
- *
- * Fires when two or more active jobs share the same effective configuration
- * (model + schedule + task/prompt/type/description).
- *
-/**
  * D1: Aggregate failure loop detection.
  *
  * Detects jobs with a high failure rate across multiple runs,
@@ -375,7 +369,7 @@ export function diagnoseD1FailureLoopDetection(job: {
       ruleId: 'D1',
       explanation: `Aggregate failure ratio is ${(errorRate * 100).toFixed(1)}% (${errorRuns} errors / ${totalRuns} total runs). Threshold: >= 80% error rate with at least 3 runs.`,
       sourceFields: ['totalRuns', 'errorRuns', 'errorRate'],
-      observedValue: { totalRuns, errorRuns, errorRate: Math.round(errorRate * 1000) / 1000 },
+      observedValue: { totalRuns, errorRuns, errorRate },
       threshold: { minTotalRuns: 3, minErrorRate: 0.8 },
     },
   };
@@ -384,10 +378,16 @@ export function diagnoseD1FailureLoopDetection(job: {
 }
 
 /**
- * D7: Exact duplicate active job detection.
+ * D7: Exact duplicate active job diagnostic.
  *
- * Detects when two or more active jobs share identical model + schedule configuration,
- * meaning they are likely unintended duplicates wasting resources on redundant executions.
+ * Fires when two or more active jobs share the same effective configuration
+ * (model + schedule + task/prompt/type/description).
+ *
+ * Active jobs are those that are NOT explicitly disabled:
+ * - active !== false
+ * - enabled !== false
+ * - disabled !== true
+ * (missing fields default to active)
  *
  * Jobs without sufficient config (no model or no schedule) are skipped.
  *
