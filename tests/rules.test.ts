@@ -13,7 +13,7 @@ describe('diagnoseD5UnknownModelPricing', () => {
   });
 
   it('does NOT fire when model is known (pricingSource === known-local)', () => {
-    const result = diagnoseD5UnknownModelPricing({ model: 'mini-max' });
+    const result = diagnoseD5UnknownModelPricing({ model: 'MiniMax M2.7' });
     expect(result).toBeNull();
   });
 
@@ -54,7 +54,7 @@ describe('diagnoseD5UnknownModelPricing', () => {
   });
 
   it('known models return null (not fired)', () => {
-    const knownModels = ['mini-max', 'claude-3-5-sonnet', 'gpt-4o'];
+    const knownModels = ['MiniMax M2.7', 'gpt-4o', 'sonnet'];
     for (const m of knownModels) {
       const result = diagnoseD5UnknownModelPricing({ model: m });
       expect(result).toBeNull();

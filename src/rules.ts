@@ -1,5 +1,5 @@
 import { detectCostRate } from './pricing';
-import type { DiagnoseRuleResult, DiagnoseRuleId } from './types';
+import type { DiagnoseRuleResult, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence } from './types';
 
 // Re-export for consumers
 export type { DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult };
