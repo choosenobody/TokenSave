@@ -203,7 +203,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**I5-D7 (Diagnose-D7) — CLOSED.** Added diagnoseD7ExactDuplicateActiveJob pure function in src/rules.ts. Fires when >= 2 active jobs share same model+schedule+task/type/description/prompt config. Active filter: active/disabled/enabled aliases; missing active/enabled → active (default). Duplicate key: normalized (trim + lowercase) model + schedule + task concat. 21 tests in tests/rules.test.ts. D1-D7 sub-slice 5 of N. **Issue #4 D-rules now complete (D3/D4/D5/D6/D7 CLOSED; D1/D2 pending). Issue #4 remains OPEN pending BG decision. Issue #6 remains OPEN (D-rule evidence bundles incomplete).**
+**I5-D7 (Diagnose-D7) — CLOSED.** Added diagnoseD7ExactDuplicateActiveJob pure function in src/rules.ts. Fires when >= 2 active jobs share same model+schedule+task/type/description/prompt config. Active filter: active/disabled/enabled aliases; missing active/enabled → active (default). Duplicate key: normalized (trim + lowercase) model + schedule + task concat. 21 tests in tests/rules.test.ts. D1-D7 sub-slice 5 of N. Issue #4 D-rule progress: D3/D4/D5/D6/D7 CLOSED; D1/D2 pending. Issue #4 remains OPEN pending BG decision. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
 **Recommended Next Step**: I5-D7 is now CLOSED. Issue #4 (I5: D1-D7) is now majority-complete: D3/D4/D5/D6/D7 CLOSED, D1/D2 remain OPEN. Next: D1 and D2 implementation (remaining Issue #4 slices), or Issue #6 evidence bundle expansion, or UI module extraction. BG to decide.
 
