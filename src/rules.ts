@@ -125,38 +125,65 @@ export function diagnoseD6ZeroTokenAbnormalRun(job: {
 /**
  * D3: Premium model on simple job diagnostic.
  *
- * Fires when isSimpleCheck === true AND the model is known-local (in pricing database)
- * AND the model's rate exceeds the premium threshold: referenceRate * premiumMultiplier.
+ * Fires when ALL true:
+ *   1. isSimpleCheck(job, promptText) === true
+ *   2. costInfo.pricingSource === 'known-local'
+ *   3. referenceCostInfo.pricingSource === 'known-local'
+ *   4. referenceRate is finite and > 0
+ *   5. rateMultiplier >= 5 (where rateMultiplier = costInfo.rate / referenceRate)
  *
- * referenceRate = detectCostRate('MiniMax M2.7').rate = 0.14
- * premiumMultiplier = 10 (constant)
- * threshold = 1.40
+ * referenceRate is derived from detectCostRate('MiniMax M2.7').rate
  *
  * Using an expensive model (e.g., Claude Opus at 15) for a simple check job is wasteful.
  *
- * @param job - a job-like object with model, isSimpleCheck, id, name, title fields
+ * @param job - a job-like object with model/model_name/modelName, task, type, description, prompt, name, title, id fields
  * @returns DiagnoseRuleResult if fired, null if the rule does not apply
  */
 export function diagnoseD3PremiumModelOnSimpleJob(job: {
   model?: unknown;
-  isSimpleCheck?: unknown;
-  id?: unknown;
+  model_name?: unknown;
+  modelName?: unknown;
+  task?: unknown;
+  type?: unknown;
+  description?: unknown;
+  prompt?: unknown;
   name?: unknown;
   title?: unknown;
+  id?: unknown;
 }): DiagnoseRuleResult | null {
-  // isSimpleCheck must be exactly true
-  if (job.isSimpleCheck !== true) {
+  // Extract model from any alias
+  const model = String(job.model ?? job.model_name ?? job.modelName ?? '');
+
+  // Model must not be empty
+  if (!model) {
     return null;
   }
 
-  // Model must be a finite string
-  const model =
-    typeof job.model === 'string' && job.model.length > 0 ? job.model : null;
+  // Build promptText for isSimpleCheck detection
+  const promptText = [
+    job.task, job.type, job.description, job.prompt, job.name, job.title
+  ].filter(Boolean).join(' ');
 
-  if (model === null) {
+  // isSimpleCheck must return true
+  const simpleCheck = isSimpleCheck(job, promptText);
+  if (!simpleCheck) {
     return null;
   }
 
+  // Reference model for rate comparison
+  const REFERENCE_MODEL = 'MiniMax M2.7';
+  const referenceCostInfo = detectCostRate(REFERENCE_MODEL);
+  const referenceRate = referenceCostInfo.rate;
+
+  // Guardrails for reference
+  if (referenceCostInfo.pricingSource !== 'known-local') {
+    return null;
+  }
+  if (!Number.isFinite(referenceRate) || referenceRate <= 0) {
+    return null;
+  }
+
+  // Cost info for the job's model
   const costInfo = detectCostRate(model);
 
   // Model must be known-local (D5 handles unknown models)
@@ -164,13 +191,12 @@ export function diagnoseD3PremiumModelOnSimpleJob(job: {
     return null;
   }
 
-  // Constants
-  const REFERENCE_RATE = 0.14; // MiniMax M2.7 rate
-  const PREMIUM_MULTIPLIER = 10;
-  const THRESHOLD = 1.40; // referenceRate * premiumMultiplier = 0.14 * 10
+  // Compute rate multiplier
+  const rateMultiplier = costInfo.rate / referenceRate;
+  const MIN_RATE_MULTIPLIER = 5;
 
-  // Model rate must exceed threshold
-  if (!(costInfo.rate > THRESHOLD)) {
+  // Rate multiplier must meet or exceed threshold
+  if (rateMultiplier < MIN_RATE_MULTIPLIER) {
     return null;
   }
 
@@ -185,22 +211,25 @@ export function diagnoseD3PremiumModelOnSimpleJob(job: {
   return {
     ruleId,
     severity: 'warning',
-    message: `Model "${model}" (rate ${costInfo.rate}) is being used for a simple check job but exceeds the premium threshold (${THRESHOLD}). Consider a lighter, cheaper model for simple checks.`,
+    message: `Model "${model}" (rate ${costInfo.rate}) is being used for a simple check job but costs more than ${MIN_RATE_MULTIPLIER}x the reference model. Consider a lighter, cheaper model for simple checks.`,
     affectedJobIds,
     evidence: {
       ruleId,
-      explanation: `Model "${model}" with rate ${costInfo.rate} is used on a simple check job, but the premium threshold is ${THRESHOLD} (reference rate ${REFERENCE_RATE} × multiplier ${PREMIUM_MULTIPLIER}). Using premium models on simple jobs is wasteful.`,
-      sourceFields: ['model', 'isSimpleCheck', 'modelRate', 'referenceRate', 'premiumMultiplier'],
+      explanation: `Model "${model}" with rate ${costInfo.rate} is used on a simple check job, but the rate is ${rateMultiplier.toFixed(2)}x the reference model rate (based on TokenSave's bundled pricing table). Using premium models on simple jobs is wasteful.`,
+      sourceFields: ['model', 'pricingSource', 'rate', 'referenceModel', 'referenceRate', 'rateMultiplier', 'simpleCheck'],
       observedValue: {
         model,
-        isSimpleCheck: true,
-        modelRate: costInfo.rate,
-        referenceRate: REFERENCE_RATE,
-        premiumMultiplier: PREMIUM_MULTIPLIER,
+        pricingSource: costInfo.pricingSource,
+        rate: costInfo.rate,
+        referenceModel: REFERENCE_MODEL,
+        referenceRate,
+        rateMultiplier,
+        simpleCheck: true,
       },
       threshold: {
-        premiumMultiplier: PREMIUM_MULTIPLIER,
-        minFiringRate: THRESHOLD,
+        pricingSourceEquals: 'known-local',
+        minRateMultiplier: MIN_RATE_MULTIPLIER,
+        simpleCheckEquals: true,
       },
     },
   };
