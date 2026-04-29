@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-28T19:30:00Z
-**Source**: GitHub `origin/main` at commit `ab322e3` (PR #55 I3B fixture-based parser tests; supersedes PR #53 I3A characterization tests; PR #54 docs refresh after PR #53)
+**Last updated**: 2026-04-29T08:36:00Z
+**Source**: GitHub `origin/main` at commit `9564e11` (PR #59 I7B Evidence Bundle System; squash merge; supersedes PR #55)
 
 ---
 
@@ -15,21 +15,22 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `ab322e3` (PR #55 I3B fixture-based parser tests; supersedes PR #53 I3A characterization tests; PR #54 docs refresh after PR #53) |
+| Main branch SHA | `9564e11` (PR #59 I7B Evidence Bundle System; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
 | index.html | HTML/CSS shell with module script reference to src/main.ts |
-| src/main.ts | ~680 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; all pure helpers extracted to domain/utils/fixes) |
+| src/types.ts | ~303 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
+| src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
+| src/main.ts | ~682 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
 | src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
-| src/types.ts | ~285 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
-| src/domain.ts | ~317 lines, 18 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs), imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
+| tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | docs/AGENT_RULES.md | Development workflow rules |
 | docs/INCIDENTS.md | Incident log |
 | docs/PROJECT_STATE.md | This file |
@@ -42,6 +43,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #59 | feat(I7B): add WasteEvidence type + buildWasteEvidence for waste classification | 2026-04-29 | `9564e11` |
 | #55 | test(I3B): add fixture-based parser tests for Issue #2 | 2026-04-28 | `ab322e3` |
 | #53 | test(I3A): add parser characterization tests for parseJson / parseJsonl / parseZipEntries | 2026-04-28 | `47893ee` |
 | #52 | docs(PROJECT_STATE): refresh after issue cleanup #8 #9 #10 | 2026-04-28 | `fd77591` |
@@ -106,6 +108,7 @@
 | I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
+| I7B (Evidence-Bundle) | Add WasteEvidence type + buildWasteEvidence for waste classification (Issue #6 sub-slice) | #59 | CLOSED |
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
 | I3.2B (Pricing-Confidence) | Pricing-Confidence: conservative-estimate fallback + pricingSource tracking | #48 | CLOSED |
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
@@ -129,11 +132,13 @@
 
 **I3.2C-A (Pricing-Exposure-UI) — CLOSED.** Summary UI now shows split exposure: Known Local Cost card (precise), Conservative Unknown Exposure card (estimated), and Estimated Total Cost card. Simple single Estimated Cost card preserved when all costs are known.
 
+**I7B (Evidence-Bundle) — CLOSED.** Added WasteEvidence type + buildWasteEvidence for waste classification. 7 new tests in tests/evidence.test.ts. Total test suite now 34 tests. Evidence bundle minimal slice complete; additional slices remain pending.
+
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
 - Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**
 - App-shell architecture cleanup
-- No-network evidence/test work (Issue #6) — **I7A completed (PR #44); remaining slices pending**
+- No-network evidence/test work (Issue #6) — **I7A completed (PR #44); I7B completed (PR #59); remaining slices pending**
 - Observed-fallback and inferred-config pricing sources remain unimplemented (future work)
 
 ---
@@ -149,7 +154,7 @@
 | #9 | I1.1: Harden .gitignore and add process docs | **CLOSED** | Completed by PR #13. Closed 2026-04-28. |
 | #8 | I2: Vite + TypeScript scaffold | **CLOSED** | Parent of I2a. Completed by PR #14 and Issue #11 / I2b. Closed 2026-04-28. |
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
-| #6 | I7: No-network test and evidence bundle system | OPEN | I7A no-network regression test completed by PR #44. I7B evidence bundle system remains pending. |
+| #6 | I7: No-network test and evidence bundle system | OPEN | I7A no-network regression test completed by PR #44. I7B evidence bundle minimal slice completed by PR #59. Remaining slices pending. Issue remains OPEN unless BG explicitly approves closure. |
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
