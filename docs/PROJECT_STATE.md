@@ -33,7 +33,7 @@
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | tests/rules.test.ts | ~1085 lines, 152 D-rule tests (18 D1 tests + 19 D2 tests + 21 D7 tests + 19 D3 tests + 16 D4 tests + 10 D5 tests + 13 D6 tests + 36 contract/alias tests) for DiagnoseRuleResult contract and rule firing conditions |
-| tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severe evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
+| tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
 | docs/PROJECT_STATE.md | This file |
@@ -123,7 +123,7 @@
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
 | I7B (Evidence-Bundle) | Add WasteEvidence type + buildWasteEvidence for waste classification (Issue #6 sub-slice) | #59 | CLOSED |
-| I7C (Evidence-Contract-Tests) | Add tests/diagnose-evidence-contract.test.ts — 156 lines, 8 tests; D1-D7 DiagnoseRuleResult evidence contract regression coverage; assertEvidenceContract helper validates result/severe evidence structure, non-empty message, non-string evidence, structured keys (ruleId/explanation/sourceFields/observedValue/threshold); Issue #6 sub-slice | #79 | CLOSED |
+| I7C (Evidence-Contract-Tests) | Add tests/diagnose-evidence-contract.test.ts — 156 lines, 8 tests; D1-D7 DiagnoseRuleResult evidence contract regression coverage; assertEvidenceContract helper validates result/severity/evidence structure, non-empty message, non-string evidence, structured keys (ruleId/explanation/sourceFields/observedValue/threshold); Issue #6 sub-slice | #79 | CLOSED |
 | I5-D5 (Diagnose-D5) | D5 unknown-model pricing diagnostic — diagnoseD5UnknownModelPricing pure function + DiagnoseRuleResult contract with nested evidence bundle (Issue #4 sub-slice) | #61 | CLOSED |
 | I5-D6 (Diagnose-D6) | D6 zero-token abnormal run diagnostic — diagnoseD6ZeroTokenAbnormalRun pure function; fires when totalRuns > 0 AND totalTokens === 0; 13 new tests (Issue #4 sub-slice) | #63 | CLOSED |
 | I5-D4 (Diagnose-D4) | D4 agent-turn cron burn diagnostic — diagnoseD4AgentTurnCronBurn pure function; fires when agentTurn=true AND scheduleMinutes ∈ (0, 60); reads agentTurn (agentTurn/agent_turn/agent_turn_enabled) and schedule (schedule/interval/frequency/cron) aliases; 16 tests (Issue #4 sub-slice) | #65 | CLOSED |
