@@ -28,3 +28,38 @@
 ## Issue Naming
 - Use format: I1, I2, I1.1, I2a, I2b, etc.
 - Prefix feature branches: feature/I2a-vite-scaffold
+
+## Merge Authorization Protocol
+- Merge is a high-risk action and never happens as an implied next step.
+- Hermes/coding_cat/guardian_cat may not merge any PR unless BG's latest message contains this exact block:
+  ```
+  BG_MERGE_AUTHORIZATION:
+  PR: #[number]
+  HEAD_SHA: [exact current PR head SHA]
+  ACTION: MERGE_NOW
+  ```
+- The PR number must match.
+- The current PR head SHA must match.
+- ACTION must be exactly `MERGE_NOW`.
+- Older approval does not count.
+- Conditional approval does not count.
+- "After X, merge" does not count.
+- "Approved once checks pass" does not count.
+- If the block is absent, `merge_action = forbidden`.
+
+## Stop Point Protocol
+- Mandatory stop points:
+  - after PR body edits
+  - after validation/checks
+  - after guardian_cat PASS
+  - before implementation PR merge
+  - after implementation PR merge
+  - before docs PR merge
+  - before issue close/reopen
+  - before revert/force-push/delete-main-related actions
+- At a stop point, Hermes must report status and wait for BG.
+- Hermes must not infer BG approval from completed preconditions.
+
+## Negative Instruction Priority
+- Any phrase like "do not merge," "not yet," "wait," "stop," or "report first" overrides later procedural text.
+- If a prompt contains both a prohibition and a conditional future action, the prohibition wins until BG sends a fresh authorization block.
