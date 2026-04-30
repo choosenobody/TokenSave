@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-30T04:05:00Z
-**Source**: GitHub `origin/main` at commit `57e84fd` (PR #80 docs(PROJECT_STATE): refresh after PR #79; I7C complete; squash merge)
+**Last updated**: 2026-04-30T08:10:00Z
+**Source**: GitHub `origin/main` at commit `5d925de` (PR #82 feat(I4-A): add pricing baseline metadata fields; squash merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `57e84fd` (PR #80 docs(PROJECT_STATE): refresh after PR #79; I7C complete; squash merge) |
+| Main branch SHA | `5d925de` (PR #82 feat(I4-A): add pricing baseline metadata fields; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -25,14 +25,14 @@
 | src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
 | src/main.ts | ~682 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes) |
 | src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
-| src/constants.ts | 61 lines, COST_RATES / FIX_LIBRARY / FIX_BADGES |
+| src/constants.ts | COST_RATES / FIX_LIBRARY / FIX_BADGES; COST_RATES entries now carry 5 metadata fields: source, sourceType, checkedDate, status, approximationNote (all source=null, sourceType='unverified', checkedDate=null, status='unknown' for I4-A placeholder) |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
-| tests/pricing.test.ts | Characterization tests for detectCostRate; covers all 7 known models + unknown fallback; asserts pricingSource |
+| tests/pricing.test.ts | 14 tests, COST_RATES metadata field tests + detectCostRate characterization + D5 unknown-model regression; all pricing source marked unverified/unknown for I4-A |
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
-| tests/rules.test.ts | ~1085 lines, 152 D-rule tests (18 D1 tests + 19 D2 tests + 21 D7 tests + 19 D3 tests + 16 D4 tests + 10 D5 tests + 13 D6 tests + 36 contract/alias tests) for DiagnoseRuleResult contract and rule firing conditions |
+| tests/rules.test.ts | 119 D-rule tests (18 D1 + 19 D2 + 21 D7 + 19 D3 + 16 D4 + 13 D5 + 13 D6 + 36 contract/alias) + D5 unknown-model regression; total suite 166 tests across 6 files |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
@@ -46,6 +46,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #82 | feat(I4-A): add pricing baseline metadata fields | 2026-04-30 | `5d925de` |
+| #81 | docs(PROJECT_STATE): refresh after Issue #6 closure — I7 CLOSED | 2026-04-30 | `7101e9c` |
 | #80 | docs(PROJECT_STATE): refresh after PR #79 — I7C complete | 2026-04-30 | `57e84fd` |
 | #79 | tests: D1-D7 evidence contract regression coverage (I7C) | 2026-04-30 | `ac30496` |
 | #77 | docs(PROJECT_STATE): refresh after PR #76 — main SHA, PR table, process-safety | 2026-04-30 | `b649c8e` |
@@ -137,6 +139,7 @@
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
 | I3A (Parser-Char-Tests) | Add parser characterization tests for parseJson / parseJsonl / parseZipEntries — 12 inline tests covering valid, malformed, edge cases | #53 | CLOSED |
 | I3B (Parser-Fixture-Tests) | Add fixture-based parser tests for parseJson / parseJsonl — 4 fixture tests using tests/fixtures/parser/ jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl | #55 | CLOSED |
+| I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
 **I2b overall: CLOSED — Completed** — All 26 PRs across 17 implementation slices + docs/hotfixes complete. All acceptance criteria met.
@@ -215,7 +218,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: Issue #4 (I5 D1-D7) CLOSED. Issue #6 (I7) CLOSED. Open issues: #3 (pricing/domain), #5 (pre-flight rules B1-B3/W1-W5), #7 (README/docs). BG decision required to prioritize next work.
+**Recommended Next Step**: Issue #4 (I5 D1-D7) CLOSED. Issue #6 (I7) CLOSED. Issue #3 progress: I4-A CLOSED (metadata fields added). Recommended next slice: I4-B official-source pricing audit/correction plan — requires BG approval of exact official sources before any rate changes. Open issues: #3 (pricing), #5 (pre-flight rules), #7 (docs).
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
