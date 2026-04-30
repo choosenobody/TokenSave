@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-30T01:53:00Z
-**Source**: GitHub `origin/main` at commit `50be1a8` (PR #76 docs: process-safety — merge authorization + stop point + incidents; squash merge)
+**Last updated**: 2026-04-30T02:55:00Z
+**Source**: GitHub `origin/main` at commit `b649c8e` (PR #77 docs(PROJECT_STATE): refresh after PR #76; squash merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `50be1a8` (PR #76 docs: process-safety; squash merge) |
+| Main branch SHA | `b649c8e` (PR #77 docs(PROJECT_STATE): refresh after PR #76; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -45,6 +45,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #77 | docs(PROJECT_STATE): refresh after PR #76 — main SHA, PR table, process-safety | 2026-04-30 | `b649c8e` |
 | #76 | docs: process-safety — merge authorization + stop point + incidents | 2026-04-30 | `50be1a8` |
 | #74 | docs(I5-D2-S): refresh PROJECT_STATE.md after PR #73 | 2026-04-30 | `a9a72ca` |
 | #73 | feat(I5-D2): add diagnoseD2BurstSpend for spend concentration detection | 2026-04-29 | `2f2d2e0` |
@@ -152,15 +153,15 @@
 
 **I7B (Evidence-Bundle) — CLOSED.** Added WasteEvidence type + buildWasteEvidence for waste classification. 7 new tests in tests/evidence.test.ts. Total test suite now 34 tests. Evidence bundle minimal slice complete; additional slices remain pending. Issue #6 remains OPEN unless BG explicitly approves closure.
 
-**I5-D3 (Diagnose-D3) — CLOSED.** Added diagnoseD3PremiumModelOnSimpleJob pure function in src/rules.ts. Fires when isSimpleCheck(job,promptText) AND pricingSource='known-local' AND rateMultiplier >= 5. Uses MiniMax M2.7 as v1 bundled-pricing reference model (rate derived at runtime via detectCostRate('MiniMax M2.7').rate). MiniMax M2.7 is not a permanent industry standard; future Issue #3 pricing policy should move reference logic out of D3. 19 tests in tests/rules.test.ts. D1-D7 sub-slice 4 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D3 (Diagnose-D3) — CLOSED.** Added diagnoseD3PremiumModelOnSimpleJob pure function in src/rules.ts. Fires when isSimpleCheck(job,promptText) AND pricingSource='known-local' AND rateMultiplier >= 5. Uses MiniMax M2.7 as v1 bundled-pricing reference model (rate derived at runtime via detectCostRate('MiniMax M2.7').rate). MiniMax M2.7 is not a permanent industry standard; future Issue #3 pricing policy should move reference logic out of D3. 19 tests in tests/rules.test.ts. D1-D7 sub-slice 4 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
 **Project pricing architecture decision (BG/GPT-5.5):** TokenSave uses two pricing layers: (1) TokenSave maintained pricing baseline with version/lastUpdated metadata; (2) User preference/override layer (simple controls: provider/pricing mode, enterprise discount, model price override, reference preference). Users should not be required to manually import pricing files. Any future online pricing update must be explicit/transparent and must not send user export/config/model usage data out of the browser.
 
-**I5-D4 (Diagnose-D4) — CLOSED.** Added diagnoseD4AgentTurnCronBurn pure function in src/rules.ts. Fires when agentTurn=true AND scheduleMinutes ∈ (0, 60). Reads agentTurn aliases (agentTurn/agent_turn/agent_turn_enabled) and schedule aliases (schedule/interval/frequency/cron). 16 tests in tests/rules.test.ts. D1-D7 sub-slice 3 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D4 (Diagnose-D4) — CLOSED.** Added diagnoseD4AgentTurnCronBurn pure function in src/rules.ts. Fires when agentTurn=true AND scheduleMinutes ∈ (0, 60). Reads agentTurn aliases (agentTurn/agent_turn/agent_turn_enabled) and schedule aliases (schedule/interval/frequency/cron). 16 tests in tests/rules.test.ts. D1-D7 sub-slice 3 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**I5-D6 (Diagnose-D6) — CLOSED.** Added diagnoseD6ZeroTokenAbnormalRun pure function in src/rules.ts. Fires when totalRuns > 0 AND totalTokens === 0; returns null otherwise. Handles missing/non-finite values gracefully without throwing. 13 tests in tests/rules.test.ts. D1-D7 sub-slice 2 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D6 (Diagnose-D6) — CLOSED.** Added diagnoseD6ZeroTokenAbnormalRun pure function in src/rules.ts. Fires when totalRuns > 0 AND totalTokens === 0; returns null otherwise. Handles missing/non-finite values gracefully without throwing. 13 tests in tests/rules.test.ts. D1-D7 sub-slice 2 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
 **Recommended follow-up** (requires separate BG approval):
 - UI module extraction (create `src/ui.ts`)
@@ -184,7 +185,7 @@
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
 | #6 | I7: No-network test and evidence bundle system | OPEN | I7A no-network regression test completed by PR #44. I7B evidence bundle minimal slice completed by PR #59. Remaining slices pending. Issue remains OPEN unless BG explicitly approves closure. |
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
-| #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | D1-D7 sub-slices all CLOSED. Issue #4 itself remains OPEN unless BG explicitly approves closure. |
+| #4 | I5: Rule engine — Diagnose rules D1-D7 | **CLOSED (COMPLETED)** | D1-D7 sub-slices all CLOSED. Issue closed by BG 2026-04-30. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
 | #2 | I3: Add parser modules with tests | **CLOSED** | I3A (PR #53): 12 inline characterization tests. I3B (PR #55): 4 fixture-based tests. Combined 16 tests in tests/parser.test.ts. src/parser.ts unchanged. Closed 2026-04-28. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
@@ -209,9 +210,9 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
+**I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**Recommended Next Step**: I5-D2 is now CLOSED. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Next: BG decision on next priority (Issue #6 evidence bundle expansion, UI module extraction, or Issue #7 README/docs), or closure of Issue #4/Issue #6.
+**Recommended Next Step**: Issue #4 (I5 D1-D7) is now CLOSED. Issue #6 remains OPEN. BG decision required to prioritize next work among: Issue #6 (evidence bundle expansion), Issue #3 (pricing/domain continuation), Issue #5 (pre-flight rules B1-B3/W1-W5), or Issue #7 (README/docs).
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
