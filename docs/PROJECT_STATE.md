@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-30T02:55:00Z
-**Source**: GitHub `origin/main` at commit `b649c8e` (PR #77 docs(PROJECT_STATE): refresh after PR #76; squash merge)
+**Last updated**: 2026-04-30T03:40:37Z
+**Source**: GitHub `origin/main` at commit `ac30496` (PR #79 tests: D1-D7 evidence contract regression coverage; squash merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `b649c8e` (PR #77 docs(PROJECT_STATE): refresh after PR #76; squash merge) |
+| Main branch SHA | `ac30496` (PR #79 tests: D1-D7 evidence contract regression coverage; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -33,6 +33,7 @@
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | tests/rules.test.ts | ~1085 lines, 152 D-rule tests (18 D1 tests + 19 D2 tests + 21 D7 tests + 19 D3 tests + 16 D4 tests + 10 D5 tests + 13 D6 tests + 36 contract/alias tests) for DiagnoseRuleResult contract and rule firing conditions |
+| tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
 | docs/PROJECT_STATE.md | This file |
@@ -45,6 +46,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #79 | tests: D1-D7 evidence contract regression coverage (I7C) | 2026-04-30 | `ac30496` |
 | #77 | docs(PROJECT_STATE): refresh after PR #76 — main SHA, PR table, process-safety | 2026-04-30 | `b649c8e` |
 | #76 | docs: process-safety — merge authorization + stop point + incidents | 2026-04-30 | `50be1a8` |
 | #74 | docs(I5-D2-S): refresh PROJECT_STATE.md after PR #73 | 2026-04-30 | `a9a72ca` |
@@ -121,6 +123,7 @@
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
 | I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
 | I7B (Evidence-Bundle) | Add WasteEvidence type + buildWasteEvidence for waste classification (Issue #6 sub-slice) | #59 | CLOSED |
+| I7C (Evidence-Contract-Tests) | Add tests/diagnose-evidence-contract.test.ts — 156 lines, 8 tests; D1-D7 DiagnoseRuleResult evidence contract regression coverage; assertEvidenceContract helper validates result/severity/evidence structure, non-empty message, non-string evidence, structured keys (ruleId/explanation/sourceFields/observedValue/threshold); Issue #6 sub-slice | #79 | CLOSED |
 | I5-D5 (Diagnose-D5) | D5 unknown-model pricing diagnostic — diagnoseD5UnknownModelPricing pure function + DiagnoseRuleResult contract with nested evidence bundle (Issue #4 sub-slice) | #61 | CLOSED |
 | I5-D6 (Diagnose-D6) | D6 zero-token abnormal run diagnostic — diagnoseD6ZeroTokenAbnormalRun pure function; fires when totalRuns > 0 AND totalTokens === 0; 13 new tests (Issue #4 sub-slice) | #63 | CLOSED |
 | I5-D4 (Diagnose-D4) | D4 agent-turn cron burn diagnostic — diagnoseD4AgentTurnCronBurn pure function; fires when agentTurn=true AND scheduleMinutes ∈ (0, 60); reads agentTurn (agentTurn/agent_turn/agent_turn_enabled) and schedule (schedule/interval/frequency/cron) aliases; 16 tests (Issue #4 sub-slice) | #65 | CLOSED |
@@ -212,7 +215,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
-**Recommended Next Step**: Issue #4 (I5 D1-D7) is now CLOSED. Issue #6 remains OPEN. BG decision required to prioritize next work among: Issue #6 (evidence bundle expansion), Issue #3 (pricing/domain continuation), Issue #5 (pre-flight rules B1-B3/W1-W5), or Issue #7 (README/docs).
+**Recommended Next Step**: Issue #4 (I5 D1-D7) is CLOSED. Issue #6 (I7) remains OPEN: I7A (no-network test), I7B (WasteEvidence bundle), I7C (D1-D7 evidence contract tests) are complete. BG decision required to determine whether Issue #6 should be closed as complete or whether further evidence/no-network slices remain pending. Other options: Issue #3 (pricing/domain continuation), Issue #5 (pre-flight rules B1-B3/W1-W5), Issue #7 (README/docs).
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
