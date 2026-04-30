@@ -73,3 +73,53 @@ describe('detectCostRate', () => {
     expect(r8.pricingSource).toBe("conservative-estimate");
   });
 });
+
+describe('COST_RATES metadata fields', () => {
+  it('COST_RATES has exactly 7 entries', () => {
+    expect(COST_RATES).toHaveLength(7);
+  });
+
+  it('every entry has source, sourceType, checkedDate, status, approximationNote', () => {
+    for (const entry of COST_RATES) {
+      expect(entry).to.have.property('source');
+      expect(entry).to.have.property('sourceType');
+      expect(entry).to.have.property('checkedDate');
+      expect(entry).to.have.property('status');
+      expect(entry).to.have.property('approximationNote');
+    }
+  });
+
+  it('all entries are marked unverified/unknown for this slice', () => {
+    for (const entry of COST_RATES) {
+      expect(entry.source).to.equal(null);
+      expect(entry.sourceType).to.equal('unverified');
+      expect(entry.checkedDate).to.equal(null);
+      expect(entry.status).to.equal('unknown');
+    }
+  });
+
+  it('existing detectCostRate behavior unchanged — all known models still pass', () => {
+    const models = [
+      { name: 'MiniMax M2.7', label: 'MiniMax M2.7', rate: 0.14 },
+      { name: 'MiniMax M2.5', label: 'MiniMax M2.5', rate: 0.12 },
+      { name: 'gpt-4o', label: 'GPT-4o', rate: 2.5 },
+      { name: 'sonnet', label: 'Claude Sonnet', rate: 3 },
+      { name: 'opus', label: 'Claude Opus', rate: 15 },
+      { name: 'codex', label: 'GPT-5-codex', rate: 15 },
+      { name: 'deepseek', label: 'DeepSeek Chat', rate: 0.28 },
+    ];
+    for (const m of models) {
+      const r = detectCostRate(m.name);
+      expect(r.label).toBe(m.label);
+      expect(r.rate).toBe(m.rate);
+      expect(r.pricingSource).toBe('known-local');
+    }
+  });
+
+  it('unknown model still returns conservative estimate', () => {
+    const r = detectCostRate('truly-unknown-xyz');
+    expect(r.label).toBe('Unknown model (conservative estimate)');
+    expect(r.rate).toBe(15);
+    expect(r.pricingSource).toBe('conservative-estimate');
+  });
+});
