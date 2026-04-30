@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-29T13:48:00Z
-**Source**: GitHub `origin/main` at commit `2f2d2e0` (PR #73 I5-D2 burst-spend-detection; squash merge)
+**Last updated**: 2026-04-30T01:53:00Z
+**Source**: GitHub `origin/main` at commit `50be1a8` (PR #76 docs: process-safety — merge authorization + stop point + incidents; squash merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `2f2d2e0` (PR #73 I5-D2 burst-spend-detection; squash merge) |
+| Main branch SHA | `50be1a8` (PR #76 docs: process-safety; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -33,8 +33,8 @@
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | tests/rules.test.ts | ~1085 lines, 152 D-rule tests (18 D1 tests + 19 D2 tests + 21 D7 tests + 19 D3 tests + 16 D4 tests + 10 D5 tests + 13 D6 tests + 36 contract/alias tests) for DiagnoseRuleResult contract and rule firing conditions |
-| docs/AGENT_RULES.md | Development workflow rules |
-| docs/INCIDENTS.md | Incident log |
+| docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
+| docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
 | docs/PROJECT_STATE.md | This file |
 | dist/ | Not committed (gitignored) |
 | node_modules/ | Not committed (gitignored) |
@@ -45,6 +45,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #76 | docs: process-safety — merge authorization + stop point + incidents | 2026-04-30 | `50be1a8` |
+| #74 | docs(I5-D2-S): refresh PROJECT_STATE.md after PR #73 | 2026-04-30 | `a9a72ca` |
 | #73 | feat(I5-D2): add diagnoseD2BurstSpend for spend concentration detection | 2026-04-29 | `2f2d2e0` |
 | #71 | feat(I5-D1): add diagnoseD1FailureLoopDetection | 2026-04-29 | `59a2ecc` |
 | #69 | feat(I5-D7): add diagnoseD7ExactDuplicateActiveJob | 2026-04-29 | `f040f1b` |
@@ -79,7 +81,7 @@
 | #20 | I2b.4B: extract constants to src/constants.ts | 2026-04-26 | `df6a250` |
 | #19 | I2b.4S: refresh docs/PROJECT_STATE.md after I2b.4A | 2026-04-26 | `ccf3232` |
 | #18 | I2b.4A: extract 10 formatting/helpers to src/utils.ts | 2026-04-26 | `83cb8ba` |
-| #17 | I2b.3: add src/types.ts — type inventory slice | 2026-04-26 | `f696b63` |
+| #17 | I2b.3: add src/types.ts — type inventory slice | 2026-04-26 | `b806005` |
 | #16 | I2b.1: Migrate inline script to src/main.ts | 2026-04-25 | `0898562` |
 | #15 | I1.2: Add project state snapshot document | 2026-04-25 | `d19c4b5` |
 | #14 | I2a: Vite + TypeScript scaffold | 2026-04-25 | `69ab3e7` |
@@ -90,7 +92,7 @@
 ## Completed Increments
 
 | Increment | Issue | PR | Status |
-|----------|-------|-----|--------|
+|-----------|-------|-----|--------|
 | I1 | Remove tracked node_modules and add .gitignore | Direct commit | CLOSED |
 | I1.1 | Harden .gitignore + add docs/AGENT_RULES.md + docs/INCIDENTS.md | #13 | CLOSED |
 | I1.2 | Add project state snapshot document | #15 | CLOSED |
@@ -122,7 +124,7 @@
 | I5-D6 (Diagnose-D6) | D6 zero-token abnormal run diagnostic — diagnoseD6ZeroTokenAbnormalRun pure function; fires when totalRuns > 0 AND totalTokens === 0; 13 new tests (Issue #4 sub-slice) | #63 | CLOSED |
 | I5-D4 (Diagnose-D4) | D4 agent-turn cron burn diagnostic — diagnoseD4AgentTurnCronBurn pure function; fires when agentTurn=true AND scheduleMinutes ∈ (0, 60); reads agentTurn (agentTurn/agent_turn/agent_turn_enabled) and schedule (schedule/interval/frequency/cron) aliases; 16 tests (Issue #4 sub-slice) | #65 | CLOSED |
 | I5-D3 (Diagnose-D3) | D3 premium-model-on-simple-job diagnostic — diagnoseD3PremiumModelOnSimpleJob pure function; fires when isSimpleCheck(job,promptText) AND pricingSource='known-local' AND rateMultiplier >= 5; uses MiniMax M2.7 as v1 bundled-pricing reference model; 19 tests (Issue #4 sub-slice) | #67 | CLOSED |
-| I5-D1 (Diagnose-D1) | D1 aggregate failure-loop diagnostic — diagnoseD1FailureLoopDetection pure function; fires when totalRuns >= 3 AND errorRuns/totalRuns >= 0.8; severity warning; evidence includes ruleId/sourceFields/observedValue/threshold; aggregate failure-ratio only (not consecutive/time-window); 18 new tests (Issue #4 sub-slice) | #71 | CLOSED |
+| I5-D1 (Diagnose-D1) | D1 aggregate failure-loop diagnostic — diagnoseD1FailureLoopDetection pure function; fires when totalRuns >= 3 AND errorRuns/totalRuns >= 0.8; severity warning; evidence includes ruleId/sourceFields/observedValue/threshold; 18 new tests (Issue #4 sub-slice) | #71 | CLOSED |
 | I5-D2 (Diagnose-D2) | D2 burst-spend concentration diagnostic — diagnoseD2BurstSpend pure function; input: Record<string, unknown>[] (run-record level); 60-minute rolling window; fires when >= 3 distinct jobs AND >= USD 50 estimated total window cost; severity info; review signal only, not waste proof; no potentialSaving calculation; unknown models labeled conservative-estimate; 19 new tests; total suite 152 tests (Issue #4 sub-slice) | #73 | CLOSED |
 | I5-D7 (Diagnose-D7) | D7 exact-duplicate-active-job diagnostic — diagnoseD7ExactDuplicateActiveJob pure function; fires when >= 2 active jobs share same model+schedule+task config; active filter (active/disabled/enabled aliases); duplicate key from normalized model+schedule+task/type/description/prompt; 21 tests (Issue #4 sub-slice) | #69 | CLOSED |
 | I3.1 (Pricing-Extract) | Extract detectCostRate to src/pricing.ts + add characterization tests | #46 | CLOSED |
@@ -182,7 +184,7 @@
 | #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
 | #6 | I7: No-network test and evidence bundle system | OPEN | I7A no-network regression test completed by PR #44. I7B evidence bundle minimal slice completed by PR #59. Remaining slices pending. Issue remains OPEN unless BG explicitly approves closure. |
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
-| #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | Future issue. Requires separate BG approval. |
+| #4 | I5: Rule engine — Diagnose rules D1-D7 | OPEN | D1-D7 sub-slices all CLOSED. Issue #4 itself remains OPEN unless BG explicitly approves closure. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
 | #2 | I3: Add parser modules with tests | **CLOSED** | I3A (PR #53): 12 inline characterization tests. I3B (PR #55): 4 fixture-based tests. Combined 16 tests in tests/parser.test.ts. src/parser.ts unchanged. Closed 2026-04-28. |
 | #1 | I1: Remove tracked node_modules and add .gitignore | CLOSED | Done. |
@@ -207,7 +209,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete). Note: PR #73 squash commit message contains an incorrect shorthand ">=0 total"; authoritative D2 threshold in code/tests/PR body is >= USD 50 within 60 minutes with >= 3 distinct jobs.
+**I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Issue #6 remains OPEN (D-rule evidence bundles incomplete).
 
 **Recommended Next Step**: I5-D2 is now CLOSED. Issue #4 D-rule progress: D1/D2/D3/D4/D5/D6/D7 CLOSED. Issue #4 remains OPEN unless BG explicitly approves closure. Next: BG decision on next priority (Issue #6 evidence bundle expansion, UI module extraction, or Issue #7 README/docs), or closure of Issue #4/Issue #6.
 
@@ -242,7 +244,7 @@ Each slice must be PR'd and reviewed independently. Rollback = `git revert <merg
 - [ ] No new features added
 - [ ] `index.html` behavior unchanged
 - [ ] guardian_cat returned PASS
-- [ ] BG approved merge
+- [ ] BG_MERGE_AUTHORIZATION block present in latest message: `PR: #<number>`, `HEAD_SHA: <sha>`, `ACTION: MERGE_NOW`
 
 ---
 
