@@ -29,10 +29,10 @@
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
-| tests/pricing.test.ts | 14 tests, COST_RATES metadata field tests + detectCostRate characterization + D5 unknown-model regression; all pricing source marked unverified/unknown for I4-A |
+| tests/pricing.test.ts | 14 tests, COST_RATES metadata field tests + detectCostRate characterization/regression; all COST_RATES entries marked unverified/unknown for I4-A |
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
-| tests/rules.test.ts | 119 D-rule tests (18 D1 + 19 D2 + 21 D7 + 19 D3 + 16 D4 + 13 D5 + 13 D6 + 36 contract/alias) + D5 unknown-model regression; total suite 166 tests across 6 files |
+| tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 166 tests across 6 files |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
