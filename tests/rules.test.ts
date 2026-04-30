@@ -57,6 +57,15 @@ describe('diagnoseD5UnknownModelPricing', () => {
       expect(result).toBeNull();
     }
   });
+
+  it('D5 fires for unknown model with correct evidence', () => {
+    const result = diagnoseD5UnknownModelPricing({ model: 'truly-unknown-model-xyz', id: 'test-job' });
+    expect(result).to.not.be.null;
+    expect(result!.ruleId).to.equal('D5');
+    expect(result!.severity).to.equal('warning');
+    expect(result!.evidence.observedValue.pricingSource).to.equal('conservative-estimate');
+    expect(result!.evidence.observedValue.estimatedRate).to.equal(15);
+  });
 });
 
 describe('diagnoseD6ZeroTokenAbnormalRun', () => {

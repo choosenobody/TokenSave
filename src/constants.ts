@@ -3,13 +3,13 @@
 // No logic changed. Mechanically copied: const → export const.
 
 export const COST_RATES = [
-  { label: "MiniMax M2.7", match: /\bminimax.*m2\.?7\b|\bm2\.?7\b/i, rate: 0.14 },
-  { label: "MiniMax M2.5", match: /\bminimax.*m2\.?5\b|\bm2\.?5\b/i, rate: 0.12 },
-  { label: "GPT-4o", match: /\bgpt-?4o\b/i, rate: 2.5 },
-  { label: "Claude Sonnet", match: /\bsonnet\b/i, rate: 3 },
-  { label: "Claude Opus", match: /\bopus\b/i, rate: 15 },
-  { label: "GPT-5-codex", match: /\bgpt-?5[\d.]*.*codex\b|\bcodex\b/i, rate: 15 },
-  { label: "DeepSeek Chat", match: /\bdeepseek\b/i, rate: 0.28 }
+  { label: "MiniMax M2.7", match: /\bminimax.*m2\.?7\b|\bm2\.?7\b/i, rate: 0.14, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' },
+  { label: "MiniMax M2.5", match: /\bminimax.*m2\.?5\b|\bm2\.?5\b/i, rate: 0.12, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' },
+  { label: "GPT-4o", match: /\bgpt-?4o\b/i, rate: 2.5, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' },
+  { label: "Claude Sonnet", match: /\bsonnet\b/i, rate: 3, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' },
+  { label: "Claude Opus", match: /\bopus\b/i, rate: 15, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' },
+  { label: "GPT-5-codex", match: /\bgpt-?5[\d.]*.*codex\b|\bcodex\b/i, rate: 15, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' },
+  { label: "DeepSeek Chat", match: /\bdeepseek\b/i, rate: 0.28, source: null, sourceType: 'unverified' as const, checkedDate: null, status: 'unknown' as const, approximationNote: 'TokenSave currently uses bundled per-1M-token rates against total token counts; source verification and input/output split handling are deferred to later Issue #3 slices.' }
 ];
 
 export const FIX_LIBRARY = {
