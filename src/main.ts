@@ -317,8 +317,14 @@ import { buildFixCards } from './fixes';
         let modelSavingTokens = 0;
         if (!isConservativeEstimate && job.badge === "PREMIUM_MODEL_WASTE") {
           const premiumRate = job.rate.rate;
-          const cheapRate = 0.14; // MiniMax M2.7
-          modelSavingTokens = Math.round(job.totalTokens * Math.max(0, (premiumRate - cheapRate) / premiumRate));
+          // Dynamic MiniMax M2.7 reference rate — decoupled from hardcoded literal
+          const minimaxRef = detectCostRate("MiniMax M2.7");
+          const cheapRate = (minimaxRef.pricingSource === "known-local" && isFinite(minimaxRef.rate) && minimaxRef.rate > 0)
+            ? minimaxRef.rate
+            : null;
+          if (cheapRate !== null) {
+            modelSavingTokens = Math.round(job.totalTokens * Math.max(0, (premiumRate - cheapRate) / premiumRate));
+          }
         }
         const jobWasteTokens = errorWastedTokens + scheduleWastedTokens + modelSavingTokens;
         totalWasteTokens += jobWasteTokens;

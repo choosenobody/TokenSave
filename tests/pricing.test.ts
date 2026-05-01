@@ -123,3 +123,22 @@ describe('COST_RATES metadata fields', () => {
     expect(r.pricingSource).toBe('conservative-estimate');
   });
 });
+
+describe('I4-B1: decouple premium-saving reference rate', () => {
+  const fs = require('fs');
+  const mainTs = fs.readFileSync('./src/main.ts', 'utf8');
+
+  it('src/main.ts no longer contains hardcoded cheapRate = 0.14 literal', () => {
+    expect(mainTs).not.toMatch(/const cheapRate\s*=\s*0\.14/);
+  });
+
+  it('src/main.ts uses detectCostRate for premium model saving', () => {
+    expect(mainTs).toMatch(/detectCostRate\s*\(\s*["']MiniMax M2\.7["']\s*\)/);
+  });
+
+  it('premium model saving has safe guard for unknown/unsafe reference', () => {
+    expect(mainTs).toMatch(/pricingSource\s*===\s*["']known-local["']/);
+    expect(mainTs).toMatch(/isFinite\s*\(\s*minimaxRef\.rate\s*\)/);
+    expect(mainTs).toMatch(/minimaxRef\.rate\s*>\s*0/);
+  });
+});
