@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-04-30T08:10:00Z
-**Source**: GitHub `origin/main` at commit `5d925de` (PR #82 feat(I4-A): add pricing baseline metadata fields; squash merge)
+**Last updated**: 2026-05-01T13:59:00Z
+**Source**: GitHub `origin/main` at commit `488c9b9` (PR #85 docs(PROJECT_STATE): refresh after PR #84 — I4-B1 CLOSED; squash merge)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `5d925de` (PR #82 feat(I4-A): add pricing baseline metadata fields; squash merge) |
+| Main branch SHA | `488c9b9` (PR #85 docs(PROJECT_STATE): refresh after PR #84 — I4-B1 CLOSED; squash merge) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -29,10 +29,10 @@
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
-| tests/pricing.test.ts | 14 tests, COST_RATES metadata field tests + detectCostRate characterization/regression; all COST_RATES entries marked unverified/unknown for I4-A |
+| tests/pricing.test.ts | 17 tests, COST_RATES metadata field tests + detectCostRate characterization/regression + I4-B1 premium-saving regression tests (3 new); all COST_RATES entries marked unverified/unknown for I4-A |
 | tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
-| tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 166 tests across 6 files |
+| tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 169 tests across 6 files |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
@@ -46,7 +46,9 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #85 | docs(PROJECT_STATE): refresh after PR #84 — I4-B1 CLOSED | 2026-05-01 | `488c9b9` |
 | #84 | fix(I4-B1): decouple premium saving reference rate | 2026-05-01 | `d4373e0` |
+| #83 | docs(I4-A): refresh PROJECT_STATE after PR #82 | 2026-04-30 | `51bd0e2` |
 | #82 | feat(I4-A): add pricing baseline metadata fields | 2026-04-30 | `5d925de` |
 | #81 | docs(PROJECT_STATE): refresh after Issue #6 closure — I7 CLOSED | 2026-04-30 | `7101e9c` |
 | #80 | docs(PROJECT_STATE): refresh after PR #79 — I7C complete | 2026-04-30 | `57e84fd` |
