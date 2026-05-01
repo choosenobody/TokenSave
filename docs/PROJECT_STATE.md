@@ -46,6 +46,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #84 | fix(I4-B1): decouple premium saving reference rate | 2026-05-01 | `d4373e0` |
 | #82 | feat(I4-A): add pricing baseline metadata fields | 2026-04-30 | `5d925de` |
 | #81 | docs(PROJECT_STATE): refresh after Issue #6 closure — I7 CLOSED | 2026-04-30 | `7101e9c` |
 | #80 | docs(PROJECT_STATE): refresh after PR #79 — I7C complete | 2026-04-30 | `57e84fd` |
@@ -139,6 +140,7 @@
 | I3.2C-A (Pricing-Exposure-UI) | Split pricing exposure in Summary UI — Known Local Cost / Conservative Unknown Exposure / Estimated Total Cost cards | #50 | CLOSED |
 | I3A (Parser-Char-Tests) | Add parser characterization tests for parseJson / parseJsonl / parseZipEntries — 12 inline tests covering valid, malformed, edge cases | #53 | CLOSED |
 | I3B (Parser-Fixture-Tests) | Add fixture-based parser tests for parseJson / parseJsonl — 4 fixture tests using tests/fixtures/parser/ jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl | #55 | CLOSED |
+| I4-B1 (Decouple-Premium-Ref) | Replace hardcoded `const cheapRate = 0.14` with dynamic `detectCostRate('MiniMax M2.7')` in premium-model saving calculation. Guard: only use rate when `pricingSource === 'known-local'` and rate is finite positive. Safe fallback: skip saving calculation if reference is not safe — avoids conservative overestimate (rate 15) as cheap baseline. Behavior unchanged with current COST_RATES. Future MiniMax rate updates will auto-reflect in Summary saving. No numeric rate changes. No metadata changes. | #84 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
@@ -218,7 +220,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: Issue #4 (I5 D1-D7) CLOSED. Issue #6 (I7) CLOSED. Issue #3 progress: I4-A CLOSED (metadata fields added). Recommended next slice: I4-B official-source pricing audit/correction plan — requires BG approval of exact official sources before any rate changes. Open issues: #3 (pricing), #5 (pre-flight rules), #7 (docs).
+**Recommended Next Step**: Issue #4 (I5 D1-D7) CLOSED. Issue #6 (I7) CLOSED. Issue #3 progress: I4-A CLOSED (metadata fields added). I4-B1 CLOSED (premium-ref decoupled). Recommended next slice: I4-B official-source pricing audit/correction plan — requires BG approval of exact official sources before any rate changes. Open issues: #3 (pricing), #5 (pre-flight rules), #7 (docs).
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
