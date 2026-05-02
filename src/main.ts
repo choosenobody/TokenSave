@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
-import { parseJson, parseJsonl, parseZipEntries } from './parser';
+import { parseJson, parseJsonl, parseZipEntries, detectImportSource } from './parser';
 import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
 import { buildFixCards } from './fixes';
 
@@ -346,9 +346,12 @@ import { buildFixCards } from './fixes';
         conservativeEstimateCost
       };
 
+      const importSummary = detectImportSource(dataset);
+
       return {
         meta: dataset.meta,
         summary,
+        importSummary,
         jobs: activeJobs,
         topWaste,
         fixes: buildFixCards(activeJobs)
@@ -382,10 +385,60 @@ import { buildFixCards } from './fixes';
       emptyState.classList.add("hidden");
       reportSection.classList.remove("hidden");
 
+      renderImportSummary(report.importSummary);
       renderSummary(report.summary, report.meta);
       renderTopWaste(report.topWaste, report.summary.totalCost);
       renderJobTable(report.jobs);
       renderFixes(report.fixes);
+    }
+
+    function renderImportSummary(summary) {
+      const container = document.getElementById("importSummary");
+      if (!container) return;
+
+      const sourceLabel = {
+        'openclaw-like': 'OpenClaw Export',
+        'jsonl-records': 'JSONL Run Records',
+        'zip-mixed': 'Mixed Export (ZIP)',
+        'generic-json': 'Generic JSON',
+        'unknown': 'Unknown Source'
+      }[summary.detectedSource] || summary.detectedSource;
+
+      const confidenceLabel = {
+        'high': 'High confidence',
+        'medium': 'Medium confidence',
+        'low': 'Low confidence'
+      }[summary.confidence] || summary.confidence;
+
+      const ruleHintLabel = {
+        'full': 'Strong audit readiness',
+        'partial': 'Partial audit evidence',
+        'limited': 'Limited audit evidence',
+        'unavailable': 'No audit evidence detected'
+      }[summary.supportedRuleHint] || summary.supportedRuleHint;
+
+      const evidenceTags = [];
+      if (summary.evidenceHint.hasJobs) evidenceTags.push('Jobs');
+      if (summary.evidenceHint.hasRuns) evidenceTags.push('Runs');
+      if (summary.evidenceHint.hasTokens) evidenceTags.push('Tokens');
+      if (summary.evidenceHint.hasErrors) evidenceTags.push('Errors');
+      if (summary.evidenceHint.hasSchedules) evidenceTags.push('Schedules');
+      if (summary.evidenceHint.hasModels) evidenceTags.push('Models');
+
+      container.innerHTML = `
+        <div class="import-summary">
+          <div class="import-summary-header">
+            <span class="import-source">${escapeHtml(sourceLabel)}</span>
+            <span class="import-meta">${summary.recordCount} records · ${summary.fileCount} file(s)</span>
+          </div>
+          <div class="import-summary-row">
+            <span class="import-badge confidence-${escapeHtml(summary.confidence)}">${escapeHtml(confidenceLabel)}</span>
+            <span class="import-badge">${escapeHtml(ruleHintLabel)}</span>
+          </div>
+          ${evidenceTags.length > 0 ? `<div class="import-tags">${evidenceTags.map(t => `<span class="import-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          <div class="import-privacy-note">All analysis stays on your device — no data is sent anywhere.</div>
+        </div>
+      `;
     }
 
     function renderSummary(summary, meta) {

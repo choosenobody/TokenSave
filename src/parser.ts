@@ -102,6 +102,139 @@ async function readZipEntryText(bytes, localHeaderOffset, compressedSize, compre
   throw new Error(`ZIP compression method ${compressionMethod} is not supported by this viewer.`);
 }
 
+/**
+ * Returns true if record has a finite non-negative token field present.
+ * Handles aliases: tokens, total_tokens, token_count, usage.total_tokens.
+ * Field must be a finite number (0 is valid; NaN/Infinity are not).
+ */
+function hasFiniteTokenField(record) {
+  const aliases = [
+    record.tokens,
+    record.total_tokens,
+    record.token_count,
+    record.usage && record.usage.total_tokens
+  ];
+  for (const v of aliases) {
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Detect the import source type and audit readiness from a parsed dataset.
+ * Pure function — no side effects, no network.
+ */
+export function detectImportSource(dataset) {
+  const { jobs, meta, runBundles } = dataset;
+
+  // Use actual user-imported file count when available; fall back to runBundle count.
+  const rawFileCount = dataset.fileCount;
+  const fileCount = (
+    typeof rawFileCount === 'number' &&
+    Number.isFinite(rawFileCount) &&
+    rawFileCount >= 0
+  ) ? rawFileCount : runBundles.length;
+
+  const recordCount = runBundles.reduce((sum, b) => sum + b.records.length, 0);
+
+  // Evidence detection
+  const evidenceHint = {
+    hasJobs: jobs.length > 0,
+    hasRuns: recordCount > 0,
+    hasTokens: false,
+    hasErrors: false,
+    hasSchedules: false,
+    hasModels: false
+  };
+
+  // Scan run records for evidence signals (sample first 20 per bundle)
+  runBundles.forEach((bundle) => {
+    bundle.records.slice(0, 20).forEach((record) => {
+      if (hasFiniteTokenField(record)) {
+        evidenceHint.hasTokens = true;
+      }
+      if (record.error ?? record.status === 'error' ?? record.result === 'error') {
+        evidenceHint.hasErrors = true;
+      }
+      if (record.model ?? record.model_name) {
+        evidenceHint.hasModels = true;
+      }
+    });
+  });
+
+  // Check jobs for schedules and models and embedded runs
+  jobs.slice(0, 20).forEach((job) => {
+    if (job.schedule ?? job.interval ?? job.frequency ?? job.cron) {
+      evidenceHint.hasSchedules = true;
+    }
+    if (job.model ?? job.model_name ?? job.modelName) {
+      evidenceHint.hasModels = true;
+    }
+    if (Array.isArray(job.runs) && job.runs.length > 0) {
+      evidenceHint.hasRuns = true;
+    }
+  });
+
+  // Source detection
+  let detectedSource = 'unknown';
+  if (meta && (meta.openclaw_version || meta.export_date)) {
+    detectedSource = 'openclaw-like';
+  } else if (jobs.length > 0 && recordCount === 0) {
+    // Jobs only
+    const first = jobs[0];
+    if (first && typeof first === 'object') {
+      const hasAgentTurn = first.agent_turn_enabled !== undefined || first.agentTurn !== undefined;
+      const hasRuns = Array.isArray(first.runs) && first.runs.length > 0;
+      if (hasAgentTurn || hasRuns) {
+        detectedSource = 'openclaw-like';
+      } else {
+        detectedSource = 'generic-json';
+      }
+    } else {
+      detectedSource = 'generic-json';
+    }
+  } else if (jobs.length === 0 && recordCount > 0) {
+    detectedSource = 'jsonl-records';
+  } else if (jobs.length > 0 && recordCount > 0) {
+    detectedSource = 'zip-mixed';
+  }
+
+  // Confidence
+  let confidence = 'low';
+  if (recordCount > 0 && evidenceHint.hasTokens) {
+    confidence = 'high';
+  } else if ((recordCount > 0) || (jobs.length > 0 && evidenceHint.hasSchedules)) {
+    confidence = 'medium';
+  }
+
+  // Supported rule hint — 'full' requires jobs + runs + tokens + schedules + models
+  let supportedRuleHint = 'unavailable';
+  if (
+    jobs.length > 0 &&
+    recordCount > 0 &&
+    evidenceHint.hasTokens &&
+    evidenceHint.hasSchedules &&
+    evidenceHint.hasModels
+  ) {
+    supportedRuleHint = 'full';
+  } else if ((jobs.length > 0 && evidenceHint.hasTokens) || (recordCount > 0 && evidenceHint.hasTokens)) {
+    supportedRuleHint = 'partial';
+  } else if (jobs.length > 0 || recordCount > 0) {
+    supportedRuleHint = 'limited';
+  }
+
+  return {
+    detectedSource,
+    fileCount,
+    recordCount,
+    confidence,
+    supportedRuleHint,
+    evidenceHint
+  };
+}
+
 function findEndOfCentralDirectory(bytes) {
   const minOffset = Math.max(0, bytes.length - 65557);
   for (let index = bytes.length - 22; index >= minOffset; index -= 1) {
