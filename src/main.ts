@@ -8,7 +8,7 @@ import { buildFixCards } from './fixes';
 
     const state = {
       report: null,
-      sortKey: "cost",
+      sortKey: "tokens",
       sortDir: "desc"
     };
 
@@ -392,22 +392,10 @@ import { buildFixCards } from './fixes';
       const items = summary.hasConservativeEstimates
         ? [
             {
-              label: "Estimated Total Cost",
-              value: formatCurrency(summary.totalCost),
-              help: "Total estimated cost across all models",
-              critical: true
-            },
-            {
-              label: "Known Local Cost",
-              value: formatCurrency(summary.knownLocalCost),
-              help: "Based on identified models",
-              critical: true
-            },
-            {
-              label: "Conservative Unknown Exposure",
-              value: formatCurrency(summary.conservativeEstimateCost),
-              help: "Estimated cost for unknown models — may be high",
-              critical: true
+              label: "Avoidable Token Burn",
+              value: formatInteger(summary.totalWasteTokens) + " (" + formatPercent(summary.wasteRate) + ")",
+              help: "Tokens burned by avoidable waste — fix the root cause to reclaim",
+              group: "waste"
             },
             {
               label: "Total Tokens",
@@ -420,29 +408,36 @@ import { buildFixCards } from './fixes';
               help: "Failed runs across all parsed jobs"
             },
             {
-              label: "Waste from Failures",
-              value: formatInteger(summary.totalWasteTokens) + " (" + formatPercent(summary.wasteRate) + ")",
-              help: "Tokens burned by failed runs — fix errors to reclaim",
+              label: "Approx. Avoidable Cost Exposure",
+              value: formatCurrency(summary.totalCostSaving),
+              help: "Approximate recoverable cost from known-local waste only; excludes conservative unknown exposure.",
               group: "waste"
             },
             {
-              label: "Potential Saving",
-              value: formatCurrency(summary.totalCostSaving),
-              help: "Excludes conservative unknown exposure",
-              group: "waste"
+              label: "Known Local (Approx.)",
+              value: formatCurrency(summary.knownLocalCost),
+              help: "Based on identified models — cost is approximate; token waste is the primary signal",
+              critical: true
+            },
+            {
+              label: "Unknown Model (Conservative Est.)",
+              value: formatCurrency(summary.conservativeEstimateCost),
+              help: "Estimated cost for unknown models — may be high; cost is approximate",
+              critical: true
+            },
+            {
+              label: "Approx. Cost Exposure",
+              value: formatCurrency(summary.totalCost),
+              help: "Total across all models — cost is approximate; token waste is the primary signal",
+              critical: true
             }
           ]
         : [
             {
-              label: "Estimated Cost",
-              value: formatCurrency(summary.totalCost),
-              help: "Based on model-specific token pricing",
-              critical: true
-            },
-            {
               label: "Total Tokens",
               value: formatInteger(summary.totalTokens),
-              help: "Aggregate tokens across all runs"
+              help: "Aggregate tokens across all runs",
+              critical: true
             },
             {
               label: "Error Rate",
@@ -450,16 +445,22 @@ import { buildFixCards } from './fixes';
               help: "Failed runs across all parsed jobs"
             },
             {
-              label: "Waste from Failures",
+              label: "Avoidable Token Burn",
               value: formatInteger(summary.totalWasteTokens) + " (" + formatPercent(summary.wasteRate) + ")",
-              help: "Tokens burned by failed runs — fix errors to reclaim",
+              help: "Tokens burned by avoidable waste — fix the root cause to reclaim",
               group: "waste"
             },
             {
-              label: "Potential Saving",
+              label: "Approx. Avoidable Cost Exposure",
               value: formatCurrency(summary.totalCostSaving),
-              help: "Cost of those waste tokens at each model's rate",
+              help: "Approximate cost of avoidable token waste — not a precise figure",
               group: "waste"
+            },
+            {
+              label: "Approx. Cost Exposure",
+              value: formatCurrency(summary.totalCost),
+              help: "Based on model-specific token pricing — cost is approximate; token waste is the primary signal",
+              critical: true
             }
           ];
 
@@ -501,7 +502,7 @@ import { buildFixCards } from './fixes';
           <div class="rank-chip">#${rank + 1}</div>
           <div>
             <h3>${escapeHtml(job.name)}</h3>
-            <div class="meta-line">${escapeHtml(formatInteger(job.totalTokens))} tokens &mdash; ${escapeHtml(formatCurrency(job.totalCost))} &mdash; ${escapeHtml(job.model || "Unknown")}</div>
+            <div class="meta-line">${escapeHtml(formatInteger(job.totalTokens))} tokens &mdash; ~${escapeHtml(formatCurrency(job.totalCost))} approx. &mdash; ${escapeHtml(job.model || "Unknown")}</div>
             ${wastedTokens > 0 ? `<div class="meta-line" style="color:#ff7849">~${escapeHtml(formatInteger(wastedTokens))} tokens wasted (~${escapeHtml(formatCurrency(wastedCost))})</div>` : ""}
           </div>
           <div>${renderBadge(job.badge)}</div>
