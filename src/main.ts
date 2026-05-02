@@ -107,7 +107,8 @@ import { buildFixCards } from './fixes';
         const dataset = {
           jobs: [],
           meta: null,
-          runBundles: []
+          runBundles: [],
+          fileCount: files.length
         };
 
         await nextFrame();
