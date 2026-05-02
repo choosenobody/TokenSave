@@ -132,7 +132,7 @@ import { buildFixCards } from './fixes';
         state.report = report;
         renderReport(report);
       } catch (error) {
-        showError(error instanceof Error ? error.message : String(error));
+        showError(mapErrorMessage(error instanceof Error ? error.message : String(error)));
       } finally {
         hideLoading();
         fileInput.value = "";
@@ -832,6 +832,23 @@ import { buildFixCards } from './fixes';
 
     function hideLoading() {
       loadingMessage.classList.remove("visible");
+    }
+
+    function mapErrorMessage(raw) {
+      const msg = String(raw);
+      if (msg.includes("Malformed JSON in") && !msg.includes("JSONL")) {
+        return "This JSON file could not be parsed. Re-export from OpenClaw or check the file is not corrupted.";
+      }
+      if (msg.includes("Malformed JSONL")) {
+        return "Each JSONL line must be a valid JSON object. Re-export run history if needed.";
+      }
+      if (msg.includes("does not contain jobs.json or run")) {
+        return "This ZIP does not contain jobs.json or run/*.jsonl. Export a full OpenClaw diagnostic ZIP.";
+      }
+      if (msg.includes("Unsupported file type")) {
+        return "Use a .zip, .json, or .jsonl file from your OpenClaw export.";
+      }
+      return msg;
     }
 
     function showError(message) {

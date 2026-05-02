@@ -829,18 +829,45 @@
 
     <!-- How to Export instruction -->
     <section class="panel export-guide" style="margin-bottom:20px;padding:20px 24px">
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start">
-        <div style="background:rgba(97,218,251,0.1);border:1px solid rgba(97,218,251,0.3);border-radius:12px;padding:10px 14px;min-width:110px">
-          <div style="color:#61dafb;font-size:0.78rem;font-weight:700;margin-bottom:4px">STEP 1</div>
-          <div style="color:#f5f7ff;font-size:0.88rem;font-weight:600">Export Data</div>
-        </div>
-        <div>
-          <div style="color:#a8b1d1;font-size:0.92rem;margin-bottom:8px">Run this command on the machine where OpenClaw is running:</div>
-          <div style="background:#0d1117;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:0.88rem;color:#79c0ff;overflow-x:auto;white-space:nowrap">
-            openclaw export
+      <div style="font-size:0.88rem;font-weight:700;color:#a8b1d1;margin-bottom:12px">How to get your OpenClaw diagnostic files</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+
+        <!-- Option 1: Full ZIP (best) -->
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start">
+          <div style="background:rgba(53,208,127,0.12);border:1px solid rgba(53,208,127,0.25);border-radius:8px;padding:7px 12px;min-width:80px;text-align:center">
+            <div style="color:#4ade80;font-size:0.75rem;font-weight:700">BEST</div>
           </div>
-          <div style="color:#6b7280;font-size:0.82rem;margin-top:6px">This generates a <code style="color:#a8b1d1">diagnostic-YYYY-MM-DD.zip</code> file. Upload that file below.</div>
+          <div>
+            <div style="color:#f5f7ff;font-size:0.9rem;font-weight:600;margin-bottom:4px">Full ZIP export <span style="color:#6b7280;font-weight:400">— strongest audit readiness</span></div>
+            <div style="background:#0d1117;border-radius:6px;padding:7px 12px;font-family:monospace;font-size:0.82rem;color:#79c0ff;margin-bottom:4px">openclaw export</div>
+            <div style="color:#6b7280;font-size:0.8rem">Unlocks: jobs, schedules, models, tokens, errors, failure loops, cost exposure</div>
+          </div>
         </div>
+
+        <!-- Option 2: jobs.json only -->
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start">
+          <div style="background:rgba(97,218,251,0.08);border:1px solid rgba(97,218,251,0.2);border-radius:8px;padding:7px 12px;min-width:80px;text-align:center">
+            <div style="color:#61dafb;font-size:0.75rem;font-weight:700">OK</div>
+          </div>
+          <div>
+            <div style="color:#f5f7ff;font-size:0.9rem;font-weight:600;margin-bottom:4px">jobs.json only</div>
+            <div style="color:#6b7280;font-size:0.8rem">Unlocks: job definitions, schedules, models, duplicate active-job review</div>
+            <div style="color:#6b7280;font-size:0.8rem;margin-top:2px">Missing: tokens, errors, failure-loop analysis</div>
+          </div>
+        </div>
+
+        <!-- Option 3: run JSONL only -->
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start">
+          <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:7px 12px;min-width:80px;text-align:center">
+            <div style="color:#fbbf24;font-size:0.75rem;font-weight:700">PARTIAL</div>
+          </div>
+          <div>
+            <div style="color:#f5f7ff;font-size:0.9rem;font-weight:600;margin-bottom:4px">Run history (JSONL) only</div>
+            <div style="color:#6b7280;font-size:0.8rem">Unlocks: tokens, errors, failure-loop / burst / zero-token review</div>
+            <div style="color:#6b7280;font-size:0.8rem;margin-top:2px">Missing: job schedules, models, duplicate-job analysis</div>
+          </div>
+        </div>
+
       </div>
     </section>
 
