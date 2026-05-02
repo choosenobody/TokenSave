@@ -235,6 +235,106 @@ export function detectImportSource(dataset) {
   };
 }
 
+/**
+ * Map an ImportSummary's evidence hints to specific diagnostic coverage gaps.
+ * Pure function — no side effects, no network.
+ *
+ * Input:  ImportSummary from detectImportSource()
+ * Output: array of ReadinessGap describing what is missing and what to do next
+ *
+ * Each gap maps missing evidence → affected diagnostics → manual next step.
+ */
+export function buildReadinessGaps(summary) {
+  const { evidenceHint, supportedRuleHint } = summary;
+  const gaps = [];
+
+  // Tokens missing → token waste and cost exposure are weak/unavailable
+  if (!evidenceHint.hasTokens) {
+    gaps.push({
+      missingEvidence: 'hasTokens',
+      label: 'Tokens missing',
+      affectedDiagnostics: [
+        'Token waste analysis weakened',
+        'D1 failure-loop detection relies on errors without token context',
+        'D6 zero-token abnormal-run check unavailable without token evidence',
+        'D2 burst-spend cannot compute cost-per-token without token data'
+      ],
+      manualNextStep: 'Include run JSONL / history files containing token fields (tokens, total_tokens, token_count, or usage.total_tokens).'
+    });
+  }
+
+  // Runs missing → failure loop / zero-token / burst analysis weakened
+  if (!evidenceHint.hasRuns) {
+    gaps.push({
+      missingEvidence: 'hasRuns',
+      label: 'Run history missing',
+      affectedDiagnostics: [
+        'D1 failure-loop detection (80%+ error rate across runs) unavailable',
+        'D6 zero-token abnormal-run check unavailable',
+        'D2 burst-spend concentration analysis unavailable'
+      ],
+      manualNextStep: 'Include run JSONL files (run records with timestamps, status, and error fields).'
+    });
+  }
+
+  // Schedules missing → schedule waste / cron burn / duplicate recurring-job analysis weakened
+  if (!evidenceHint.hasSchedules) {
+    gaps.push({
+      missingEvidence: 'hasSchedules',
+      label: 'Schedules missing',
+      affectedDiagnostics: [
+        'D4 LLM_AGENT_CRON burn (agent-turn + frequent schedule) unavailable',
+        'D7 duplicate recurring-job detection weakened without schedule comparison',
+        'Schedule-frequency waste recommendations unavailable'
+      ],
+      manualNextStep: 'Include jobs.json containing schedule fields (schedule, interval, frequency, cron).'
+    });
+  }
+
+  // Models missing → premium model / unknown model pricing diagnostics weakened
+  if (!evidenceHint.hasModels) {
+    gaps.push({
+      missingEvidence: 'hasModels',
+      label: 'Models missing',
+      affectedDiagnostics: [
+        'D3 premium-model-on-simple-job diagnostic unavailable',
+        'D5 unknown-model pricing warnings unavailable',
+        'Premium vs. budget model comparison unavailable'
+      ],
+      manualNextStep: 'Include jobs.json or run records containing model fields (model, model_name, modelName).'
+    });
+  }
+
+  // Jobs missing → duplicate active job and job-level manual fixes weakened
+  if (!evidenceHint.hasJobs) {
+    gaps.push({
+      missingEvidence: 'hasJobs',
+      label: 'Job definitions missing',
+      affectedDiagnostics: [
+        'D7 exact-duplicate active-job detection (same model+schedule+task) unavailable',
+        'Job-level fix cards (CRITICAL, ERROR_WASTE, PREMIUM_MODEL_WASTE, WARNING) weakened',
+        'Manual fix steps cannot reference specific job identifiers'
+      ],
+      manualNextStep: 'Include jobs.json for job definitions, schedules, and model fields.'
+    });
+  }
+
+  // Errors missing → failure-loop diagnostics weakened
+  if (!evidenceHint.hasErrors) {
+    gaps.push({
+      missingEvidence: 'hasErrors',
+      label: 'Error evidence missing',
+      affectedDiagnostics: [
+        'D1 failure-loop detection (requires error runs) unavailable',
+        'ERROR_WASTE fix category cannot fire without error evidence'
+      ],
+      manualNextStep: 'Ensure run records include error/status/result fields (error, status=\'error\', result=\'error\').'
+    });
+  }
+
+  return gaps;
+}
+
 function findEndOfCentralDirectory(bytes) {
   const minOffset = Math.max(0, bytes.length - 65557);
   for (let index = bytes.length - 22; index >= minOffset; index -= 1) {
