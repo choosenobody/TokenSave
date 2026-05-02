@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { parseJson, parseJsonl, parseZipEntries, detectImportSource } from '../src/parser.ts';
+import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from '../src/parser.ts';
 
 // ---------------------------------------------------------------------------
 // ZIP helper
@@ -374,6 +374,278 @@ describe('detectImportSource', () => {
     expect(result.evidenceHint.hasTokens).toBe(false);
     // recordCount > 0 gives medium confidence even without token evidence
     expect(result.confidence).toBe('medium');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildReadinessGaps
+// ---------------------------------------------------------------------------
+
+describe('buildReadinessGaps', () => {
+  it('returns empty array when all evidence is present', () => {
+    const summary = {
+      detectedSource: 'openclaw-like',
+      fileCount: 3,
+      recordCount: 100,
+      confidence: 'high',
+      supportedRuleHint: 'full',
+      evidenceHint: {
+        hasJobs: true,
+        hasRuns: true,
+        hasTokens: true,
+        hasErrors: true,
+        hasSchedules: true,
+        hasModels: true
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    expect(gaps).toHaveLength(0);
+  });
+
+  it('reports tokens missing when hasTokens is false', () => {
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 50,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: {
+        hasJobs: false,
+        hasRuns: true,
+        hasTokens: false,
+        hasErrors: false,
+        hasSchedules: false,
+        hasModels: false
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const tokensGap = gaps.find((g) => g.missingEvidence === 'hasTokens');
+    expect(tokensGap).toBeDefined();
+    expect(tokensGap.label).toBe('Tokens missing');
+    expect(tokensGap.affectedDiagnostics.length).toBeGreaterThan(0);
+    expect(tokensGap.manualNextStep).toContain('token');
+  });
+
+  it('reports runs missing when hasRuns is false', () => {
+    const summary = {
+      detectedSource: 'generic-json',
+      fileCount: 1,
+      recordCount: 0,
+      confidence: 'low',
+      supportedRuleHint: 'limited',
+      evidenceHint: {
+        hasJobs: true,
+        hasRuns: false,
+        hasTokens: false,
+        hasErrors: false,
+        hasSchedules: false,
+        hasModels: false
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const runsGap = gaps.find((g) => g.missingEvidence === 'hasRuns');
+    expect(runsGap).toBeDefined();
+    expect(runsGap.label).toBe('Run history missing');
+  });
+
+  it('reports multiple gaps when multiple evidence signals are false', () => {
+    const summary = {
+      detectedSource: 'unknown',
+      fileCount: 1,
+      recordCount: 0,
+      confidence: 'low',
+      supportedRuleHint: 'unavailable',
+      evidenceHint: {
+        hasJobs: false,
+        hasRuns: false,
+        hasTokens: false,
+        hasErrors: false,
+        hasSchedules: false,
+        hasModels: false
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    expect(gaps).toHaveLength(6); // all six evidence types missing
+    const missingLabels = gaps.map((g) => g.missingEvidence);
+    expect(missingLabels).toContain('hasJobs');
+    expect(missingLabels).toContain('hasRuns');
+    expect(missingLabels).toContain('hasTokens');
+    expect(missingLabels).toContain('hasErrors');
+    expect(missingLabels).toContain('hasSchedules');
+    expect(missingLabels).toContain('hasModels');
+  });
+
+  it('reports schedules missing gap with D4/D7 affected diagnostics', () => {
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 20,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: {
+        hasJobs: true,
+        hasRuns: true,
+        hasTokens: true,
+        hasErrors: true,
+        hasSchedules: false,
+        hasModels: false
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const schedGap = gaps.find((g) => g.missingEvidence === 'hasSchedules');
+    expect(schedGap).toBeDefined();
+    const diagText = schedGap.affectedDiagnostics.join(' ');
+    expect(diagText).toContain('D4');
+    expect(diagText).toContain('D7');
+  });
+
+  it('reports models missing gap with D3/D5 affected diagnostics', () => {
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 20,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: {
+        hasJobs: true,
+        hasRuns: true,
+        hasTokens: true,
+        hasErrors: true,
+        hasSchedules: true,
+        hasModels: false
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const modelGap = gaps.find((g) => g.missingEvidence === 'hasModels');
+    expect(modelGap).toBeDefined();
+    const diagText = modelGap.affectedDiagnostics.join(' ');
+    expect(diagText).toContain('D3');
+    expect(diagText).toContain('D5');
+  });
+
+  it('reports jobs missing gap with D7 and fix-card weakened message', () => {
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 50,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: {
+        hasJobs: false,
+        hasRuns: true,
+        hasTokens: true,
+        hasErrors: true,
+        hasSchedules: false,
+        hasModels: true
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const jobsGap = gaps.find((g) => g.missingEvidence === 'hasJobs');
+    expect(jobsGap).toBeDefined();
+    const diagText = jobsGap.affectedDiagnostics.join(' ');
+    expect(diagText).toContain('D7');
+    expect(diagText).toContain('fix cards');
+  });
+
+  it('reports errors missing gap with D1/ERROR_WASTE affected diagnostics', () => {
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 50,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: {
+        hasJobs: true,
+        hasRuns: true,
+        hasTokens: true,
+        hasErrors: false,
+        hasSchedules: true,
+        hasModels: true
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const errGap = gaps.find((g) => g.missingEvidence === 'hasErrors');
+    expect(errGap).toBeDefined();
+    const diagText = errGap.affectedDiagnostics.join(' ');
+    expect(diagText).toContain('D1');
+    expect(diagText).toContain('ERROR_WASTE');
+  });
+
+  it('each gap has a non-empty manualNextStep', () => {
+    const summary = {
+      detectedSource: 'unknown',
+      fileCount: 1,
+      recordCount: 0,
+      confidence: 'low',
+      supportedRuleHint: 'unavailable',
+      evidenceHint: {
+        hasJobs: false,
+        hasRuns: false,
+        hasTokens: false,
+        hasErrors: false,
+        hasSchedules: false,
+        hasModels: false
+      }
+    };
+    const gaps = buildReadinessGaps(summary);
+    gaps.forEach((gap) => {
+      expect(gap.manualNextStep.length).toBeGreaterThan(0);
+    });
+  });
+
+  // Regression: fix-card restraint logic — jobs=false && runs=false should suppress
+  // jobs=false && runs=true  should NOT suppress (jobs gap still mentions "fix cards weakened")
+  // jobs=true  && runs=false should NOT suppress (no jobs gap at all)
+  it('jobs missing + runs missing → jobs gap includes fix-card weakened', () => {
+    const summary = {
+      detectedSource: 'unknown',
+      fileCount: 1,
+      recordCount: 0,
+      confidence: 'low',
+      supportedRuleHint: 'unavailable',
+      evidenceHint: { hasJobs: false, hasRuns: false, hasTokens: true, hasErrors: true, hasSchedules: true, hasModels: true }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const jobsGap = gaps.find((g) => g.missingEvidence === 'hasJobs');
+    expect(jobsGap).toBeDefined();
+    expect(jobsGap.affectedDiagnostics.join(' ')).toContain('fix cards');
+  });
+
+  it('jobs present + runs missing → no jobs gap (jobs are present, runs are the gap)', () => {
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 20,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: { hasJobs: true, hasRuns: false, hasTokens: true, hasErrors: true, hasSchedules: true, hasModels: true }
+    };
+    const gaps = buildReadinessGaps(summary);
+    // hasJobs=true → no "jobs missing" gap; the gap is hasRuns=false
+    const jobsGap = gaps.find((g) => g.missingEvidence === 'hasJobs');
+    expect(jobsGap).toBeUndefined();
+    // runs gap should exist and NOT mention "fix cards"
+    const runsGap = gaps.find((g) => g.missingEvidence === 'hasRuns');
+    expect(runsGap).toBeDefined();
+    expect(runsGap.affectedDiagnostics.join(' ')).not.toContain('fix cards');
+  });
+
+  it('jobs missing + runs present → jobs gap mentions fix-card weakened (job detail still absent)', () => {
+    // NOTE: renderFixes will NOT suppress fix cards here (runs=true), but buildReadinessGaps
+    // still reports that job-level fix detail is weakened because job identifiers are missing.
+    const summary = {
+      detectedSource: 'jsonl-records',
+      fileCount: 1,
+      recordCount: 20,
+      confidence: 'medium',
+      supportedRuleHint: 'partial',
+      evidenceHint: { hasJobs: false, hasRuns: true, hasTokens: true, hasErrors: true, hasSchedules: true, hasModels: true }
+    };
+    const gaps = buildReadinessGaps(summary);
+    const jobsGap = gaps.find((g) => g.missingEvidence === 'hasJobs');
+    expect(jobsGap).toBeDefined();
+    // jobs gap always mentions "fix cards weakened" when hasJobs=false
+    expect(jobsGap.affectedDiagnostics.join(' ')).toContain('fix cards');
   });
 });
 

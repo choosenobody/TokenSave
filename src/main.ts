@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
-import { parseJson, parseJsonl, parseZipEntries, detectImportSource } from './parser';
+import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
 import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
 import { buildFixCards } from './fixes';
 
@@ -348,11 +348,13 @@ import { buildFixCards } from './fixes';
       };
 
       const importSummary = detectImportSource(dataset);
+      const readinessGaps = buildReadinessGaps(importSummary);
 
       return {
         meta: dataset.meta,
         summary,
         importSummary,
+        readinessGaps,
         jobs: activeJobs,
         topWaste,
         fixes: buildFixCards(activeJobs)
@@ -386,14 +388,14 @@ import { buildFixCards } from './fixes';
       emptyState.classList.add("hidden");
       reportSection.classList.remove("hidden");
 
-      renderImportSummary(report.importSummary);
+      renderImportSummary(report.importSummary, report.readinessGaps);
       renderSummary(report.summary, report.meta);
       renderTopWaste(report.topWaste, report.summary.totalCost);
       renderJobTable(report.jobs);
-      renderFixes(report.fixes);
+      renderFixes(report.fixes, report.importSummary, report.readinessGaps);
     }
 
-    function renderImportSummary(summary) {
+    function renderImportSummary(summary, readinessGaps) {
       const container = document.getElementById("importSummary");
       if (!container) return;
 
@@ -418,13 +420,44 @@ import { buildFixCards } from './fixes';
         'unavailable': 'No audit evidence detected'
       }[summary.supportedRuleHint] || summary.supportedRuleHint;
 
-      const evidenceTags = [];
-      if (summary.evidenceHint.hasJobs) evidenceTags.push('Jobs');
-      if (summary.evidenceHint.hasRuns) evidenceTags.push('Runs');
-      if (summary.evidenceHint.hasTokens) evidenceTags.push('Tokens');
-      if (summary.evidenceHint.hasErrors) evidenceTags.push('Errors');
-      if (summary.evidenceHint.hasSchedules) evidenceTags.push('Schedules');
-      if (summary.evidenceHint.hasModels) evidenceTags.push('Models');
+      // Present evidence tags
+      const presentTags = [];
+      if (summary.evidenceHint.hasJobs) presentTags.push('Jobs');
+      if (summary.evidenceHint.hasRuns) presentTags.push('Runs');
+      if (summary.evidenceHint.hasTokens) presentTags.push('Tokens');
+      if (summary.evidenceHint.hasErrors) presentTags.push('Errors');
+      if (summary.evidenceHint.hasSchedules) presentTags.push('Schedules');
+      if (summary.evidenceHint.hasModels) presentTags.push('Models');
+
+      // Missing evidence tags
+      const missingTags = [];
+      if (!summary.evidenceHint.hasJobs) missingTags.push('Jobs missing');
+      if (!summary.evidenceHint.hasRuns) missingTags.push('Runs missing');
+      if (!summary.evidenceHint.hasTokens) missingTags.push('Tokens missing');
+      if (!summary.evidenceHint.hasErrors) missingTags.push('Errors missing');
+      if (!summary.evidenceHint.hasSchedules) missingTags.push('Schedules missing');
+      if (!summary.evidenceHint.hasModels) missingTags.push('Models missing');
+
+      // Build gap sections
+      const gapSections = readinessGaps.map((gap) => `
+        <div class="gap-section">
+          <div class="gap-label">${escapeHtml(gap.label)}</div>
+          <div class="gap-diagnostics">
+            ${gap.affectedDiagnostics.map((d) => `<div class="gap-diag-item">• ${escapeHtml(d)}</div>`).join('')}
+          </div>
+          <div class="gap-next-step">
+            <span class="gap-next-label">Next step:</span> ${escapeHtml(gap.manualNextStep)}
+          </div>
+        </div>
+      `).join('');
+
+      // OpenClaw import tip
+      const importTip = `
+        <div class="import-tip">
+          <span class="gap-next-label">Tip:</span>
+          Re-run <code>openclaw export</code> after any config changes to include the latest jobs, schedules, and model fields.
+        </div>
+      `;
 
       container.innerHTML = `
         <div class="import-summary">
@@ -436,7 +469,10 @@ import { buildFixCards } from './fixes';
             <span class="import-badge confidence-${escapeHtml(summary.confidence)}">${escapeHtml(confidenceLabel)}</span>
             <span class="import-badge">${escapeHtml(ruleHintLabel)}</span>
           </div>
-          ${evidenceTags.length > 0 ? `<div class="import-tags">${evidenceTags.map(t => `<span class="import-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${presentTags.length > 0 ? `<div class="import-tags">${presentTags.map(t => `<span class="import-tag present">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${missingTags.length > 0 ? `<div class="import-tags missing-tags">${missingTags.map(t => `<span class="import-tag missing">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${gapSections.length > 0 ? `<div class="gap-list">${gapSections}</div>` : ''}
+          ${gapSections.length > 0 ? importTip : ''}
           <div class="import-privacy-note">All analysis stays on your device — no data is sent anywhere.</div>
         </div>
       `;
@@ -661,7 +697,22 @@ import { buildFixCards } from './fixes';
       </div>`;
     }
 
-    function renderFixes(fixes) {
+    function renderFixes(fixes, importSummary, readinessGaps) {
+      // If BOTH job definitions AND run history are missing, suppress fix cards.
+      // Jobs without runs → show fixes (job-level evidence is present).
+      // Runs without jobs → show fixes (usage evidence is present).
+      if (!importSummary.evidenceHint.hasJobs && !importSummary.evidenceHint.hasRuns) {
+        fixGrid.innerHTML = `
+          <div class="panel fix-card restraint-card">
+            <div class="restraint-message">
+              Fix cards require job definitions and run history to be evidence-backed.<br>
+              Import schedules, models, and token fields to unlock evidence-backed fixes.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
       fixGrid.innerHTML = fixes.map((item) => {
         const isRed = ["CRITICAL", "ERROR_WASTE"].includes(item.category);
         const isGreen = item.category === "OK";

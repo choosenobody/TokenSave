@@ -297,6 +297,8 @@ export interface SummaryStats {
 export interface Report {
   meta: Meta | null;
   summary: SummaryStats;
+  importSummary: ImportSummary;
+  readinessGaps: ReadinessGap[];
   jobs: FinalizedJob[];
   topWaste: TopWasteJob[];
   fixes: FixCardItem[];
@@ -377,4 +379,19 @@ export interface ImportSummary {
   confidence: AuditConfidence;
   supportedRuleHint: SupportedRuleHint;
   evidenceHint: EvidenceHint;
+}
+
+/**
+ * A single gap between available evidence and full diagnostic coverage.
+ * Produced by buildReadinessGaps() — maps missing evidence to affected diagnostics.
+ */
+export interface ReadinessGap {
+  /** Which evidence signal is missing or weak */
+  missingEvidence: string;
+  /** Human-readable label for the missing evidence */
+  label: string;
+  /** Which diagnostics or fix categories are weakened/unavailable */
+  affectedDiagnostics: string[];
+  /** What the user can manually import or provide to close the gap */
+  manualNextStep: string;
 }
