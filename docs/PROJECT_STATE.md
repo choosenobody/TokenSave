@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-02T05:01:03Z
-**Source**: GitHub `origin/main` at commit `f0c7891` (PR #87 fix(I4-C1): reorient UI from cost-dashboard to token-waste-action tool; squash merge)
+**Last updated**: 2026-05-02T07:05:33Z
+**Source**: GitHub `origin/main` at commit `25d116b` (PR #89 feat(I9-A): add local log import audit-readiness summary; merge commit `25d116be32eb883c1e5bc54a8211710a646cebe4`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `f0c7891` (PR #87 fix(I4-C1): reorient UI from cost-dashboard to token-waste-action tool; squash merge) |
+| Main branch SHA | `25d116b` (PR #89 feat(I9-A): add local log import audit-readiness summary; merge commit `25d116be32eb883c1e5bc54a8211710a646cebe4`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -23,16 +23,17 @@
 | src/types.ts | ~335 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
 | src/rules.ts | ~761 lines, pure D-rule functions (diagnoseD1FailureLoopDetection, diagnoseD2BurstSpend, diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
 | src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
-| src/main.ts | ~682 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes); I4-C1: token/waste-first UI, default sort by tokens, Approx. Cost Exposure wording, cost demoted to secondary signal |
-| src/parser.ts | 126 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers |
+| src/main.ts | ~800 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes); I4-C1: token/waste-first UI, default sort by tokens, Approx. Cost Exposure wording, cost demoted to secondary signal; I9-A: renderImportSummary panel above summary grid; handleFiles sets dataset.fileCount = files.length for real import path |
+| src/types.ts | ~370 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence; I9-A: DetectedSource, AuditConfidence, SupportedRuleHint, EvidenceHint, ImportSummary types |
+| src/parser.ts | ~226 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers + exported detectImportSource(dataset) pure function (source type detection, audit confidence, supportedRuleHint, evidence hints) + private hasFiniteTokenField helper (zero-token alias detection) |
 | src/constants.ts | COST_RATES / FIX_LIBRARY / FIX_BADGES; COST_RATES entries now carry 5 metadata fields: source, sourceType, checkedDate, status, approximationNote (all source=null, sourceType='unverified', checkedDate=null, status='unknown' for I4-A placeholder) |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | 17 tests, COST_RATES metadata field tests + detectCostRate characterization/regression + I4-B1 premium-saving regression tests (3 new); all COST_RATES entries marked unverified/unknown for I4-A |
-| tests/parser.test.ts | 259 lines, 16 characterization tests for parseJson / parseJsonl / parseZipEntries (12 inline + 4 fixture-based). Fixtures under tests/fixtures/parser/: jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl |
+| tests/parser.test.ts | ~380 lines, parseJson / parseJsonl / parseZipEntries characterization tests (12 inline + 4 fixture-based) + detectImportSource tests (19 new, covering source detection, zero-token aliases, non-finite exclusion, fileCount wiring); total 34 parser tests |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
-| tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 169 tests across 6 files |
+| tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 187 tests across 6 files |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
@@ -46,6 +47,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #89 | feat(I9-A): add local log import audit-readiness summary | 2026-05-02 | `25d116b` |
 | #87 | fix(I4-C1): reorient UI from cost-dashboard to token-waste-action tool | 2026-05-02 | `f0c7891` |
 | #85 | docs(PROJECT_STATE): refresh after PR #84 — I4-B1 CLOSED | 2026-05-01 | `488c9b9` |
 | #84 | fix(I4-B1): decouple premium saving reference rate | 2026-05-01 | `d4373e0` |
@@ -145,6 +147,7 @@
 | I3B (Parser-Fixture-Tests) | Add fixture-based parser tests for parseJson / parseJsonl — 4 fixture tests using tests/fixtures/parser/ jobs.valid.json, runs.valid.jsonl, malformed.json, malformed.jsonl | #55 | CLOSED |
 | I4-B1 (Decouple-Premium-Ref) | Replace hardcoded `const cheapRate = 0.14` with dynamic `detectCostRate('MiniMax M2.7')` in premium-model saving calculation. Guard: only use rate when `pricingSource === 'known-local'` and rate is finite positive. Safe fallback: skip saving calculation if reference is not safe — avoids conservative overestimate (rate 15) as cheap baseline. Behavior unchanged with current COST_RATES. Future MiniMax rate updates will auto-reflect in Summary saving. No numeric rate changes. No metadata changes. | #84 | CLOSED |
 | I4-C1 (Token-first Waste Action UI Correction) | src/main.ts only. Strategic UI reorientation: cost-first dashboard → token/waste-action tool. Default sort changed from `cost` to `tokens`. Summary cards reordered: Avoidable Token Burn first, Approx. Cost Exposure last/secondary. Labels renamed: Waste from Failures → Avoidable Token Burn, Potential Saving → Approx. Avoidable Cost Exposure, Estimated Cost → Approx. Cost Exposure. Top waste metadata: tokens first, approximate cost second. hasConservativeEstimates branch restored Approx. Avoidable Cost Exposure (known-local only, excludes conservative unknown exposure). No pricing/rule/parser/domain/constants changes. | #87 | CLOSED |
+| I9-A (Local Log Import + Audit-Ready Evidence Layer) | Local import summary panel after ingest: detected source type label, record/file counts, audit confidence, supportedRuleHint, evidence tags (hasJobs/hasRuns/hasTokens/hasErrors/hasSchedules/hasModels), static local-only privacy note. detectImportSource(dataset) pure function in src/parser.ts — zero network, zero side effects. hasFiniteTokenField local helper correctly recognizes tokens:0 and all token aliases as valid evidence (NaN/Infinity/-1 excluded). dataset.fileCount = files.length wired in handleFiles() real import path. supportedRuleHint='full' requires jobs+runs+tokens+schedules+models ALL present. UI labels: "Strong audit readiness" / "Partial audit evidence" / "Limited audit evidence" / "No audit evidence detected". No backend/network/telemetry/export/runtime-write. | #89 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
@@ -158,7 +161,9 @@
 
 **I4-C1 (Token-first Waste Action UI Correction) — CLOSED.** src/main.ts only. Reoriented UI from cost-dashboard to token-waste-action tool. Default sort: `cost` → `tokens`. Summary cards: Avoidable Token Burn first, Approx. Cost Exposure last/secondary. Labels updated: Approx. Cost Exposure, Approx. Avoidable Cost Exposure, Avoidable Token Burn. hasConservativeEstimates branch restored known-local avoidable cost signal. No pricing/rule/parser/domain/constants changes.
 
-**I3A (Parser-Char-Tests) — CLOSED.** Added 12 characterization tests for parseJson / parseJsonl / parseZipEntries in tests/parser.test.ts. No src changes.
+**I9-A (Local Log Import + Audit-Ready Evidence Layer) — CLOSED.** Added import summary panel (renderImportSummary), detectImportSource(dataset) pure function, dataset.fileCount wiring, hasFiniteTokenField zero-token detection, tightened supportedRuleHint='full' requiring jobs+runs+tokens+schedules+models. No backend/network/telemetry/export/runtime-write. No pricing/rule/domain behavior changes.
+
+**I3A (Parser-Char-Tests) — CLOSED.** Added 12 characterization tests for parseJson / parseJsonl / parseZipEntries in tests/parser.test.ts. I9-A later expanded parser.test.ts to 34 tests (detectImportSource coverage). No parser behavior changes.
 
 **I3B (Parser-Fixture-Tests) — CLOSED.** Added 4 fixture-based tests using realistic text fixtures under tests/fixtures/parser/. I3A + I3B together provide comprehensive inline + fixture coverage for parseJson and parseJsonl. No src changes.
 
@@ -224,9 +229,9 @@ These constraints are **never negotiable** regardless of issue scope:
 
 ---
 
-**I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 152 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
+**I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 187 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: I4-C1 CLOSED. I4-B (official-source pricing audit) deferred pending BG approval of exact official sources. Issue #3 (pricing) remains open — reframed as transparency/approximate exposure strategy; no rate changes without separate BG approval. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. Recommended next implementation: I9-A (Local Log Import + Audit-Ready Evidence Layer) — requires separate BG approval before proceeding.
+**Recommended Next Step**: I9-A CLOSED. I9-B (Import-to-Action Funnel) is the recommended next implementation: after import, surface what evidence is present/missing for meaningful diagnostics and guide the user toward evidence-backed manual fixes — completing the import→diagnose→evidence→manual-fix loop. Keep it local-first, no export/share/report/download, no backend, no telemetry, no runtime write, no auto-apply. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work after the import→diagnose→evidence→manual-fix loop is stronger. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
