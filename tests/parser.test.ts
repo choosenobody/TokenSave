@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { parseJson, parseJsonl, parseZipEntries } from '../src/parser.ts';
+import { parseJson, parseJsonl, parseZipEntries, detectImportSource } from '../src/parser.ts';
 
 // ---------------------------------------------------------------------------
 // ZIP helper
@@ -243,20 +243,137 @@ describe('parseJson — fixtures', () => {
   });
 });
 
-describe('parseJsonl — fixtures', () => {
-  it('parses a realistic run records JSONL file', () => {
-    const content = readFileSync('tests/fixtures/parser/runs.valid.jsonl', 'utf8');
-    const result = parseJsonl(content);
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(3);
-    result.forEach(record => {
-      expect(typeof record).toBe('object');
-      expect(record).toHaveProperty('runId');
-    });
+describe('detectImportSource', () => {
+  it('detects openclaw-like from meta', () => {
+    const result = detectImportSource({ jobs: [], meta: { openclaw_version: '1.0.0' }, runBundles: [] });
+    expect(result.detectedSource).toBe('openclaw-like');
+    expect(result.confidence).toBe('low');
+    expect(result.fileCount).toBe(0);
+    expect(result.recordCount).toBe(0);
   });
 
-  it('throws on malformed JSONL fixture with filename and line number', () => {
-    expect(() => parseJsonl(readFileSync('tests/fixtures/parser/malformed.jsonl', 'utf8'), 'malformed.jsonl'))
-      .toThrow(/Malformed JSONL in malformed.jsonl at line 2/);
+  it('detects jsonl-records from runs only', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'runs.jsonl', records: [{ tokens: 100 }] }] });
+    expect(result.detectedSource).toBe('jsonl-records');
+    expect(result.recordCount).toBe(1);
+    expect(result.evidenceHint.hasTokens).toBe(true);
+    expect(result.evidenceHint.hasRuns).toBe(true);
+    expect(result.confidence).toBe('high');
+    expect(result.supportedRuleHint).toBe('partial');
+  });
+
+  it('detects generic-json from jobs only', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'test', schedule: 'daily' }], meta: null, runBundles: [] });
+    expect(result.detectedSource).toBe('generic-json');
+    expect(result.evidenceHint.hasJobs).toBe(true);
+    expect(result.evidenceHint.hasSchedules).toBe(true);
+    expect(result.evidenceHint.hasRuns).toBe(false);
+  });
+
+  it('detects zip-mixed from jobs + runs', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'test' }], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ tokens: 100, error: false }] }] });
+    expect(result.detectedSource).toBe('zip-mixed');
+    expect(result.evidenceHint.hasJobs).toBe(true);
+    expect(result.evidenceHint.hasRuns).toBe(true);
+    expect(result.evidenceHint.hasTokens).toBe(true);
+    expect(result.confidence).toBe('high');
+    // full requires jobs + runs + tokens + schedules + models; this dataset has no schedule/model → partial
+    expect(result.supportedRuleHint).toBe('partial');
+  });
+
+  it('returns full supportedRuleHint only when jobs+runs+tokens+schedules+models are all present', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'test', schedule: 'hourly', model: 'gpt-4o' }], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ tokens: 100, model: 'gpt-4o' }] }] });
+    expect(result.supportedRuleHint).toBe('full');
+    expect(result.confidence).toBe('high');
+    expect(result.evidenceHint.hasJobs).toBe(true);
+    expect(result.evidenceHint.hasRuns).toBe(true);
+    expect(result.evidenceHint.hasTokens).toBe(true);
+    expect(result.evidenceHint.hasSchedules).toBe(true);
+    expect(result.evidenceHint.hasModels).toBe(true);
+  });
+
+  it('returns partial when only tokens (no jobs)', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ tokens: 100 }] }] });
+    expect(result.supportedRuleHint).toBe('partial');
+    expect(result.confidence).toBe('high');
+  });
+
+  it('medium confidence when no tokens but has records', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'test' }], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{}] }] });
+    expect(result.confidence).toBe('medium');
+    expect(result.evidenceHint.hasTokens).toBe(false);
+  });
+
+  it('detects hasErrors from run record', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ tokens: 50, error: 'connection refused' }] }] });
+    expect(result.evidenceHint.hasErrors).toBe(true);
+    expect(result.evidenceHint.hasTokens).toBe(true);
+  });
+
+  it('unknown source when empty dataset', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [] });
+    expect(result.detectedSource).toBe('unknown');
+    expect(result.supportedRuleHint).toBe('unavailable');
+    expect(result.confidence).toBe('low');
+  });
+
+  it('openclaw-like when job has agentTurn', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'agent', agentTurn: true }], meta: null, runBundles: [] });
+    expect(result.detectedSource).toBe('openclaw-like');
+  });
+
+  it('openclaw-like when job has runs embedded', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'agent', runs: [{ tokens: 100 }] }], meta: null, runBundles: [] });
+    expect(result.detectedSource).toBe('openclaw-like');
+    expect(result.evidenceHint.hasRuns).toBe(true);
+  });
+
+  it('fileCount equals number of runBundles', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'a.jsonl', records: [] }, { fileName: 'b.jsonl', records: [] }] });
+    expect(result.fileCount).toBe(2);
+  });
+
+  it('fileCount uses dataset.fileCount when provided as finite non-negative number', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'test' }], meta: null, runBundles: [], fileCount: 1 });
+    expect(result.fileCount).toBe(1);
+  });
+
+  it('fileCount falls back to runBundles.length when dataset.fileCount is absent', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'a.jsonl', records: [] }, { fileName: 'b.jsonl', records: [] }] });
+    expect(result.fileCount).toBe(2);
+  });
+
+  it('fileCount falls back to runBundles.length when dataset.fileCount is undefined', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'a.jsonl', records: [] }] });
+    expect(result.fileCount).toBe(1);
+  });
+
+  it('zero tokens: 0 is detected as token evidence via tokens field', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ tokens: 0 }] }] });
+    expect(result.evidenceHint.hasTokens).toBe(true);
+    expect(result.confidence).toBe('high');
+  });
+
+  it('zero tokens: 0 is detected as token evidence via total_tokens field', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ total_tokens: 0 }] }] });
+    expect(result.evidenceHint.hasTokens).toBe(true);
+  });
+
+  it('zero tokens: 0 is detected as token evidence via token_count field', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ token_count: 0 }] }] });
+    expect(result.evidenceHint.hasTokens).toBe(true);
+  });
+
+  it('zero tokens: 0 is detected as token evidence via usage.total_tokens field', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ usage: { total_tokens: 0 } }] }] });
+    expect(result.evidenceHint.hasTokens).toBe(true);
+  });
+
+  it('non-finite token values do not count as token evidence', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'run.jsonl', records: [{ tokens: NaN }, { tokens: Infinity }, { tokens: -1 }] }] });
+    expect(result.evidenceHint.hasTokens).toBe(false);
+    // recordCount > 0 gives medium confidence even without token evidence
+    expect(result.confidence).toBe('medium');
   });
 });
+

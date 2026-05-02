@@ -345,3 +345,36 @@ export type ParseJsonlResult = RunRecord[];
 /** Return type of parseZipEntries(buffer).  Array of {name, text} entries. */
 export type ZipEntry = { name: string; text: string };
 export type ParseZipResult = ZipEntry[];
+
+// ---------------------------------------------------------------------------
+// Import / audit readiness types
+// ---------------------------------------------------------------------------
+
+export type DetectedSource =
+  | 'openclaw-like'
+  | 'jsonl-records'
+  | 'zip-mixed'
+  | 'generic-json'
+  | 'unknown';
+
+export type AuditConfidence = 'high' | 'medium' | 'low';
+
+export type SupportedRuleHint = 'full' | 'partial' | 'limited' | 'unavailable';
+
+export interface EvidenceHint {
+  hasJobs: boolean;
+  hasRuns: boolean;
+  hasTokens: boolean;
+  hasErrors: boolean;
+  hasSchedules: boolean;
+  hasModels: boolean;
+}
+
+export interface ImportSummary {
+  detectedSource: DetectedSource;
+  fileCount: number;
+  recordCount: number;
+  confidence: AuditConfidence;
+  supportedRuleHint: SupportedRuleHint;
+  evidenceHint: EvidenceHint;
+}

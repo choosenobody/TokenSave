@@ -688,6 +688,63 @@
         min-width: 640px;
       }
     }
+
+    .import-summary {
+      background: #1a1a2e;
+      border: 1px solid #2d2d44;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .import-summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .import-source {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .import-meta {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+    .import-summary-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .import-badge {
+      background: #2d2d44;
+      color: #94a3b8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .import-badge.confidence-high { background: #1a3a2a; color: #4ade80; }
+    .import-badge.confidence-medium { background: #3a2a1a; color: #fbbf24; }
+    .import-badge.confidence-low { background: #3a1a1a; color: #f87171; }
+    .import-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .import-tag {
+      background: #16213e;
+      color: #61dafb;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    .import-privacy-note {
+      color: #64748b;
+      font-size: 11px;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -742,6 +799,7 @@
     </section>
 
     <section id="report" class="hidden">
+      <div id="importSummary"></div>
       <div id="summaryGrid" class="summary-grid"></div>
 
       <section class="section">
