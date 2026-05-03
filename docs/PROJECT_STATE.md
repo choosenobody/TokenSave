@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-02T09:38:45Z
-**Source**: GitHub `origin/main` at commit `7228f0c` (PR #91 feat(I9-B): import-to-action funnel — readiness gaps, affected diagnostics, fix-card restraint; merge commit `7228f0c926d3558477b8126ac93ef94818be5d07`)
+**Last updated**: 2026-05-03T15:10:32Z
+**Source**: GitHub `origin/main` at commit `582534e` (PR #94 feat(I10-B1): export guidance 3-path + improved import error UX; merge commit `582534eb6696226271a0eb7058cac9d7043f842e`)
 
 ---
 
@@ -15,15 +15,16 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `7228f0c` (PR #91 feat(I9-B): import-to-action funnel; merge commit `7228f0c926d3558477b8126ac93ef94818be5d07`) |
+| Main branch SHA | `582534e` (PR #94 feat(I10-B1): export guidance 3-path + improved import error UX; merge commit `582534eb6696226271a0eb7058cac9d7043f842e`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
-| index.html | HTML/CSS shell with module script reference to src/main.ts |
+| index.html | HTML/CSS shell with module script reference to src/main.ts; I10-B1 adds 3-path OpenClaw diagnostic file guidance panel (Full ZIP export / jobs.json only / JSONL run history only) |
 | src/types.ts | ~335 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
 | src/rules.ts | ~761 lines, pure D-rule functions (diagnoseD1FailureLoopDetection, diagnoseD2BurstSpend, diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
 | src/domain.ts | ~404 lines, 19 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence, imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
-| src/main.ts | ~800 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes); I4-C1: token/waste-first UI, default sort by tokens, Approx. Cost Exposure wording, cost demoted to secondary signal; I9-A: renderImportSummary panel above summary grid; handleFiles sets dataset.fileCount = files.length for real import path; I9-B: renderImportSummary extended with readiness gap sections (present/missing evidence tags, affected diagnostics, manual next steps); renderFixes restraint logic: fix cards suppressed only when hasJobs===false && hasRuns===false |
+| src/main.ts | ~820 lines, `@ts-nocheck`, application logic (ingest/analyzeDataset/finalizeStat/render UI helpers; detectCostRate moved to src/pricing.ts; buildFixCards moved to fixes.ts; finalizeStat attaches evidence to FinalizedJob; all pure helpers extracted to domain/utils/fixes); I4-C1: token/waste-first UI, default sort by tokens, Approx. Cost Exposure wording, cost demoted to secondary signal; I9-A: renderImportSummary panel above summary grid; handleFiles sets dataset.fileCount = files.length for real import path; I9-B: renderImportSummary extended with readiness gap sections (present/missing evidence tags, affected diagnostics, manual next steps); renderFixes restraint logic: fix cards suppressed only when hasJobs===false && hasRuns===false; I10-B1 maps low-level parse failures to clearer import guidance messages |
+| I10-B1 changed files | `index.html`, `src/main.ts`; export guidance and error UX only; no backend/network/telemetry/runtime file-write intended |
 | src/types.ts | ~385 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence; I9-A: DetectedSource, AuditConfidence, SupportedRuleHint, EvidenceHint, ImportSummary types; I9-B: ReadinessGap interface (missingEvidence/label/affectedDiagnostics/manualNextStep) + Report.readinessGaps: ReadinessGap[] |
 | src/parser.ts | ~340 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers + exported detectImportSource(dataset) pure function (source type detection, audit confidence, supportedRuleHint, evidence hints) + private hasFiniteTokenField helper (zero-token alias detection); I9-B: exported buildReadinessGaps(summary) pure function — maps ImportSummary EvidenceHint to ReadinessGap[] (one entry per missing evidence signal with affected diagnostics and manual next steps) |
 | src/constants.ts | COST_RATES / FIX_LIBRARY / FIX_BADGES; COST_RATES entries now carry 5 metadata fields: source, sourceType, checkedDate, status, approximationNote (all source=null, sourceType='unverified', checkedDate=null, status='unknown' for I4-A placeholder) |
@@ -47,6 +48,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #94 | feat(I10-B1): export guidance 3-path + improved import error UX | 2026-05-02 | `582534e` |
+| #92 | docs(PROJECT_STATE): refresh after PR #91 — I9-B CLOSED | 2026-05-02 | `7c6593f` |
 | #91 | feat(I9-B): add import-to-action funnel — readiness gaps, affected diagnostics, manual next steps, fix-card restraint | 2026-05-02 | `7228f0c` |
 | #89 | feat(I9-A): add local log import audit-readiness summary | 2026-05-02 | `25d116b` |
 | #87 | fix(I4-C1): reorient UI from cost-dashboard to token-waste-action tool | 2026-05-02 | `f0c7891` |
@@ -150,6 +153,7 @@
 | I4-C1 (Token-first Waste Action UI Correction) | src/main.ts only. Strategic UI reorientation: cost-first dashboard → token/waste-action tool. Default sort changed from `cost` to `tokens`. Summary cards reordered: Avoidable Token Burn first, Approx. Cost Exposure last/secondary. Labels renamed: Waste from Failures → Avoidable Token Burn, Potential Saving → Approx. Avoidable Cost Exposure, Estimated Cost → Approx. Cost Exposure. Top waste metadata: tokens first, approximate cost second. hasConservativeEstimates branch restored Approx. Avoidable Cost Exposure (known-local only, excludes conservative unknown exposure). No pricing/rule/parser/domain/constants changes. | #87 | CLOSED |
 | I9-A (Local Log Import + Audit-Ready Evidence Layer) | Local import summary panel after ingest: detected source type label, record/file counts, audit confidence, supportedRuleHint, evidence tags (hasJobs/hasRuns/hasTokens/hasErrors/hasSchedules/hasModels), static local-only privacy note. detectImportSource(dataset) pure function in src/parser.ts — zero network, zero side effects. hasFiniteTokenField local helper correctly recognizes tokens:0 and all token aliases as valid evidence (NaN/Infinity/-1 excluded). dataset.fileCount = files.length wired in handleFiles() real import path. supportedRuleHint='full' requires jobs+runs+tokens+schedules+models ALL present. UI labels: "Strong audit readiness" / "Partial audit evidence" / "Limited audit evidence" / "No audit evidence detected". No backend/network/telemetry/export/runtime-write. | #89 | CLOSED |
 | I9-B (Import-to-Action Funnel) | Present/missing evidence tags in import summary (hasJobs/hasRuns/hasTokens/hasErrors/hasSchedules/hasModels); readiness gaps via buildReadinessGaps() pure function in src/parser.ts — maps ImportSummary to ReadinessGap[] (one entry per missing evidence signal); affected diagnostics mapping (hasTokens→D1/D2/D6, hasRuns→D1/D2/D6, hasSchedules→D4/D7, hasModels→D3/D5, hasJobs→D7+fix-card-detail, hasErrors→D1/ERROR_WASTE); manual next-step guidance per gap; fix-card restraint: fix cards suppressed only when hasJobs===false && hasRuns===false (both signals missing), partial evidence sufficient to show evidence-backed cards; no parser behavior change, no D-rule/pricing/COST_RATES/domain behavior change, no backend/network/telemetry/export/auto-apply. | #91 | CLOSED |
+| I10-B1 (Export Guidance + Import Error UX) | Added 3-path OpenClaw diagnostic file guidance panel: Full ZIP export (best), jobs.json only (OK), and run-history JSONL only (partial). Improved import parse error UX by mapping malformed JSON, malformed JSONL, incomplete ZIP, and unsupported file type errors to clearer user-facing guidance. Changed files: index.html and src/main.ts. No backend/network/telemetry/runtime file-write intended. | #94 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
@@ -160,6 +164,8 @@
 ## Next Action
 
 **Issue #11 (I2b): CLOSED as complete.** All acceptance criteria met. All safely extractable pure helpers migrated to `src/` modules.
+
+**I10-B1 (Export Guidance + Import Error UX) — CLOSED.** Added 3-path OpenClaw diagnostic file guidance in `index.html` and clearer import parse error messages in `src/main.ts`. This was guidance/UX only: no backend, no telemetry, no network calls in app code, and no runtime file-write path intended.
 
 **I9-B (Import-to-Action Funnel) — CLOSED.** Added buildReadinessGaps() pure function, ReadinessGap type, present/missing evidence tags, affected diagnostics mapping, manual next-step guidance, and precise fix-card restraint (&& not ||). 12 new tests in parser.test.ts including 3 regression cases. No parser/D-rule/pricing/COST_RATES/domain behavior change. No backend/network/telemetry/export/auto-apply. Total test suite: 199 tests.
 
@@ -188,10 +194,19 @@
 **I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (BG 2026-04-30).
 
 **Recommended follow-up** (requires separate BG approval):
+- Post-I10-B1 docs/state hygiene or explicit next-product planning; do not assume I10-A is still the next untouched increment because main has advanced through PR #94.
 - UI module extraction (create `src/ui.ts`)
 - Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**
 - App-shell architecture cleanup
 - Observed-fallback and inferred-config pricing sources remain unimplemented (future work)
+
+## Current Local Validation Reality
+
+- `npm run build` passes.
+- `npm test` currently reports 198 passing tests and 1 known failing test: `tests/no-network.test.ts`.
+- The known failing no-network test is a Vite modulepreload polyfill false positive from generated `dist/assets` output containing `fetch(...)`.
+- Source grep found no forbidden app network APIs in `src/`.
+- Do not treat the no-network failure as app runtime network code unless forbidden APIs are found in `src/`.
 
 ---
 
@@ -223,10 +238,11 @@ These constraints are **never negotiable** regardless of issue scope:
 - **No backend**: zero server-side components
 - **No telemetry, analytics, tracking**: zero external data egress
 - **No fetch/XMLHttpRequest/sendBeacon**: zero network calls from the app
-- **No external LLM calls**: app never calls any LLM API
+- **No external LLM/API calls**: app never calls any LLM or external API
 - **No auto-apply**: fix hints are CLI text only, never executed
 - **No runtime write-path**: app does not write any files
 - **No API key collection**: zero credential handling
+- **No export/report/share/download unless explicitly approved**: do not add data egress or file-generation surfaces without BG approval
 - **node_modules/ in .gitignore**: never commit node_modules
 - **No secrets in repo**: zero credentials or tokens in source
 - **Unknown model pricing defaults to highest reasonable rate**: never cheap
@@ -235,7 +251,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 187 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: I9-B CLOSED. I9-A + I9-B complete the import→diagnose→evidence→manual-fix loop. I10-A (Product Format Strategy) is the recommended next planning issue: define what a "complete" TokenSave job entry looks like across import formats (openclaw export, manual JSON, third-party integrations) to support better deduplication, diagnostic coverage, and future evidence-completeness scoring. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources. **Test hygiene follow-up**: `tests/no-network.test.ts` has a pre-existing Vite modulepreload polyfill false-positive on feature branches (passes on main); flag as a maintenance concern for future cleanup.
+**Recommended Next Step**: I10-B1 is CLOSED on main at `582534e`. I9-A + I9-B complete the import-to-diagnose-to-evidence-to-manual-fix loop, and I10-B1 improves the OpenClaw diagnostic-file guidance and import error UX. Next product work should be selected explicitly by BG; do not assume I10-A is still the next untouched increment after PR #94. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources. **Test hygiene follow-up**: `tests/no-network.test.ts` currently has a known Vite modulepreload polyfill false positive from built `dist/assets` output; local grep found no forbidden app network APIs in `src/`.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
