@@ -50,6 +50,7 @@
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
 | #96 | test(I7A): handle Vite modulepreload polyfill in no-network test | 2026-05-03 | `77b01df` |
+| #95 | docs(PROJECT_STATE): refresh after PR #94 | 2026-05-03 | `50a2b19` |
 | #94 | feat(I10-B1): export guidance 3-path + improved import error UX | 2026-05-02 | `582534e` |
 | #92 | docs(PROJECT_STATE): refresh after PR #91 — I9-B CLOSED | 2026-05-02 | `7c6593f` |
 | #91 | feat(I9-B): add import-to-action funnel — readiness gaps, affected diagnostics, manual next steps, fix-card restraint | 2026-05-02 | `7228f0c` |
