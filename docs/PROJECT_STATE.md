@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-03T15:10:32Z
-**Source**: GitHub `origin/main` at commit `582534e` (PR #94 feat(I10-B1): export guidance 3-path + improved import error UX; merge commit `582534eb6696226271a0eb7058cac9d7043f842e`)
+**Last updated**: 2026-05-03T15:53:05Z
+**Source**: GitHub `origin/main` at commit `77b01df` (PR #96 test(I7A): handle Vite modulepreload polyfill in no-network test; merge commit `77b01dfa9047203f9fd9599cb72c1f8705414e9a`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `582534e` (PR #94 feat(I10-B1): export guidance 3-path + improved import error UX; merge commit `582534eb6696226271a0eb7058cac9d7043f842e`) |
+| Main branch SHA | `77b01df` (PR #96 test(I7A): handle Vite modulepreload polyfill in no-network test; merge commit `77b01dfa9047203f9fd9599cb72c1f8705414e9a`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -33,6 +33,7 @@
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | 17 tests, COST_RATES metadata field tests + detectCostRate characterization/regression + I4-B1 premium-saving regression tests (3 new); all COST_RATES entries marked unverified/unknown for I4-A |
 | tests/parser.test.ts | ~590 lines, parseJson / parseJsonl / parseZipEntries characterization tests (12 inline + 4 fixture-based) + detectImportSource tests (19 new) + buildReadinessGaps tests (12 new, including 3 jobs/runs regression cases); total 46 parser tests |
+| tests/no-network.test.ts | I7A no-network regression test now handles Vite modulepreload polyfill false positives in built output; forbidden app runtime API scan includes fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource; passes under current Windows/Vite build output |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 187 tests across 6 files |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
@@ -48,6 +49,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #96 | test(I7A): handle Vite modulepreload polyfill in no-network test | 2026-05-03 | `77b01df` |
 | #94 | feat(I10-B1): export guidance 3-path + improved import error UX | 2026-05-02 | `582534e` |
 | #92 | docs(PROJECT_STATE): refresh after PR #91 — I9-B CLOSED | 2026-05-02 | `7c6593f` |
 | #91 | feat(I9-B): add import-to-action funnel — readiness gaps, affected diagnostics, manual next steps, fix-card restraint | 2026-05-02 | `7228f0c` |
@@ -134,7 +136,7 @@
 | I2b.6E | Extract createJobStat / ensureSyntheticStat / resolveJob / applyRunRecord to src/domain.ts | #34 | CLOSED |
 | I2b.6F | Extract parseScheduleMinutes / formatFrequency to src/domain.ts | #36 | CLOSED |
 | I2b.6G | Extract buildFixCards to src/fixes.ts | #38 | CLOSED |
-| I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice) | #44 | CLOSED |
+| I7A | No-network regression test — vitest setup + npm test script (Issue #6 sub-slice); PR #96 test hygiene follow-up closed the Vite modulepreload polyfill false positive and added EventSource to the forbidden network API scan | #44, #96 | CLOSED |
 | I7B (Evidence-Bundle) | Add WasteEvidence type + buildWasteEvidence for waste classification (Issue #6 sub-slice) | #59 | CLOSED |
 | I7C (Evidence-Contract-Tests) | Add tests/diagnose-evidence-contract.test.ts — 156 lines, 8 tests; D1-D7 DiagnoseRuleResult evidence contract regression coverage; assertEvidenceContract helper validates result/severity/evidence structure, non-empty message, non-string evidence, structured keys (ruleId/explanation/sourceFields/observedValue/threshold); Issue #6 sub-slice | #79 | CLOSED |
 | I5-D5 (Diagnose-D5) | D5 unknown-model pricing diagnostic — diagnoseD5UnknownModelPricing pure function + DiagnoseRuleResult contract with nested evidence bundle (Issue #4 sub-slice) | #61 | CLOSED |
@@ -167,6 +169,8 @@
 
 **I10-B1 (Export Guidance + Import Error UX) — CLOSED.** Added 3-path OpenClaw diagnostic file guidance in `index.html` and clearer import parse error messages in `src/main.ts`. This was guidance/UX only: no backend, no telemetry, no network calls in app code, and no runtime file-write path intended.
 
+**I7A test hygiene follow-up — CLOSED.** PR #96 updated `tests/no-network.test.ts` to handle the Vite modulepreload polyfill false positive in generated build output, expanded forbidden network API coverage to include EventSource, and restored the expected passing no-network regression under current Windows/Vite output. `npm test` should now pass 199 tests.
+
 **I9-B (Import-to-Action Funnel) — CLOSED.** Added buildReadinessGaps() pure function, ReadinessGap type, present/missing evidence tags, affected diagnostics mapping, manual next-step guidance, and precise fix-card restraint (&& not ||). 12 new tests in parser.test.ts including 3 regression cases. No parser/D-rule/pricing/COST_RATES/domain behavior change. No backend/network/telemetry/export/auto-apply. Total test suite: 199 tests.
 
 **I9-A (Local Log Import + Audit-Ready Evidence Layer) — CLOSED.** Added import summary panel (renderImportSummary), detectImportSource(dataset) pure function, dataset.fileCount wiring, hasFiniteTokenField zero-token detection, tightened supportedRuleHint='full' requiring jobs+runs+tokens+schedules+models. No backend/network/telemetry/export/runtime-write. No pricing/rule/domain behavior changes.
@@ -194,7 +198,7 @@
 **I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (BG 2026-04-30).
 
 **Recommended follow-up** (requires separate BG approval):
-- Post-I10-B1 docs/state hygiene or explicit next-product planning; do not assume I10-A is still the next untouched increment because main has advanced through PR #94.
+- Post-PR #96 docs/state hygiene or explicit next-product planning; do not assume I10-A is still the next untouched increment because main has advanced through PR #96.
 - UI module extraction (create `src/ui.ts`)
 - Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**
 - App-shell architecture cleanup
@@ -203,10 +207,9 @@
 ## Current Local Validation Reality
 
 - `npm run build` passes.
-- `npm test` currently reports 198 passing tests and 1 known failing test: `tests/no-network.test.ts`.
-- The known failing no-network test is a Vite modulepreload polyfill false positive from generated `dist/assets` output containing `fetch(...)`.
-- Source grep found no forbidden app network APIs in `src/`.
-- Do not treat the no-network failure as app runtime network code unless forbidden APIs are found in `src/`.
+- `npm test` should now pass 199 tests after PR #96.
+- `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive from generated `dist/assets` output.
+- Source/runtime scan remains intended to catch forbidden app network APIs, including fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource.
 
 ---
 
@@ -237,7 +240,7 @@ These constraints are **never negotiable** regardless of issue scope:
 - **Local-first**: files never leave the device
 - **No backend**: zero server-side components
 - **No telemetry, analytics, tracking**: zero external data egress
-- **No fetch/XMLHttpRequest/sendBeacon**: zero network calls from the app
+- **No app runtime fetch/XMLHttpRequest/sendBeacon/WebSocket/EventSource**: zero network calls from the app
 - **No external LLM/API calls**: app never calls any LLM or external API
 - **No auto-apply**: fix hints are CLI text only, never executed
 - **No runtime write-path**: app does not write any files
@@ -251,7 +254,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 187 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: I10-B1 is CLOSED on main at `582534e`. I9-A + I9-B complete the import-to-diagnose-to-evidence-to-manual-fix loop, and I10-B1 improves the OpenClaw diagnostic-file guidance and import error UX. Next product work should be selected explicitly by BG; do not assume I10-A is still the next untouched increment after PR #94. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources. **Test hygiene follow-up**: `tests/no-network.test.ts` currently has a known Vite modulepreload polyfill false positive from built `dist/assets` output; local grep found no forbidden app network APIs in `src/`.
+**Recommended Next Step**: PR #96 is merged on main at `77b01df`. I9-A + I9-B complete the import-to-diagnose-to-evidence-to-manual-fix loop, I10-B1 improves the OpenClaw diagnostic-file guidance and import error UX, and the I7A test hygiene follow-up is CLOSED: `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive and includes EventSource in the forbidden network API scan. Next product work should be selected explicitly by BG; do not assume I10-A is still the next untouched increment after PR #96. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
