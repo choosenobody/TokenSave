@@ -375,6 +375,66 @@ describe('detectImportSource', () => {
     // recordCount > 0 gives medium confidence even without token evidence
     expect(result.confidence).toBe('medium');
   });
+
+  it('jobs-only import keeps run history and token evidence absent', () => {
+    const result = detectImportSource({
+      jobs: [{ id: 'job-1', name: 'daily cleanup', schedule: 'daily', model: 'gpt-4o' }],
+      meta: null,
+      runBundles: []
+    });
+
+    expect(result.detectedSource).toBe('generic-json');
+    expect(result.supportedRuleHint).toBe('limited');
+    expect(result.evidenceHint.hasJobs).toBe(true);
+    expect(result.evidenceHint.hasRuns).toBe(false);
+    expect(result.evidenceHint.hasTokens).toBe(false);
+    expect(result.evidenceHint.hasSchedules).toBe(true);
+    expect(result.evidenceHint.hasModels).toBe(true);
+  });
+
+  it('JSONL run-history-only import does not imply job metadata', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ tokens: 42, error: false, model: 'gpt-4o' }] }]
+    });
+
+    expect(result.detectedSource).toBe('jsonl-records');
+    expect(result.supportedRuleHint).toBe('partial');
+    expect(result.evidenceHint.hasRuns).toBe(true);
+    expect(result.evidenceHint.hasTokens).toBe(true);
+    expect(result.evidenceHint.hasModels).toBe(true);
+    expect(result.evidenceHint.hasJobs).toBe(false);
+    expect(result.evidenceHint.hasSchedules).toBe(false);
+  });
+
+  it('mixed evidence import has fewer missing readiness signals than partial jobs-only import', () => {
+    const jobsOnly = detectImportSource({
+      jobs: [{ id: 'job-1', name: 'hourly check', schedule: 'hourly', model: 'gpt-4o' }],
+      meta: null,
+      runBundles: []
+    });
+    const mixed = detectImportSource({
+      jobs: [{ id: 'job-1', name: 'hourly check', schedule: 'hourly', model: 'gpt-4o' }],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ tokens: 100, error: false, model: 'gpt-4o' }] }]
+    });
+
+    expect(buildReadinessGaps(mixed).length).toBeLessThan(buildReadinessGaps(jobsOnly).length);
+    expect(buildReadinessGaps(mixed).map((gap) => gap.missingEvidence)).not.toContain('hasRuns');
+    expect(buildReadinessGaps(mixed).map((gap) => gap.missingEvidence)).not.toContain('hasTokens');
+  });
+
+  it('zero-token aliases count as token evidence instead of missing token evidence', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ usage: { total_tokens: 0 }, status: 'ok' }] }]
+    });
+
+    expect(result.evidenceHint.hasTokens).toBe(true);
+    expect(buildReadinessGaps(result).map((gap) => gap.missingEvidence)).not.toContain('hasTokens');
+  });
 });
 
 // ---------------------------------------------------------------------------
