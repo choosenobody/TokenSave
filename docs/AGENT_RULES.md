@@ -11,6 +11,35 @@
 8. BG approves merge
 9. Only then is the PR merged
 
+## Low-Risk Codex Review Lane
+This lane is allowed only when ALL conditions are true:
+1. PR is tests-only or docs-only.
+2. No src runtime behavior changes.
+3. No index.html changes.
+4. No package.json / package-lock.json / dependency changes.
+5. No pricing/cost wording or pricing logic changes.
+6. No parser/domain rule behavior changes.
+7. No privacy/storage/network/runtime file-write changes.
+8. No export/report/share/download changes.
+9. No backend/gateway/SaaS/team/admin/Kill Switch work.
+10. Validation passes.
+11. Codex review returns PASS.
+12. BG still gives explicit merge authorization before merge.
+
+When this lane applies, guardian_cat review may be skipped for that PR, but auto-merge is still forbidden and the Merge Authorization Protocol still applies in full.
+
+guardian_cat remains required for:
+- source/runtime changes
+- parser/domain behavior changes
+- pricing/cost changes
+- product positioning/copy changes
+- UI changes
+- privacy/storage/network/file-write/dependency changes
+- export/report/share/download changes
+- backend/gateway/SaaS/team/admin/Kill Switch work
+- any Codex uncertainty
+- any failed or incomplete validation
+
 ## Non-Negotiable Rules
 - Local-first: files never leave the device
 - No backend
@@ -52,6 +81,7 @@
   - after PR body edits
   - after validation/checks
   - after guardian_cat PASS
+  - after Codex review PASS for a Low-Risk Codex Review Lane PR
   - before implementation PR merge
   - after implementation PR merge
   - before docs PR merge
