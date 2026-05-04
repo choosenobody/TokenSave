@@ -4,7 +4,7 @@ import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
 import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
 import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
-import { buildFixCards } from './fixes';
+import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     const state = {
       report: null,
@@ -745,6 +745,7 @@ import { buildFixCards } from './fixes';
         const jobIds = item.jobs.map((j) => j.jobId || j.id || j.name).filter(Boolean);
         const idList = jobIds.join(" ");
         const actionHtml = buildFixSteps(item.category, idList, item.config.action);
+        const evidenceBlurb = formatEvidenceBlurb(item.jobs, item.category);
 
         return `
           <article class="panel ${cardClass}">
@@ -754,10 +755,11 @@ import { buildFixCards } from './fixes';
             <div style="margin-bottom:8px">
               <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
             </div>
+            ${evidenceBlurb ? `<div class="fix-evidence">Why: ${escapeHtml(evidenceBlurb)}</div>` : ''}
             <div class="fix-action">${actionHtml}</div>
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px">${jobTags}${more}</div>
           </article>
-        `;
+`;
       }).join("");
 
       // Add copy function to window so inline onclick works
