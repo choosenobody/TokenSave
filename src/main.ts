@@ -459,6 +459,22 @@ import { buildFixCards } from './fixes';
         </div>
       `;
 
+      // Audit strength framing — contextual explanation of what the evidence quality means
+      const hasPresentEvidence = presentTags.length > 0;
+      const hasMissingEvidence = missingTags.length > 0;
+      let auditStrengthNote = '';
+      if (hasPresentEvidence || hasMissingEvidence) {
+        if (summary.supportedRuleHint === 'full') {
+          auditStrengthNote = 'Full evidence detected — core diagnostics have the strongest available evidence.';
+        } else if (summary.supportedRuleHint === 'partial') {
+          auditStrengthNote = 'Partial evidence detected — most diagnostics are available, but some may be weakened.';
+        } else if (summary.supportedRuleHint === 'limited') {
+          auditStrengthNote = 'Limited evidence detected — only basic diagnostics available. Import more record types to strengthen the audit.';
+        } else {
+          auditStrengthNote = 'Minimal evidence detected — audit strength is limited. Import run history, schedules, and model fields for stronger diagnostics.';
+        }
+      }
+
       container.innerHTML = `
         <div class="import-summary">
           <div class="import-summary-header">
@@ -471,6 +487,7 @@ import { buildFixCards } from './fixes';
           </div>
           ${presentTags.length > 0 ? `<div class="import-tags">${presentTags.map(t => `<span class="import-tag present">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
           ${missingTags.length > 0 ? `<div class="import-tags missing-tags">${missingTags.map(t => `<span class="import-tag missing">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${auditStrengthNote ? `<div class="gap-section" style="margin-top:8px"><span class="gap-next-label">Audit strength:</span> ${escapeHtml(auditStrengthNote)} Fix cards below are evidence-backed — they are manual CLI guidance only, not auto-applied changes.</div>` : ''}
           ${gapSections.length > 0 ? `<div class="gap-list">${gapSections}</div>` : ''}
           ${gapSections.length > 0 ? importTip : ''}
           <div class="import-privacy-note">All analysis stays on your device — no data is sent anywhere.</div>
@@ -705,8 +722,9 @@ import { buildFixCards } from './fixes';
         fixGrid.innerHTML = `
           <div class="panel fix-card restraint-card">
             <div class="restraint-message">
-              Fix cards require job definitions and run history to be evidence-backed.<br>
-              Import schedules, models, and token fields to unlock evidence-backed fixes.
+              Fix cards need at least job definitions or run history to show evidence-backed recommendations.<br>
+              Import a full ZIP, jobs.json, or run-history JSONL to unlock manual fix guidance.<br>
+              Any fix guidance shown by TokenSave is CLI text only — no changes are applied automatically.
             </div>
           </div>
         `;
