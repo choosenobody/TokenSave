@@ -1,6 +1,54 @@
 // @ts-nocheck
 import { FIX_LIBRARY } from './constants';
 
+/**
+ * Format a short human-readable evidence blurb from job.evidence.
+ * Returns null when no relevant evidence is available for the given category.
+ */
+export function formatEvidenceBlurb(jobs, category) {
+  if (!jobs || !jobs.length) return null;
+  const job = jobs[0];
+  if (!job.evidence || !Array.isArray(job.evidence)) return null;
+  const entry = job.evidence.find((e) => e.ruleId === category);
+  if (!entry) return null;
+
+  const { observedValue, threshold } = entry;
+
+  // CRITICAL / LLM_AGENT_CRON: schedule in minutes
+  if (category === 'CRITICAL' || category === 'LLM_AGENT_CRON') {
+    const mins = Number(observedValue);
+    if (!isNaN(mins)) {
+      if (category === 'CRITICAL') {
+        return `Schedule: every ${mins} min · threshold: ${threshold} min`;
+      }
+      return `Schedule: every ${mins} min`;
+    }
+  }
+
+  // ERROR_WASTE: error rate as percentage
+  if (category === 'ERROR_WASTE') {
+    const pct = typeof observedValue === 'number'
+      ? (observedValue * 100).toFixed(0)
+      : observedValue;
+    return `Error rate: ${pct}% · threshold: ${threshold != null ? (Number(threshold) * 100).toFixed(0) : '?'}%`;
+  }
+
+  // PREMIUM_MODEL_WASTE: model name
+  if (category === 'PREMIUM_MODEL_WASTE') {
+    return `Model: ${observedValue}`;
+  }
+
+  // WARNING: schedule in minutes
+  if (category === 'WARNING') {
+    const mins = Number(observedValue);
+    if (!isNaN(mins)) {
+      return `Schedule: every ${mins} min · threshold: ${threshold} min`;
+    }
+  }
+
+  return null;
+}
+
 export function buildFixCards(jobs) {
   const categoryMap = new Map();
 
