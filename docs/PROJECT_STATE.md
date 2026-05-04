@@ -6,7 +6,7 @@
 > Do not assume this file reflects current reality.
 
 **Last updated**: 2026-05-04T12:57:00Z
-**Source**: GitHub `origin/main` at commit `d00059a` (PR #99 docs(I12-A): define low-risk Codex review lane; merge commit `d00059a9e1f3c3e2b5d4a6f8c1e9b2d4a7f6c3e1b`)
+**Source**: GitHub `origin/main` at commit `d00059a` (PR #99 docs(I12-A): define low-risk Codex review lane; merge commit `d00059af5a75d0ae349118e74f23d9737860ccb6`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `d00059a` (PR #99 docs(I12-A): define low-risk Codex review lane; merge commit `d00059a9e1f3c3e2b5d4a6f8c1e9b2d4a7f6c3e1b`) |
+| Main branch SHA | `d00059a` (PR #99 docs(I12-A): define low-risk Codex review lane; merge commit `d00059af5a75d0ae349118e74f23d9737860ccb6`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
