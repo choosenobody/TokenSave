@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-03T15:53:05Z
-**Source**: GitHub `origin/main` at commit `77b01df` (PR #96 test(I7A): handle Vite modulepreload polyfill in no-network test; merge commit `77b01dfa9047203f9fd9599cb72c1f8705414e9a`)
+**Last updated**: 2026-05-04T12:57:00Z
+**Source**: GitHub `origin/main` at commit `d00059a` (PR #99 docs(I12-A): define low-risk Codex review lane; merge commit `d00059a9e1f3c3e2b5d4a6f8c1e9b2d4a7f6c3e1b`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `77b01df` (PR #96 test(I7A): handle Vite modulepreload polyfill in no-network test; merge commit `77b01dfa9047203f9fd9599cb72c1f8705414e9a`) |
+| Main branch SHA | `d00059a` (PR #99 docs(I12-A): define low-risk Codex review lane; merge commit `d00059a9e1f3c3e2b5d4a6f8c1e9b2d4a7f6c3e1b`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -32,12 +32,12 @@
 | src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | 17 tests, COST_RATES metadata field tests + detectCostRate characterization/regression + I4-B1 premium-saving regression tests (3 new); all COST_RATES entries marked unverified/unknown for I4-A |
-| tests/parser.test.ts | ~590 lines, parseJson / parseJsonl / parseZipEntries characterization tests (12 inline + 4 fixture-based) + detectImportSource tests (19 new) + buildReadinessGaps tests (12 new, including 3 jobs/runs regression cases); total 46 parser tests |
+| tests/parser.test.ts | ~711 lines, parseJson / parseJsonl / parseZipEntries characterization tests (12 inline + 4 fixture-based) + detectImportSource tests (19 new) + buildReadinessGaps tests (12 new, including 3 jobs/runs regression cases) + I11-A import readiness regression coverage (14 new); total 50 parser tests; PR #98 added 14 regression tests bringing total suite to 203 tests |
 | tests/no-network.test.ts | I7A no-network regression test now handles Vite modulepreload polyfill false positives in built output; forbidden app runtime API scan includes fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource; passes under current Windows/Vite build output |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 187 tests across 6 files |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
-| docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority |
+| docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority + Low-Risk Codex Review Lane (I12-A): narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions met and Codex review returns PASS |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
 | docs/PROJECT_STATE.md | This file |
 | dist/ | Not committed (gitignored) |
@@ -49,6 +49,9 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #99 | docs(I12-A): define low-risk Codex review lane | 2026-05-04 | `d00059a` |
+| #98 | test(I11-A): add import readiness regression coverage | 2026-05-04 | `a383bbc` |
+| #97 | docs(PROJECT_STATE): refresh after PR #96 (#97) | 2026-05-03 | `787e653` |
 | #96 | test(I7A): handle Vite modulepreload polyfill in no-network test | 2026-05-03 | `77b01df` |
 | #95 | docs(PROJECT_STATE): refresh after PR #94 | 2026-05-03 | `50a2b19` |
 | #94 | feat(I10-B1): export guidance 3-path + improved import error UX | 2026-05-02 | `582534e` |
@@ -157,6 +160,8 @@
 | I9-A (Local Log Import + Audit-Ready Evidence Layer) | Local import summary panel after ingest: detected source type label, record/file counts, audit confidence, supportedRuleHint, evidence tags (hasJobs/hasRuns/hasTokens/hasErrors/hasSchedules/hasModels), static local-only privacy note. detectImportSource(dataset) pure function in src/parser.ts — zero network, zero side effects. hasFiniteTokenField local helper correctly recognizes tokens:0 and all token aliases as valid evidence (NaN/Infinity/-1 excluded). dataset.fileCount = files.length wired in handleFiles() real import path. supportedRuleHint='full' requires jobs+runs+tokens+schedules+models ALL present. UI labels: "Strong audit readiness" / "Partial audit evidence" / "Limited audit evidence" / "No audit evidence detected". No backend/network/telemetry/export/runtime-write. | #89 | CLOSED |
 | I9-B (Import-to-Action Funnel) | Present/missing evidence tags in import summary (hasJobs/hasRuns/hasTokens/hasErrors/hasSchedules/hasModels); readiness gaps via buildReadinessGaps() pure function in src/parser.ts — maps ImportSummary to ReadinessGap[] (one entry per missing evidence signal); affected diagnostics mapping (hasTokens→D1/D2/D6, hasRuns→D1/D2/D6, hasSchedules→D4/D7, hasModels→D3/D5, hasJobs→D7+fix-card-detail, hasErrors→D1/ERROR_WASTE); manual next-step guidance per gap; fix-card restraint: fix cards suppressed only when hasJobs===false && hasRuns===false (both signals missing), partial evidence sufficient to show evidence-backed cards; no parser behavior change, no D-rule/pricing/COST_RATES/domain behavior change, no backend/network/telemetry/export/auto-apply. | #91 | CLOSED |
 | I10-B1 (Export Guidance + Import Error UX) | Added 3-path OpenClaw diagnostic file guidance panel: Full ZIP export (best), jobs.json only (OK), and run-history JSONL only (partial). Improved import parse error UX by mapping malformed JSON, malformed JSONL, incomplete ZIP, and unsupported file type errors to clearer user-facing guidance. Changed files: index.html and src/main.ts. No backend/network/telemetry/runtime file-write intended. | #94 | CLOSED |
+| I11-A (Import Readiness Regression Coverage) | Added 14 regression tests to tests/parser.test.ts for import readiness path — fileCount wiring, zero-token detection, readiness gaps buildReadinessGaps edge cases, partial evidence. Total parser tests now 50. Total test suite: 203 tests. | #98 | CLOSED |
+| I12-A (Low-Risk Codex Review Lane) | Added Low-Risk Codex Review Lane to docs/AGENT_RULES.md: narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions are met (tests-only/docs-only, no runtime/src/index.html/pkg/parser/domain/pricing/privacy/export changes, validation passes, Codex review returns PASS). BG merge authorization still mandatory. Auto-merge still forbidden. guardian_cat remains required for all high-risk work. | #99 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
 
@@ -170,9 +175,9 @@
 
 **I10-B1 (Export Guidance + Import Error UX) — CLOSED.** Added 3-path OpenClaw diagnostic file guidance in `index.html` and clearer import parse error messages in `src/main.ts`. This was guidance/UX only: no backend, no telemetry, no network calls in app code, and no runtime file-write path intended.
 
-**I7A test hygiene follow-up — CLOSED.** PR #96 updated `tests/no-network.test.ts` to handle the Vite modulepreload polyfill false positive in generated build output, expanded forbidden network API coverage to include EventSource, and restored the expected passing no-network regression under current Windows/Vite output. `npm test` should now pass 199 tests.
+**I7A test hygiene follow-up — CLOSED.** PR #96 updated `tests/no-network.test.ts` to handle the Vite modulepreload polyfill false positive in generated build output, expanded forbidden network API coverage to include EventSource, and restored the expected passing no-network regression under current Windows/Vite output. `npm test` should now pass 203 tests.
 
-**I9-B (Import-to-Action Funnel) — CLOSED.** Added buildReadinessGaps() pure function, ReadinessGap type, present/missing evidence tags, affected diagnostics mapping, manual next-step guidance, and precise fix-card restraint (&& not ||). 12 new tests in parser.test.ts including 3 regression cases. No parser/D-rule/pricing/COST_RATES/domain behavior change. No backend/network/telemetry/export/auto-apply. Total test suite: 199 tests.
+**I9-B (Import-to-Action Funnel) — CLOSED.** Added buildReadinessGaps() pure function, ReadinessGap type, present/missing evidence tags, affected diagnostics mapping, manual next-step guidance, and precise fix-card restraint (&& not ||). 12 new tests in parser.test.ts including 3 regression cases. No parser/D-rule/pricing/COST_RATES/domain behavior change. No backend/network/telemetry/export/auto-apply. Total test suite: 203 tests.
 
 **I9-A (Local Log Import + Audit-Ready Evidence Layer) — CLOSED.** Added import summary panel (renderImportSummary), detectImportSource(dataset) pure function, dataset.fileCount wiring, hasFiniteTokenField zero-token detection, tightened supportedRuleHint='full' requiring jobs+runs+tokens+schedules+models. No backend/network/telemetry/export/runtime-write. No pricing/rule/domain behavior changes.
 
@@ -199,7 +204,8 @@
 **I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (BG 2026-04-30).
 
 **Recommended follow-up** (requires separate BG approval):
-- Post-PR #96 docs/state hygiene or explicit next-product planning; do not assume I10-A is still the next untouched increment because main has advanced through PR #96.
+- I11-A (import readiness regression coverage) is CLOSED: PR #98 added 14 regression tests, total suite 203 tests.
+- I12-A (Low-Risk Codex Review Lane) is CLOSED: PR #99 added docs/AGENT_RULES.md lane for narrow tests-only/docs-only PRs.
 - UI module extraction (create `src/ui.ts`)
 - Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**
 - App-shell architecture cleanup
@@ -208,7 +214,7 @@
 ## Current Local Validation Reality
 
 - `npm run build` passes.
-- `npm test` should now pass 199 tests after PR #96.
+- `npm test` passes 203 tests (PR #96 + PR #98).
 - `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive from generated `dist/assets` output.
 - Source/runtime scan remains intended to catch forbidden app network APIs, including fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource.
 
@@ -255,7 +261,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 187 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: PR #96 is merged on main at `77b01df`. I9-A + I9-B complete the import-to-diagnose-to-evidence-to-manual-fix loop, I10-B1 improves the OpenClaw diagnostic-file guidance and import error UX, and the I7A test hygiene follow-up is CLOSED: `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive and includes EventSource in the forbidden network API scan. Next product work should be selected explicitly by BG; do not assume I10-A is still the next untouched increment after PR #96. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources.
+**Recommended Next Step**: PR #99 is merged on main at `d00059a`. I9-A + I9-B complete the import-to-diagnose-to-evidence-to-manual-fix loop. I10-B1 improves OpenClaw diagnostic-file guidance and import error UX. I11-A adds regression coverage (203 tests total). I12-A adds Low-Risk Codex Review Lane for narrow tests-only/docs-only PRs. Next product work should be selected explicitly by BG. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
