@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-04T14:20:00Z
-**Source**: GitHub `origin/main` at commit `7be7126` (PR #102 feat(I13-A): improve evidence-to-fix card clarity; merge commit `7be7126d5c0e8f3a1b4c9d6e0f2a8b3c4d5e6f7a`)
+**Last updated**: 2026-05-04T15:30:00Z
+**Source**: GitHub `origin/main` at commit `11bf1a1` (PR #104 feat(I13-B): rename UI to Agent Job Waste Audit; merge commit `11bf1a1`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `7be7126` (PR #102 feat(I13-A): improve evidence-to-fix card clarity; merge commit `7be7126d5c0e8f3a1b4c9d6e0f2a8b3c4d5e6f7a`) |
+| Main branch SHA | `11bf1a1` (PR #104 feat(I13-B): rename UI to Agent Job Waste Audit; merge commit `11bf1a1`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -49,6 +49,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #104 | feat(I13-B): rename UI to Agent Job Waste Audit | 2026-05-04 | `11bf1a1` |
 | #102 | feat(I13-A): improve evidence-to-fix card clarity | 2026-05-04 | `7be7126` |
 | #101 | docs(PROJECT_STATE): fix PR #99 full merge SHA | 2026-05-04 | `109b633` |
 | #100 | docs(PROJECT_STATE): refresh after PR #98 and PR #99 — I11-A CLOSED, I12-A CLOSED | 2026-05-04 | `6be0040` |
@@ -165,6 +166,7 @@
 | I10-B1 (Export Guidance + Import Error UX) | Added 3-path OpenClaw diagnostic file guidance panel: Full ZIP export (best), jobs.json only (OK), and run-history JSONL only (partial). Improved import parse error UX by mapping malformed JSON, malformed JSONL, incomplete ZIP, and unsupported file type errors to clearer user-facing guidance. Changed files: index.html and src/main.ts. No backend/network/telemetry/runtime file-write intended. | #94 | CLOSED |
 | I11-A (Import Readiness Regression Coverage) | Added 14 regression tests to tests/parser.test.ts for import readiness path — fileCount wiring, zero-token detection, readiness gaps buildReadinessGaps edge cases, partial evidence. Total parser tests now 50. Total test suite: 203 tests. | #98 | CLOSED |
 | I12-A (Low-Risk Codex Review Lane) | Added Low-Risk Codex Review Lane to docs/AGENT_RULES.md: narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions are met (tests-only/docs-only, no runtime/src/index.html/pkg/parser/domain/pricing/privacy/export changes, validation passes, Codex review returns PASS). BG merge authorization still mandatory. Auto-merge still forbidden. guardian_cat remains required for all high-risk work. | #99 | CLOSED |
+| I13-B (Audit-Language UI Rename) | index.html copy-only: <title> renamed to "TokenSave — Agent Job Waste Audit", <h1> renamed to "Agent Job Waste Audit", subhead changed from passive "inspect job waste" to active "surface recurring token burn, failure loops, and fix priorities". No logic, no rules, no domain changes. | #104 | CLOSED |
 | I13-A (Evidence-to-Fix Card Clarity) | src/main.ts copy/UX only. renderImportSummary: added audit-strength framing note that explains what the audit can prove based on evidence quality (full → core diagnostics have strongest evidence; partial → most diagnostics available, some weakened; limited → only basic diagnostics; minimal → audit strength limited). renderFixes restrained-state: improved message to explain fix cards need at least job definitions OR run history, specific import paths, and explicitly states fixes are CLI text only — no auto-apply. No parser/rules/domain/pricing/constants/fixes behavior changes. | #102 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
 | I2b.6H | Extract compareJobs to src/domain.ts | #41 | CLOSED |
@@ -265,7 +267,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 187 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: PR #102 (I13-A) is merged on main at `7be7126`. I9-A + I9-B + I13-A complete the import-to-diagnose-to-evidence-to-manual-fix loop. I10-B1 improves OpenClaw diagnostic-file guidance and import error UX. I11-A adds regression coverage (203 tests total). I12-A adds Low-Risk Codex Review Lane for narrow tests-only/docs-only PRs. Next product work should be selected explicitly by BG. Issue #3 (pricing) remains deferred as transparency work, not the product main axis. Issue #5 (pre-flight rules) remains future work. Issue #7 (docs) remains future work. I4-B pricing remains deferred pending BG approval of exact official sources.
+**Recommended Next Step**: PR #104 (I13-B) merged on main at `11bf1a1`. Next: I13-C (evidence-backed fix card explanation) — BG-approved priority order: I13-B → I13-C → D2 decision-note → I14-A design. Issue #3 (pricing) deferred. Issue #5 (pre-flight rules) future work. Issue #7 (docs) future work. I4-B pricing remains deferred pending BG approval of exact official sources.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
