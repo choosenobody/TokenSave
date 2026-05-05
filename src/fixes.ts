@@ -49,6 +49,58 @@ export function formatEvidenceBlurb(jobs, category) {
   return null;
 }
 
+/**
+ * Returns evidence-backed problem text for CRITICAL and ERROR_WASTE categories,
+ * or null when evidence is absent/unusable.
+ *
+ * CRITICAL: evidence.ruleId === "CRITICAL" + finite observedValue + finite threshold
+ *   → "Runs every {mins} min, below the {threshold} min threshold."
+ *
+ * ERROR_WASTE: evidence.ruleId === "ERROR_WASTE" + finite observedValue + finite threshold
+ *   → "{pct}% error rate, above the {thresholdPct}% threshold."
+ *   (observedValue and threshold are rates, e.g. 0.67 => 67%)
+ *
+ * All other categories: return null (no override in I14-B).
+ * Missing/malformed evidence: return null (caller falls back to FIX_LIBRARY).
+ */
+export function buildEvidenceBackedProblem(category, jobs) {
+  if (!jobs || !jobs.length) return null;
+
+  if (category !== 'CRITICAL' && category !== 'ERROR_WASTE') {
+    return null;
+  }
+
+  // Find first job that has a matching evidence entry for this category
+  const job = jobs.find((j) =>
+    j.evidence && Array.isArray(j.evidence) &&
+    j.evidence.some((e) => e.ruleId === category)
+  );
+  if (!job) return null;
+
+  const entry = job.evidence.find((e) => e.ruleId === category);
+  if (!entry) return null;
+
+  const { observedValue, threshold } = entry;
+  const obsNum = Number(observedValue);
+  const threshNum = Number(threshold);
+
+  if (!Number.isFinite(obsNum) || !Number.isFinite(threshNum)) {
+    return null;
+  }
+
+  if (category === 'CRITICAL') {
+    return `Runs every ${obsNum} min, below the ${threshNum} min threshold.`;
+  }
+
+  if (category === 'ERROR_WASTE') {
+    const obsPct = (obsNum * 100).toFixed(0);
+    const threshPct = (threshNum * 100).toFixed(0);
+    return `${obsPct}% error rate, above the ${threshPct}% threshold.`;
+  }
+
+  return null;
+}
+
 export function buildFixCards(jobs) {
   const categoryMap = new Map();
 
@@ -65,15 +117,24 @@ export function buildFixCards(jobs) {
   const order = ["CRITICAL", "ERROR_WASTE", "PREMIUM_MODEL_WASTE", "WARNING", "OK"];
   return order
     .filter((category) => categoryMap.has(category))
-    .map((category) => ({
-      category,
-      config: FIX_LIBRARY[category],
-      jobs: categoryMap.get(category)
+    .map((category) => {
+      const sortedJobs = categoryMap.get(category)
         .sort((left, right) => {
           const lw = left.totalTokens * left.errorRate;
           const rw = right.totalTokens * right.errorRate;
           return rw - lw;
         })
-        .slice(0, 4)
-    }));
+        .slice(0, 4);
+
+      const evidenceBackedProblem = buildEvidenceBackedProblem(category, sortedJobs);
+
+      return {
+        category,
+        config: {
+          ...FIX_LIBRARY[category],
+          problem: evidenceBackedProblem ?? FIX_LIBRARY[category].problem,
+        },
+        jobs: sortedJobs,
+      };
+    });
 }
