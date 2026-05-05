@@ -289,9 +289,10 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         .sort((left, right) => {
           const leftDaily = estimateDailyWasteTokens(left, cheapRate);
           const rightDaily = estimateDailyWasteTokens(right, cheapRate);
-          if (leftDaily !== null && rightDaily !== null) return rightDaily - leftDaily;
-          if (leftDaily !== null) return -1;
-          if (rightDaily !== null) return 1;
+          // Tier 1: positive estimatedDailyWasteTokens (> 0, not merely non-null)
+          if (leftDaily !== null && leftDaily > 0 && rightDaily !== null && rightDaily > 0) return rightDaily - leftDaily;
+          if (leftDaily !== null && leftDaily > 0) return -1;
+          if (rightDaily !== null && rightDaily > 0) return 1;
           const leftPerRun = estimateWastePerRun(left, cheapRate);
           const rightPerRun = estimateWastePerRun(right, cheapRate);
           if (leftPerRun !== null && rightPerRun !== null) return rightPerRun - leftPerRun;
@@ -621,14 +622,14 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         ? minimaxRef.rate
         : undefined;
 
-      // Three-tier sort matching analyzeDataset ranking:
-      // Tier 1: estimatedDailyWasteTokens desc | Tier 2: estimatedWastePerRun desc | Tier 3: totalTokens×errorRate desc
+      // Tier 1: positive estimatedDailyWasteTokens (> 0, not merely non-null)
+      // Tier 2: estimatedWastePerRun desc | Tier 3: totalTokens × errorRate desc
       const sortedWaste = [...topWaste].sort((a, b) => {
         const aDaily = estimateDailyWasteTokens(a, cheapRate);
         const bDaily = estimateDailyWasteTokens(b, cheapRate);
-        if (aDaily !== null && bDaily !== null) return bDaily - aDaily;
-        if (aDaily !== null) return -1;
-        if (bDaily !== null) return 1;
+        if (aDaily !== null && aDaily > 0 && bDaily !== null && bDaily > 0) return bDaily - aDaily;
+        if (aDaily !== null && aDaily > 0) return -1;
+        if (bDaily !== null && bDaily > 0) return 1;
         const aPerRun = estimateWastePerRun(a, cheapRate);
         const bPerRun = estimateWastePerRun(b, cheapRate);
         if (aPerRun !== null && bPerRun !== null) return bPerRun - aPerRun;
