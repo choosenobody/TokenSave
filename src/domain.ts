@@ -406,3 +406,88 @@ export function compareJobs(left, right, key, direction) {
   }
   return direction === "asc" ? result : -result;
 }
+
+/**
+ * Estimate how many times per day a job with this schedule runs.
+ * Returns null when scheduleMinutes is null (unknown schedule).
+ */
+export function estimateOccurrencesPerDay(scheduleMinutes: number | null): number | null {
+  if (scheduleMinutes == null || scheduleMinutes <= 0) return null;
+  return 1440 / scheduleMinutes;
+}
+
+/**
+ * Compute total wasted tokens for a job:
+ *   errorWastedTokens  — tokens from runs above 5% error rate
+ * + scheduleWastedTokens — if simple-check job runs <60min
+ * + modelSavingTokens — PREMIUM_MODEL_WASTE only, not conservative-estimate jobs
+ *
+ * Mirrors the logic in analyzeDataset (main.ts lines 306–330).
+ */
+export function estimateJobWasteTokens(job: {
+  totalTokens: number;
+  errorRate: number;
+  scheduleMinutes: number | null;
+  badge: string;
+  pricingSource: string;
+  rate: { rate: number };
+  raw: Record<string, unknown>;
+  promptText?: string;
+}, cheapRate?: number): number {
+  const errorWastedTokens = Math.round(job.totalTokens * Math.max(0, job.errorRate - 0.05));
+  let scheduleWastedTokens = 0;
+  if (job.scheduleMinutes != null && job.scheduleMinutes < 60) {
+    const simpleCheck = isSimpleCheck(job.raw, job.promptText ?? '');
+    if (simpleCheck) {
+      scheduleWastedTokens = Math.round(job.totalTokens * Math.max(0, (60 - job.scheduleMinutes) / 60));
+    }
+  }
+  let modelSavingTokens = 0;
+  if (job.pricingSource !== 'conservative-estimate' && job.badge === 'PREMIUM_MODEL_WASTE') {
+    const premiumRate = job.rate.rate;
+    if (cheapRate != null && cheapRate > 0) {
+      modelSavingTokens = Math.round(job.totalTokens * Math.max(0, (premiumRate - cheapRate) / premiumRate));
+    }
+  }
+  return errorWastedTokens + scheduleWastedTokens + modelSavingTokens;
+}
+
+/**
+ * estimatedWastePerRun = estimatedJobWasteTokens / totalRuns.
+ * Returns null when totalRuns is 0 (avoids divide-by-zero).
+ */
+export function estimateWastePerRun(job: {
+  totalTokens: number;
+  errorRate: number;
+  scheduleMinutes: number | null;
+  badge: string;
+  pricingSource: string;
+  rate: { rate: number };
+  raw: Record<string, unknown>;
+  promptText?: string;
+  totalRuns: number;
+}, cheapRate?: number): number | null {
+  if (job.totalRuns === 0) return null;
+  return estimateJobWasteTokens(job, cheapRate) / job.totalRuns;
+}
+
+/**
+ * estimatedDailyWasteTokens = estimatedWastePerRun * occurrencesPerDay.
+ * Returns null when either estimatedWastePerRun or occurrencesPerDay is null.
+ */
+export function estimateDailyWasteTokens(job: {
+  totalTokens: number;
+  errorRate: number;
+  scheduleMinutes: number | null;
+  badge: string;
+  pricingSource: string;
+  rate: { rate: number };
+  raw: Record<string, unknown>;
+  promptText?: string;
+  totalRuns: number;
+}, cheapRate?: number): number | null {
+  const perRun = estimateWastePerRun(job, cheapRate);
+  const perDay = estimateOccurrencesPerDay(job.scheduleMinutes);
+  if (perRun == null || perDay == null) return null;
+  return perRun * perDay;
+}

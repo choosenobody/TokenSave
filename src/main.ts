@@ -3,7 +3,7 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
 import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
-import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
+import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateWastePerRun, estimateDailyWasteTokens } from './domain';
 import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     const state = {
@@ -273,9 +273,32 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
       const jobs = Array.from(statsById.values()).map((stat) => finalizeStat(stat));
       const activeJobs = jobs.filter((job) => job.totalRuns > 0 || !job.synthetic);
+
+      // Get cheapRate once for all waste computations
+      const minimaxRef = detectCostRate("MiniMax M2.7");
+      const cheapRate = (minimaxRef.pricingSource === "known-local" && isFinite(minimaxRef.rate) && minimaxRef.rate > 0)
+        ? minimaxRef.rate
+        : undefined;
+
+      // Three-tier sort:
+      // Tier 1: jobs with estimatedDailyWasteTokens !== null → sort desc
+      // Tier 2: jobs with estimatedWastePerRun !== null but estimatedDailyWasteTokens === null → sort desc
+      // Tier 3: remaining → current totalTokens × errorRate desc
       const rankedWaste = [...activeJobs]
         .filter((job) => job.badge !== "OK")
         .sort((left, right) => {
+          const leftDaily = estimateDailyWasteTokens(left, cheapRate);
+          const rightDaily = estimateDailyWasteTokens(right, cheapRate);
+          // Tier 1: positive estimatedDailyWasteTokens (> 0, not merely non-null)
+          if (leftDaily !== null && leftDaily > 0 && rightDaily !== null && rightDaily > 0) return rightDaily - leftDaily;
+          if (leftDaily !== null && leftDaily > 0) return -1;
+          if (rightDaily !== null && rightDaily > 0) return 1;
+          const leftPerRun = estimateWastePerRun(left, cheapRate);
+          const rightPerRun = estimateWastePerRun(right, cheapRate);
+          // Tier 2: positive estimatedWastePerRun (> 0, not merely non-null)
+          if (leftPerRun !== null && leftPerRun > 0 && rightPerRun !== null && rightPerRun > 0) return rightPerRun - leftPerRun;
+          if (leftPerRun !== null && leftPerRun > 0) return -1;
+          if (rightPerRun !== null && rightPerRun > 0) return 1;
           const lw = left.totalTokens * left.errorRate;
           const rw = right.totalTokens * right.errorRate;
           return rw - lw;
@@ -594,8 +617,26 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return;
       }
 
-      // Sort by absolute wasted tokens (errorTokens) descending
+      // Get cheapRate once for tier-sort comparisons
+      const minimaxRef = detectCostRate("MiniMax M2.7");
+      const cheapRate = (minimaxRef.pricingSource === "known-local" && isFinite(minimaxRef.rate) && minimaxRef.rate > 0)
+        ? minimaxRef.rate
+        : undefined;
+
+      // Tier 1: positive estimatedDailyWasteTokens (> 0, not merely non-null)
+      // Tier 2: positive estimatedWastePerRun (> 0, not merely non-null)
+      // Tier 3: totalTokens × errorRate desc
       const sortedWaste = [...topWaste].sort((a, b) => {
+        const aDaily = estimateDailyWasteTokens(a, cheapRate);
+        const bDaily = estimateDailyWasteTokens(b, cheapRate);
+        if (aDaily !== null && aDaily > 0 && bDaily !== null && bDaily > 0) return bDaily - aDaily;
+        if (aDaily !== null && aDaily > 0) return -1;
+        if (bDaily !== null && bDaily > 0) return 1;
+        const aPerRun = estimateWastePerRun(a, cheapRate);
+        const bPerRun = estimateWastePerRun(b, cheapRate);
+        if (aPerRun !== null && aPerRun > 0 && bPerRun !== null && bPerRun > 0) return bPerRun - aPerRun;
+        if (aPerRun !== null && aPerRun > 0) return -1;
+        if (bPerRun !== null && bPerRun > 0) return 1;
         const wasteA = a.totalTokens * a.errorRate;
         const wasteB = b.totalTokens * b.errorRate;
         return wasteB - wasteA;
