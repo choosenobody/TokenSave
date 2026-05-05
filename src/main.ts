@@ -3,7 +3,7 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
 import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
-import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs } from './domain';
+import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateOccurrencesPerDay, estimateJobWasteTokens, estimateWastePerRun, estimateDailyWasteTokens } from './domain';
 import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     const state = {
@@ -273,9 +273,30 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
       const jobs = Array.from(statsById.values()).map((stat) => finalizeStat(stat));
       const activeJobs = jobs.filter((job) => job.totalRuns > 0 || !job.synthetic);
+
+      // Get cheapRate once for all waste computations
+      const minimaxRef = detectCostRate("MiniMax M2.7");
+      const cheapRate = (minimaxRef.pricingSource === "known-local" && isFinite(minimaxRef.rate) && minimaxRef.rate > 0)
+        ? minimaxRef.rate
+        : undefined;
+
+      // Three-tier sort:
+      // Tier 1: jobs with estimatedDailyWasteTokens !== null → sort desc
+      // Tier 2: jobs with estimatedWastePerRun !== null but estimatedDailyWasteTokens === null → sort desc
+      // Tier 3: remaining → current totalTokens × errorRate desc
       const rankedWaste = [...activeJobs]
         .filter((job) => job.badge !== "OK")
         .sort((left, right) => {
+          const leftDaily = estimateDailyWasteTokens(left, cheapRate);
+          const rightDaily = estimateDailyWasteTokens(right, cheapRate);
+          if (leftDaily !== null && rightDaily !== null) return rightDaily - leftDaily;
+          if (leftDaily !== null) return -1;
+          if (rightDaily !== null) return 1;
+          const leftPerRun = estimateWastePerRun(left, cheapRate);
+          const rightPerRun = estimateWastePerRun(right, cheapRate);
+          if (leftPerRun !== null && rightPerRun !== null) return rightPerRun - leftPerRun;
+          if (leftPerRun !== null) return -1;
+          if (rightPerRun !== null) return 1;
           const lw = left.totalTokens * left.errorRate;
           const rw = right.totalTokens * right.errorRate;
           return rw - lw;
@@ -594,8 +615,25 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return;
       }
 
-      // Sort by absolute wasted tokens (errorTokens) descending
+      // Get cheapRate once for tier-sort comparisons
+      const minimaxRef = detectCostRate("MiniMax M2.7");
+      const cheapRate = (minimaxRef.pricingSource === "known-local" && isFinite(minimaxRef.rate) && minimaxRef.rate > 0)
+        ? minimaxRef.rate
+        : undefined;
+
+      // Three-tier sort matching analyzeDataset ranking:
+      // Tier 1: estimatedDailyWasteTokens desc | Tier 2: estimatedWastePerRun desc | Tier 3: totalTokens×errorRate desc
       const sortedWaste = [...topWaste].sort((a, b) => {
+        const aDaily = estimateDailyWasteTokens(a, cheapRate);
+        const bDaily = estimateDailyWasteTokens(b, cheapRate);
+        if (aDaily !== null && bDaily !== null) return bDaily - aDaily;
+        if (aDaily !== null) return -1;
+        if (bDaily !== null) return 1;
+        const aPerRun = estimateWastePerRun(a, cheapRate);
+        const bPerRun = estimateWastePerRun(b, cheapRate);
+        if (aPerRun !== null && bPerRun !== null) return bPerRun - aPerRun;
+        if (aPerRun !== null) return -1;
+        if (bPerRun !== null) return 1;
         const wasteA = a.totalTokens * a.errorRate;
         const wasteB = b.totalTokens * b.errorRate;
         return wasteB - wasteA;
