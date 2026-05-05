@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-04T16:00:00Z
-**Source**: GitHub `origin/main` at commit `bf1fff0` (PR #105 feat(I13-C): evidence-backed fix card explanation; merge commit `bf1fff0`)
+**Last updated**: 2026-05-05T07:10:00Z
+**Source**: GitHub `origin/main` at commit `1e6401c` (PR #106 feat(I14-A Slice 1): schedule-normalized waste priority; merge commit `1e6401c`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `bf1fff0` (PR #105 feat(I13-C): evidence-backed fix card explanation; merge commit `bf1fff0`) |
+| Main branch SHA | `1e6401c` (PR #106 feat(I14-A Slice 1): schedule-normalized waste priority; merge commit `1e6401c`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -49,6 +49,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #106 | feat(I14-A Slice 1): schedule-normalized waste priority | 2026-05-05 | `1e6401c` |
 | #105 | feat(I13-C): evidence-backed fix card explanation | 2026-05-04 | `bf1fff0` |
 | #104 | feat(I13-B): rename UI to Agent Job Waste Audit | 2026-05-04 | `11bf1a1` |
 | #102 | feat(I13-A): improve evidence-to-fix card clarity | 2026-05-04 | `7be7126` |
@@ -168,6 +169,7 @@
 | I11-A (Import Readiness Regression Coverage) | Added 14 regression tests to tests/parser.test.ts for import readiness path — fileCount wiring, zero-token detection, readiness gaps buildReadinessGaps edge cases, partial evidence. Total parser tests now 50. Total test suite: 203 tests. | #98 | CLOSED |
 | I12-A (Low-Risk Codex Review Lane) | Added Low-Risk Codex Review Lane to docs/AGENT_RULES.md: narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions are met (tests-only/docs-only, no runtime/src/index.html/pkg/parser/domain/pricing/privacy/export changes, validation passes, Codex review returns PASS). BG merge authorization still mandatory. Auto-merge still forbidden. guardian_cat remains required for all high-risk work. | #99 | CLOSED |
 | I13-C (Evidence-Backed Fix Card) | Added formatEvidenceBlurb() to src/fixes.ts — formats short human-readable evidence blurb from job.evidence[].observedValue and threshold; called from renderFixes in src/main.ts to append a "Why: ..." line below each fix card problem description. Per-category formatting: CRITICAL→"Schedule: every N min · threshold: 30 min", ERROR_WASTE→"Error rate: N% · threshold: 10%", PREMIUM_MODEL_WASTE→"Model: [name]", WARNING→"Schedule: every N min · threshold: 60 min". No rule logic changes. | #105 | CLOSED |
+| I14-A Slice 1 (Schedule-Normalized Waste Priority) | src/domain.ts added four new exported helpers: estimateOccurrencesPerDay (1440/scheduleMinutes), estimateJobWasteTokens (mirrors analyzeDataset waste formula), estimateWastePerRun (waste/totalRuns), estimateDailyWasteTokens (perRun×perDay). src/main.ts topWaste ranking now uses three-tier priority: Tier 1 estimatedDailyWasteTokens > 0 desc (known schedule with positive daily waste); Tier 2 estimatedWastePerRun > 0 desc (unknown schedule with run evidence); Tier 3 totalTokens × errorRate desc (fallback). src/main.ts imports only estimateWastePerRun and estimateDailyWasteTokens directly. tests/waste-estimate.test.ts added 28 tests covering all four helpers and tier ranking. Total test suite now 231 tests. | #106 | CLOSED |
 | I13-B (Audit-Language UI Rename) | index.html copy-only: <title> renamed to "TokenSave — Agent Job Waste Audit", <h1> renamed to "Agent Job Waste Audit", subhead changed from passive "inspect job waste" to active "surface recurring token burn, failure loops, and fix priorities". No logic, no rules, no domain changes. | #104 | CLOSED |
 | I13-A (Evidence-to-Fix Card Clarity) | src/main.ts copy/UX only. renderImportSummary: added audit-strength framing note that explains what the audit can prove based on evidence quality (full → core diagnostics have strongest evidence; partial → most diagnostics available, some weakened; limited → only basic diagnostics; minimal → audit strength limited). renderFixes restrained-state: improved message to explain fix cards need at least job definitions OR run history, specific import paths, and explicitly states fixes are CLI text only — no auto-apply. No parser/rules/domain/pricing/constants/fixes behavior changes. | #102 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
@@ -212,17 +214,18 @@
 **I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (BG 2026-04-30).
 
 **Recommended follow-up** (requires separate BG approval):
-- I11-A (import readiness regression coverage) is CLOSED: PR #98 added 14 regression tests, total suite 203 tests.
-- I12-A (Low-Risk Codex Review Lane) is CLOSED: PR #99 added docs/AGENT_RULES.md lane for narrow tests-only/docs-only PRs.
-- UI module extraction (create `src/ui.ts`)
-- Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**
-- App-shell architecture cleanup
-- Observed-fallback and inferred-config pricing sources remain unimplemented (future work)
+- I14-A Slice 1 (PR #106) — CLOSED: schedule-normalized waste priority, three-tier ranking, 231 tests.
+- I14-A remaining slices — NOT YET STARTED: review Issue #103 remaining items, choose next smallest slice (candidate: I14-B / UI wording for schedule-normalized priority or Issue #103 post-I14 reassessment — product review first, no-code).
+- Do not start new implementation immediately — recommended: review Issue #103 remaining items and choose next smallest slice.
+- UI module extraction (create `src/ui.ts`) — future work.
+- Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**.
+- App-shell architecture cleanup — future work.
+- Observed-fallback and inferred-config pricing sources remain unimplemented (future work).
 
 ## Current Local Validation Reality
 
 - `npm run build` passes.
-- `npm test` passes 203 tests (PR #96 + PR #98).
+- `npm test` passes 231 tests (PR #106: 28 new tests in waste-estimate.test.ts; total suite 7 files, 231 tests).
 - `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive from generated `dist/assets` output.
 - Source/runtime scan remains intended to catch forbidden app network APIs, including fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource.
 
@@ -269,7 +272,9 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **I5-D2 (Diagnose-D2) — CLOSED.** Added diagnoseD2BurstSpend pure function in src/rules.ts. Input: Record<string, unknown>[] (run-record level, not FinalizedJob level). 60-minute rolling window scans all records to find highest-cost window. Fires when >= 3 distinct jobs AND >= USD 50 estimated total cost in that window. Severity: info — review signal only, not waste proof. Does not calculate potential savings. Unknown models participate and are labeled conservative-estimate in evidence. 19 new tests in tests/rules.test.ts. Total suite: 187 tests. D1-D7 sub-slice 6 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (all slices complete as of 2026-04-30).
 
-**Recommended Next Step**: PR #105 (I13-C) merged on main at `bf1fff0`. Next: D2 decision-note — decide whether D2 (burst spend review signal) stays as-is, is hidden from waste proof, or becomes a composite waste claim. Then: I14-A (schedule-normalized waste priority design). Issue #3 (pricing) deferred. Issue #5 (pre-flight rules) future work. Issue #7 (docs) future work. I4-B pricing remains deferred pending BG approval of exact official sources.
+**D2 Decision (BG 2026-05-05):** D2 (burst spend concentration review signal) stays disconnected. Do not wire into main UI waste ranking or waste proof logic. Decision only — no code change. Revisit when/if multi-export or temporal recurrence analysis is implemented in future work.
+
+**Recommended Next Step**: PR #106 (I14-A Slice 1) merged on main at `1e6401c`. Next: review Issue #103 remaining items and choose next smallest slice. Recommended: I14-B (UI wording for schedule-normalized priority) or Issue #103 post-I14 reassessment — product review first, no-code. Do not start new implementation immediately.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
