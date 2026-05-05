@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-05T07:10:00Z
-**Source**: GitHub `origin/main` at commit `1e6401c` (PR #106 feat(I14-A Slice 1): schedule-normalized waste priority; merge commit `1e6401c`)
+**Last updated**: 2026-05-05T16:30:00Z
+**Source**: GitHub `origin/main` at commit `7228ce0` (PR #108 feat(I14-B): evidence-backed fix card problem text for CRITICAL and ERROR_WASTE; merge commit `7228ce0`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `1e6401c` (PR #106 feat(I14-A Slice 1): schedule-normalized waste priority; merge commit `1e6401c`) |
+| Main branch SHA | `7228ce0` (PR #108 feat(I14-B): evidence-backed fix card problem text; merge commit `7228ce0`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -29,13 +29,14 @@
 | src/parser.ts | ~340 lines, parseJson / parseJsonl / parseZipEntries + private ZIP helpers + exported detectImportSource(dataset) pure function (source type detection, audit confidence, supportedRuleHint, evidence hints) + private hasFiniteTokenField helper (zero-token alias detection); I9-B: exported buildReadinessGaps(summary) pure function — maps ImportSummary EvidenceHint to ReadinessGap[] (one entry per missing evidence signal with affected diagnostics and manual next steps) |
 | src/constants.ts | COST_RATES / FIX_LIBRARY / FIX_BADGES; COST_RATES entries now carry 5 metadata fields: source, sourceType, checkedDate, status, approximationNote (all source=null, sourceType='unverified', checkedDate=null, status='unknown' for I4-A placeholder) |
 | src/utils.ts | 72 lines, 10 pure formatting/string helpers |
-| src/fixes.ts | 31 lines, buildFixCards — imports FIX_LIBRARY from ./constants |
+| src/fixes.ts | 143 lines, buildFixCards + buildEvidenceBackedProblem + formatEvidenceBlurb; I14-B: buildEvidenceBackedProblem() returns evidence-backed problem text for CRITICAL ('Runs every N min, below the N min threshold.') and ERROR_WASTE ('N% error rate, above the N% threshold.') — strict typeof==='number' guard rejects null/''/whitespace before Number.isFinite(); all other categories fall back to FIX_LIBRARY exactly |
 | src/pricing.ts | detectCostRate — returns pricingSource ('known-local' or 'conservative-estimate'); unknown model uses highest known positive rate (15) as conservative estimate |
 | tests/pricing.test.ts | 17 tests, COST_RATES metadata field tests + detectCostRate characterization/regression + I4-B1 premium-saving regression tests (3 new); all COST_RATES entries marked unverified/unknown for I4-A |
-| tests/parser.test.ts | ~711 lines, parseJson / parseJsonl / parseZipEntries characterization tests (12 inline + 4 fixture-based) + detectImportSource tests (19 new) + buildReadinessGaps tests (12 new, including 3 jobs/runs regression cases) + I11-A import readiness regression coverage (14 new); total 50 parser tests; PR #98 added 14 regression tests bringing total suite to 203 tests |
+| tests/parser.test.ts | ~711 lines, parseJson / parseJsonl / parseZipEntries characterization tests (12 inline + 4 fixture-based) + detectImportSource tests (19 new) + buildReadinessGaps tests (12 new, including 3 jobs/runs regression cases) + I11-A import readiness regression coverage (14 new); total 50 parser tests |
 | tests/no-network.test.ts | I7A no-network regression test now handles Vite modulepreload polyfill false positives in built output; forbidden app runtime API scan includes fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource; passes under current Windows/Vite build output |
 | tests/evidence.test.ts | 108 lines, 7 tests for WasteEvidence type and buildWasteEvidence (waste classification evidence bundle) |
 | tests/rules.test.ts | 119 tests including D1-D7 rule coverage, contract/alias coverage, and D5 unknown-model regression; total suite 187 tests across 6 files |
+| tests/fixes.test.ts | 30 tests, buildEvidenceBackedProblem (15 tests) + buildFixCards with evidence-backed problem (15 tests); coverage: CRITICAL/ERROR_WASTE with valid evidence, no evidence fallback, malformed-value fallback (null/""/whitespace), other categories no override, sort/slice preserved, action/impactLabel unchanged; total suite 261 tests |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority + Low-Risk Codex Review Lane (I12-A): narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions met and Codex review returns PASS |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
@@ -49,6 +50,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #108 | feat(I14-B): evidence-backed fix card problem text for CRITICAL and ERROR_WASTE | 2026-05-05 | `7228ce0` |
+| #107 | docs(PROJECT_STATE): refresh after PR #106 — I14-A Slice 1 CLOSED, D2 decision, main SHA 1e6401c | 2026-05-05 | `5f46ac1` |
 | #106 | feat(I14-A Slice 1): schedule-normalized waste priority | 2026-05-05 | `1e6401c` |
 | #105 | feat(I13-C): evidence-backed fix card explanation | 2026-05-04 | `bf1fff0` |
 | #104 | feat(I13-B): rename UI to Agent Job Waste Audit | 2026-05-04 | `11bf1a1` |
@@ -170,6 +173,7 @@
 | I12-A (Low-Risk Codex Review Lane) | Added Low-Risk Codex Review Lane to docs/AGENT_RULES.md: narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions are met (tests-only/docs-only, no runtime/src/index.html/pkg/parser/domain/pricing/privacy/export changes, validation passes, Codex review returns PASS). BG merge authorization still mandatory. Auto-merge still forbidden. guardian_cat remains required for all high-risk work. | #99 | CLOSED |
 | I13-C (Evidence-Backed Fix Card) | Added formatEvidenceBlurb() to src/fixes.ts — formats short human-readable evidence blurb from job.evidence[].observedValue and threshold; called from renderFixes in src/main.ts to append a "Why: ..." line below each fix card problem description. Per-category formatting: CRITICAL→"Schedule: every N min · threshold: 30 min", ERROR_WASTE→"Error rate: N% · threshold: 10%", PREMIUM_MODEL_WASTE→"Model: [name]", WARNING→"Schedule: every N min · threshold: 60 min". No rule logic changes. | #105 | CLOSED |
 | I14-A Slice 1 (Schedule-Normalized Waste Priority) | src/domain.ts added four new exported helpers: estimateOccurrencesPerDay (1440/scheduleMinutes), estimateJobWasteTokens (mirrors analyzeDataset waste formula), estimateWastePerRun (waste/totalRuns), estimateDailyWasteTokens (perRun×perDay). src/main.ts topWaste ranking now uses three-tier priority: Tier 1 estimatedDailyWasteTokens > 0 desc (known schedule with positive daily waste); Tier 2 estimatedWastePerRun > 0 desc (unknown schedule with run evidence); Tier 3 totalTokens × errorRate desc (fallback). src/main.ts imports only estimateWastePerRun and estimateDailyWasteTokens directly. tests/waste-estimate.test.ts added 28 tests covering all four helpers and tier ranking. Total test suite now 231 tests. | #106 | CLOSED |
+| I14-B (Evidence-Backed Fix Card Problem Text) | src/fixes.ts added buildEvidenceBackedProblem() pure helper. buildFixCards() now generates evidence-backed problem text for CRITICAL ('Runs every N min, below the N min threshold.') and ERROR_WASTE ('N% error rate, above the N% threshold.') categories. Strict typeof==='number' guard on observedValue/threshold rejects null/''/whitespace before Number.isFinite(), preventing misleading '0 min' text. Falls back to FIX_LIBRARY[category].problem exactly when evidence is absent or malformed. FIX_LIBRARY not mutated. formatEvidenceBlurb unchanged. buildFixSteps unchanged. action/impactLabel unchanged. tests/fixes.test.ts: 30 tests covering valid evidence, no-evidence fallback, malformed-value fallback (null/""/whitespace/non-finite), other categories no override, sort/slice preserved. Total test suite: 261 tests. | #108 | CLOSED |
 | I13-B (Audit-Language UI Rename) | index.html copy-only: <title> renamed to "TokenSave — Agent Job Waste Audit", <h1> renamed to "Agent Job Waste Audit", subhead changed from passive "inspect job waste" to active "surface recurring token burn, failure loops, and fix priorities". No logic, no rules, no domain changes. | #104 | CLOSED |
 | I13-A (Evidence-to-Fix Card Clarity) | src/main.ts copy/UX only. renderImportSummary: added audit-strength framing note that explains what the audit can prove based on evidence quality (full → core diagnostics have strongest evidence; partial → most diagnostics available, some weakened; limited → only basic diagnostics; minimal → audit strength limited). renderFixes restrained-state: improved message to explain fix cards need at least job definitions OR run history, specific import paths, and explicitly states fixes are CLI text only — no auto-apply. No parser/rules/domain/pricing/constants/fixes behavior changes. | #102 | CLOSED |
 | I4-A (Pricing-Baseline-Metadata) | Add metadata fields to every COST_RATES entry: source, sourceType, checkedDate, status, approximationNote. All entries source=null, sourceType='unverified', checkedDate=null, status='unknown' — intentional placeholder. No numeric rates changed. No regex changed. detectCostRate behavior unchanged. D5 fires for unknown models as before. I4-B will collect official provider sources and correct rates with BG approval. | #82 | CLOSED |
@@ -185,7 +189,7 @@
 
 **I10-B1 (Export Guidance + Import Error UX) — CLOSED.** Added 3-path OpenClaw diagnostic file guidance in `index.html` and clearer import parse error messages in `src/main.ts`. This was guidance/UX only: no backend, no telemetry, no network calls in app code, and no runtime file-write path intended.
 
-**I7A test hygiene follow-up — CLOSED.** PR #96 updated `tests/no-network.test.ts` to handle the Vite modulepreload polyfill false positive in generated build output, expanded forbidden network API coverage to include EventSource, and restored the expected passing no-network regression under current Windows/Vite output. `npm test` should now pass 203 tests.
+**I7A test hygiene follow-up — CLOSED.** PR #96 updated `tests/no-network.test.ts` to handle the Vite modulepreload polyfill false positive in generated `dist/assets` output, expanded forbidden network API coverage to include EventSource, and restored the expected passing no-network regression under current Windows/Vite output. `npm test` should now pass 261 tests (current suite).
 
 **I9-B (Import-to-Action Funnel) — CLOSED.** Added buildReadinessGaps() pure function, ReadinessGap type, present/missing evidence tags, affected diagnostics mapping, manual next-step guidance, and precise fix-card restraint (&& not ||). 12 new tests in parser.test.ts including 3 regression cases. No parser/D-rule/pricing/COST_RATES/domain behavior change. No backend/network/telemetry/export/auto-apply. Total test suite: 203 tests.
 
@@ -214,8 +218,9 @@
 **I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (BG 2026-04-30).
 
 **Recommended follow-up** (requires separate BG approval):
+- I14-B (PR #108) — CLOSED: evidence-backed fix card problem text, strict typeof guard, 261 tests.
 - I14-A Slice 1 (PR #106) — CLOSED: schedule-normalized waste priority, three-tier ranking, 231 tests.
-- I14-A remaining slices — NOT YET STARTED: review Issue #103 remaining items, choose next smallest slice (candidate: I14-B / UI wording for schedule-normalized priority or Issue #103 post-I14 reassessment — product review first, no-code).
+- I14-A remaining slices — NOT YET STARTED: review Issue #103 remaining items, choose next smallest slice (recommended: Issue #103 post-I14 reassessment — product review first, no-code).
 - Do not start new implementation immediately — recommended: review Issue #103 remaining items and choose next smallest slice.
 - UI module extraction (create `src/ui.ts`) — future work.
 - Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**.
@@ -225,7 +230,7 @@
 ## Current Local Validation Reality
 
 - `npm run build` passes.
-- `npm test` passes 231 tests (PR #106: 28 new tests in waste-estimate.test.ts; total suite 7 files, 231 tests).
+- `npm test` passes 261 tests (PR #108: 30 tests in tests/fixes.test.ts; total suite 8 files, 261 tests).
 - `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive from generated `dist/assets` output.
 - Source/runtime scan remains intended to catch forbidden app network APIs, including fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource.
 
@@ -274,7 +279,7 @@ These constraints are **never negotiable** regardless of issue scope:
 
 **D2 Decision (BG 2026-05-05):** D2 (burst spend concentration review signal) stays disconnected. Do not wire into main UI waste ranking or waste proof logic. Decision only — no code change. Revisit when/if multi-export or temporal recurrence analysis is implemented in future work.
 
-**Recommended Next Step**: PR #106 (I14-A Slice 1) merged on main at `1e6401c`. Next: review Issue #103 remaining items and choose next smallest slice. Recommended: I14-B (UI wording for schedule-normalized priority) or Issue #103 post-I14 reassessment — product review first, no-code. Do not start new implementation immediately.
+**Recommended Next Step**: PR #108 (I14-B) merged on main at `7228ce0`. PR #107 (docs refresh after PR #106) also merged. Next: review Issue #103 remaining items and choose next smallest slice. Recommended: Issue #103 post-I14 reassessment — product review first, no-code. Do not start new implementation immediately.
 
 Pricing notes: Unknown model fallback changed from MiniMax M2.7 / 0.14 to highest known positive rate (15). `detectCostRate` now returns `pricingSource`. Conservative-estimate jobs contribute to `totalCost` and `totalWasteTokens` but not `totalCostSaving`.
 
