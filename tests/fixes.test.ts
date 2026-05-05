@@ -165,6 +165,48 @@ describe('buildFixCards with evidence-backed problem', () => {
     expect(cats.indexOf('CRITICAL')).toBeLessThan(cats.indexOf('ERROR_WASTE'));
   });
 
+  it('CRITICAL observedValue null => fallback to FIX_LIBRARY.CRITICAL.problem through buildFixCards()', () => {
+    const job = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: null, threshold: 30 }]);
+    const cards = buildFixCards([job]);
+    const card = cards.find((c) => c.category === 'CRITICAL');
+    expect(card.config.problem).toBe(FIX_LIBRARY.CRITICAL.problem);
+  });
+
+  it('CRITICAL threshold null => fallback to FIX_LIBRARY.CRITICAL.problem through buildFixCards()', () => {
+    const job = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: 10, threshold: null }]);
+    const cards = buildFixCards([job]);
+    const card = cards.find((c) => c.category === 'CRITICAL');
+    expect(card.config.problem).toBe(FIX_LIBRARY.CRITICAL.problem);
+  });
+
+  it('ERROR_WASTE observedValue "" => fallback to FIX_LIBRARY.ERROR_WASTE.problem through buildFixCards()', () => {
+    const job = makeJob(['ERROR_WASTE'], [{ ruleId: 'ERROR_WASTE', observedValue: '', threshold: 0.10 }]);
+    const cards = buildFixCards([job]);
+    const card = cards.find((c) => c.category === 'ERROR_WASTE');
+    expect(card.config.problem).toBe(FIX_LIBRARY.ERROR_WASTE.problem);
+  });
+
+  it('ERROR_WASTE threshold "" => fallback to FIX_LIBRARY.ERROR_WASTE.problem through buildFixCards()', () => {
+    const job = makeJob(['ERROR_WASTE'], [{ ruleId: 'ERROR_WASTE', observedValue: 0.67, threshold: '' }]);
+    const cards = buildFixCards([job]);
+    const card = cards.find((c) => c.category === 'ERROR_WASTE');
+    expect(card.config.problem).toBe(FIX_LIBRARY.ERROR_WASTE.problem);
+  });
+
+  it('whitespace-only string observedValue => fallback to FIX_LIBRARY.CRITICAL.problem through buildFixCards()', () => {
+    const job = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: '   ', threshold: 30 }]);
+    const cards = buildFixCards([job]);
+    const card = cards.find((c) => c.category === 'CRITICAL');
+    expect(card.config.problem).toBe(FIX_LIBRARY.CRITICAL.problem);
+  });
+
+  it('valid finite numbers still produce evidence-backed problem through buildFixCards()', () => {
+    const job = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: 10, threshold: 30 }]);
+    const cards = buildFixCards([job]);
+    const card = cards.find((c) => c.category === 'CRITICAL');
+    expect(card.config.problem).toBe('Runs every 10 min, below the 30 min threshold.');
+  });
+
   it('CRITICAL jobs sorted by tokens*errorRate desc, sliced to 4', () => {
     const j1 = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: 10, threshold: 30 }]);
     j1.totalTokens = 100; j1.errorRate = 0.1;

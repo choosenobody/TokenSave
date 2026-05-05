@@ -81,20 +81,23 @@ export function buildEvidenceBackedProblem(category, jobs) {
   if (!entry) return null;
 
   const { observedValue, threshold } = entry;
-  const obsNum = Number(observedValue);
-  const threshNum = Number(threshold);
 
-  if (!Number.isFinite(obsNum) || !Number.isFinite(threshNum)) {
+  // Reject null, undefined, empty/whitespace strings, and non-finite numbers.
+  // typeof === "number" guards against null,"",whitespace,object,etc.
+  if (
+    typeof observedValue !== 'number' || !Number.isFinite(observedValue) ||
+    typeof threshold !== 'number' || !Number.isFinite(threshold)
+  ) {
     return null;
   }
 
   if (category === 'CRITICAL') {
-    return `Runs every ${obsNum} min, below the ${threshNum} min threshold.`;
+    return `Runs every ${observedValue} min, below the ${threshold} min threshold.`;
   }
 
   if (category === 'ERROR_WASTE') {
-    const obsPct = (obsNum * 100).toFixed(0);
-    const threshPct = (threshNum * 100).toFixed(0);
+    const obsPct = (observedValue * 100).toFixed(0);
+    const threshPct = (threshold * 100).toFixed(0);
     return `${obsPct}% error rate, above the ${threshPct}% threshold.`;
   }
 
