@@ -241,12 +241,12 @@ describe('three-tier ranking', () => {
     if (leftDaily !== null && leftDaily > 0 && rightDaily !== null && rightDaily > 0) return rightDaily - leftDaily;
     if (leftDaily !== null && leftDaily > 0) return -1;
     if (rightDaily !== null && rightDaily > 0) return 1;
-    // Tier 2: positive estimatedWastePerRun
+    // Tier 2: positive estimatedWastePerRun (> 0, not merely non-null)
     const leftPerRun = estimateWastePerRun(left, cheapRate);
     const rightPerRun = estimateWastePerRun(right, cheapRate);
-    if (leftPerRun !== null && rightPerRun !== null) return rightPerRun - leftPerRun;
-    if (leftPerRun !== null) return -1;
-    if (rightPerRun !== null) return 1;
+    if (leftPerRun !== null && leftPerRun > 0 && rightPerRun !== null && rightPerRun > 0) return rightPerRun - leftPerRun;
+    if (leftPerRun !== null && leftPerRun > 0) return -1;
+    if (rightPerRun !== null && rightPerRun > 0) return 1;
     // Tier 3: totalTokens × errorRate
     const lw = left.totalTokens * left.errorRate;
     const rw = right.totalTokens * right.errorRate;
@@ -289,7 +289,28 @@ describe('three-tier ranking', () => {
     expect(result).toBeGreaterThanOrEqual(0); // Tier 3/2 job must not outrank Tier 1
   });
 
-  it('Tier 2 (per-run) used when daily unavailable but per-run is positive', () => {
+  it('Tier 2 must require estimatedWastePerRun > 0 (not merely non-null)', () => {
+    // Job A: errorRate=0 → perRun=0 → Tier 3
+    // Job B: errorRate=0.25, totalRuns=10 → perRun=200 → Tier 2
+    const tier3Job = makeJob({
+      scheduleMinutes: null,
+      totalRuns: 10,
+      errorRate: 0,
+      badge: 'OK',
+    });
+    const tier2Job = makeJob({
+      scheduleMinutes: null,
+      totalRuns: 10,
+      errorRate: 0.25,
+      badge: 'ERROR_WASTE',
+    });
+    const result = tierCompare(tier3Job, tier2Job);
+    // tier2Job has perRun=200 (>0) → Tier 2; tier3Job has perRun=0 (=0, not Tier 2)
+    // Tier 2 should rank above Tier 3, so result should be > 0
+    expect(result).toBeGreaterThan(0);
+  });
+
+  it('Tier 2 used when daily unavailable but per-run is positive', () => {
     // Unknown schedule but has runs → Tier 2
     const unknownWithRuns = makeJob({
       scheduleMinutes: null,

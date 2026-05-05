@@ -3,7 +3,7 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
 import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
-import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateOccurrencesPerDay, estimateJobWasteTokens, estimateWastePerRun, estimateDailyWasteTokens } from './domain';
+import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateWastePerRun, estimateDailyWasteTokens } from './domain';
 import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     const state = {
@@ -295,9 +295,10 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           if (rightDaily !== null && rightDaily > 0) return 1;
           const leftPerRun = estimateWastePerRun(left, cheapRate);
           const rightPerRun = estimateWastePerRun(right, cheapRate);
-          if (leftPerRun !== null && rightPerRun !== null) return rightPerRun - leftPerRun;
-          if (leftPerRun !== null) return -1;
-          if (rightPerRun !== null) return 1;
+          // Tier 2: positive estimatedWastePerRun (> 0, not merely non-null)
+          if (leftPerRun !== null && leftPerRun > 0 && rightPerRun !== null && rightPerRun > 0) return rightPerRun - leftPerRun;
+          if (leftPerRun !== null && leftPerRun > 0) return -1;
+          if (rightPerRun !== null && rightPerRun > 0) return 1;
           const lw = left.totalTokens * left.errorRate;
           const rw = right.totalTokens * right.errorRate;
           return rw - lw;
@@ -623,7 +624,8 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         : undefined;
 
       // Tier 1: positive estimatedDailyWasteTokens (> 0, not merely non-null)
-      // Tier 2: estimatedWastePerRun desc | Tier 3: totalTokens × errorRate desc
+      // Tier 2: positive estimatedWastePerRun (> 0, not merely non-null)
+      // Tier 3: totalTokens × errorRate desc
       const sortedWaste = [...topWaste].sort((a, b) => {
         const aDaily = estimateDailyWasteTokens(a, cheapRate);
         const bDaily = estimateDailyWasteTokens(b, cheapRate);
@@ -632,9 +634,9 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         if (bDaily !== null && bDaily > 0) return 1;
         const aPerRun = estimateWastePerRun(a, cheapRate);
         const bPerRun = estimateWastePerRun(b, cheapRate);
-        if (aPerRun !== null && bPerRun !== null) return bPerRun - aPerRun;
-        if (aPerRun !== null) return -1;
-        if (bPerRun !== null) return 1;
+        if (aPerRun !== null && aPerRun > 0 && bPerRun !== null && bPerRun > 0) return bPerRun - aPerRun;
+        if (aPerRun !== null && aPerRun > 0) return -1;
+        if (bPerRun !== null && bPerRun > 0) return 1;
         const wasteA = a.totalTokens * a.errorRate;
         const wasteB = b.totalTokens * b.errorRate;
         return wasteB - wasteA;
