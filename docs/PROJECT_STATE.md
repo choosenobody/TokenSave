@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-06T11:13:31Z
-**Source**: GitHub `origin/main` at commit `a808198` (PR #110 docs(I7A): README.md + MVP_SPEC.md; merge commit `a808198`)
+**Last updated**: 2026-05-06T12:06:13Z
+**Source**: GitHub `origin/main` at commit `6c4315c` (PR #112 docs(I7B): add PRIVACY.md and SECURITY.md; merge commit `6c4315c`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `a808198` (PR #110 docs(I7A): README.md + MVP_SPEC.md; merge commit `a808198`) |
+| Main branch SHA | `6c4315c` (PR #112 docs(I7B): add PRIVACY.md and SECURITY.md; merge commit `6c4315c`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -45,6 +45,8 @@
 | node_modules/ | Not committed (gitignored) |
 | README.md | Product overview — local-first token waste audit tool, local setup (git clone / npm install / npm run dev), validation commands (npm run build && npm test), privacy statement, what TokenSave does and does NOT do |
 | MVP_SPEC.md | MVP scope document — objective, workflow (Import → Diagnose → Evidence → Manual Fix), D1-D7 summary (D2 marked as review signal only), evidence boundaries, MVP does NOT include list, deferred items (Issue #5 RULES.md, PRIVACY/SECURITY later slices), privacy/local-first constraints |
+| PRIVACY.md | Privacy policy — local-first, no telemetry, no external API calls, no API key collection, no-network design (static build-asset scan), cost estimates (approximate, secondary), user responsibility for imported data |
+| SECURITY.md | Security policy — security model, threat model, data storage/retention (no local history store, session-only analysis), non-goals (not sandbox/endpoint protection/SaaS/kill switch), controls (local-first, no telemetry, no-network static scan, CLI text-only fix hints), vulnerability reporting (GitHub issues, no SLA) |
 
 ---
 
@@ -52,6 +54,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #112 | docs(I7B): add PRIVACY.md and SECURITY.md | 2026-05-06 | `6c4315c` |
 | #110 | docs(I7A): README.md + MVP_SPEC.md | 2026-05-06 | `a808198` |
 | #108 | feat(I14-B): evidence-backed fix card problem text for CRITICAL and ERROR_WASTE | 2026-05-05 | `7228ce0` |
 | #107 | docs(PROJECT_STATE): refresh after PR #106 — I14-A Slice 1 CLOSED, D2 decision, main SHA 1e6401c | 2026-05-05 | `5f46ac1` |
@@ -127,7 +130,8 @@
 
 | Increment | Issue | PR | Status |
 |-----------|-------|-----|--------|
-| I7A (Slice A — README + MVP_SPEC) | Issue #7 (I8) docs — Slice A | #110 | SLICE COMPLETE — Issue #7 remains OPEN; PRIVACY.md, SECURITY.md, and RULES.md pending future slices |
+| I7A (Slice A — README + MVP_SPEC) | Issue #7 (I8) docs — Slice A | #110 | **SLICE COMPLETE** |
+| I7B (Slice B — PRIVACY + SECURITY) | Issue #7 (I8) docs — Slice B | #112 | **SLICE COMPLETE** — Issue #7 remains OPEN; RULES.md pending |
 | I1 | Remove tracked node_modules and add .gitignore | Direct commit | CLOSED |
 | I1.1 | Harden .gitignore + add docs/AGENT_RULES.md + docs/INCIDENTS.md | #13 | CLOSED |
 | I1.2 | Add project state snapshot document | #15 | CLOSED |
@@ -223,10 +227,9 @@
 
 **Recommended Next Steps**:
 - Complete this PROJECT_STATE refresh PR first.
-- Then plan Issue #7 Slice B: PRIVACY.md + SECURITY.md (docs-only, after this PR merges).
-- Do NOT start Slice B until this PROJECT_STATE refresh PR is merged and worktree is clean on main.
-- RULES.md remains **deferred** — depends on Issue #5 (B1-B3/W1-W5 pre-flight rules) closing, or BG explicitly approves a D1-D7-only partial rules document.
+- Issue #7 Slice C (RULES.md) remains **deferred** — depends on Issue #5 (B1-B3/W1-W5 pre-flight rules) closing, or BG explicitly approves a D1-D7-only partial rules document.
 - Issue #3 pricing work remains **deferred pending future BG approval**.
+- No new implementation slices until Issue #7 is fully closed or BG approves new scope.
 
 ## Current Local Validation Reality
 
@@ -247,7 +250,7 @@
 | #10 | I2a: Vite + TypeScript scaffold with minimal behavior changes | **CLOSED** | Completed by PR #14. Closed 2026-04-28. |
 | #9 | I1.1: Harden .gitignore and add process docs | **CLOSED** | Completed by PR #13. Closed 2026-04-28. |
 | #8 | I2: Vite + TypeScript scaffold | **CLOSED** | Parent of I2a. Completed by PR #14 and Issue #11 / I2b. Closed 2026-04-28. |
-| #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | **PARTIALLY COMPLETE — Slice A DONE** | README.md (PR #110) and MVP_SPEC.md (PR #110) merged. PRIVACY.md + SECURITY.md + RULES.md remain. Issue #7 remains OPEN. |
+| #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | **PARTIALLY COMPLETE — Slices A+B DONE** | README.md (PR #110), MVP_SPEC.md (PR #110), PRIVACY.md (PR #112), SECURITY.md (PR #112) merged. RULES.md pending — Issue #5 (B1-B3/W1-W5) must close or BG must approve D1-D7-only partial rules doc first. Issue #7 remains OPEN. |
 | #6 | I7: No-network test and evidence bundle system | **CLOSED (COMPLETED)** | I7A (PR #44): no-network regression test. I7B (PR #59): WasteEvidence type + buildWasteEvidence. I7C (PR #79): D1-D7 evidence contract regression coverage. All acceptance criteria met. Issue closed by BG 2026-04-30. |
 | #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. RULES.md depends on this. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | **CLOSED (COMPLETED)** | D1-D7 sub-slices all CLOSED. Issue closed by BG 2026-04-30. |
