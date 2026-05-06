@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-05T16:30:00Z
-**Source**: GitHub `origin/main` at commit `7228ce0` (PR #108 feat(I14-B): evidence-backed fix card problem text for CRITICAL and ERROR_WASTE; merge commit `7228ce0`)
+**Last updated**: 2026-05-06T11:13:31Z
+**Source**: GitHub `origin/main` at commit `a808198` (PR #110 docs(I7A): README.md + MVP_SPEC.md; merge commit `a808198`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `7228ce0` (PR #108 feat(I14-B): evidence-backed fix card problem text; merge commit `7228ce0`) |
+| Main branch SHA | `a808198` (PR #110 docs(I7A): README.md + MVP_SPEC.md; merge commit `a808198`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -43,6 +43,8 @@
 | docs/PROJECT_STATE.md | This file |
 | dist/ | Not committed (gitignored) |
 | node_modules/ | Not committed (gitignored) |
+| README.md | Product overview — local-first token waste audit tool, local setup (git clone / npm install / npm run dev), validation commands (npm run build && npm test), privacy statement, what TokenSave does and does NOT do |
+| MVP_SPEC.md | MVP scope document — objective, workflow (Import → Diagnose → Evidence → Manual Fix), D1-D7 summary (D2 marked as review signal only), evidence boundaries, MVP does NOT include list, deferred items (Issue #5 RULES.md, PRIVACY/SECURITY later slices), privacy/local-first constraints |
 
 ---
 
@@ -50,6 +52,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #110 | docs(I7A): README.md + MVP_SPEC.md | 2026-05-06 | `a808198` |
 | #108 | feat(I14-B): evidence-backed fix card problem text for CRITICAL and ERROR_WASTE | 2026-05-05 | `7228ce0` |
 | #107 | docs(PROJECT_STATE): refresh after PR #106 — I14-A Slice 1 CLOSED, D2 decision, main SHA 1e6401c | 2026-05-05 | `5f46ac1` |
 | #106 | feat(I14-A Slice 1): schedule-normalized waste priority | 2026-05-05 | `1e6401c` |
@@ -124,6 +127,7 @@
 
 | Increment | Issue | PR | Status |
 |-----------|-------|-----|--------|
+| I7A (Slice A — README + MVP_SPEC) | Issue #7 (I8) docs — Slice A | #110 | SLICE COMPLETE — Issue #7 remains OPEN; PRIVACY.md, SECURITY.md, and RULES.md pending future slices |
 | I1 | Remove tracked node_modules and add .gitignore | Direct commit | CLOSED |
 | I1.1 | Harden .gitignore + add docs/AGENT_RULES.md + docs/INCIDENTS.md | #13 | CLOSED |
 | I1.2 | Add project state snapshot document | #15 | CLOSED |
@@ -217,15 +221,12 @@
 
 **I5-D5 (Diagnose-D5) — CLOSED.** Added diagnoseD5UnknownModelPricing pure function in src/rules.ts. DiagnoseRuleResult contract uses nested evidence bundle { ruleId, explanation, sourceFields, observedValue, threshold }. 8 tests in tests/rules.test.ts. D1-D7 sub-slice 1 of N. Issue #4 is CLOSED (BG approved 2026-04-30). Issue #6 is CLOSED (BG 2026-04-30).
 
-**Recommended follow-up** (requires separate BG approval):
-- I14-B (PR #108) — CLOSED: evidence-backed fix card problem text, strict typeof guard, 261 tests.
-- I14-A Slice 1 (PR #106) — CLOSED: schedule-normalized waste priority, three-tier ranking, 231 tests.
-- I14-A remaining slices — NOT YET STARTED: review Issue #103 remaining items, choose next smallest slice (recommended: Issue #103 post-I14 reassessment — product review first, no-code).
-- Do not start new implementation immediately — recommended: review Issue #103 remaining items and choose next smallest slice.
-- UI module extraction (create `src/ui.ts`) — future work.
-- Pricing slice — config-cost / plan-covered zero / job→agent mapping remain **deferred pending future BG approval**.
-- App-shell architecture cleanup — future work.
-- Observed-fallback and inferred-config pricing sources remain unimplemented (future work).
+**Recommended Next Steps**:
+- Complete this PROJECT_STATE refresh PR first.
+- Then plan Issue #7 Slice B: PRIVACY.md + SECURITY.md (docs-only, after this PR merges).
+- Do NOT start Slice B until this PROJECT_STATE refresh PR is merged and worktree is clean on main.
+- RULES.md remains **deferred** — depends on Issue #5 (B1-B3/W1-W5 pre-flight rules) closing, or BG explicitly approves a D1-D7-only partial rules document.
+- Issue #3 pricing work remains **deferred pending future BG approval**.
 
 ## Current Local Validation Reality
 
@@ -246,9 +247,9 @@
 | #10 | I2a: Vite + TypeScript scaffold with minimal behavior changes | **CLOSED** | Completed by PR #14. Closed 2026-04-28. |
 | #9 | I1.1: Harden .gitignore and add process docs | **CLOSED** | Completed by PR #13. Closed 2026-04-28. |
 | #8 | I2: Vite + TypeScript scaffold | **CLOSED** | Parent of I2a. Completed by PR #14 and Issue #11 / I2b. Closed 2026-04-28. |
-| #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | OPEN | Future issue. Not yet started. |
+| #7 | I8: README, MVP_SPEC, PRIVACY, SECURITY, RULES docs | **PARTIALLY COMPLETE — Slice A DONE** | README.md (PR #110) and MVP_SPEC.md (PR #110) merged. PRIVACY.md + SECURITY.md + RULES.md remain. Issue #7 remains OPEN. |
 | #6 | I7: No-network test and evidence bundle system | **CLOSED (COMPLETED)** | I7A (PR #44): no-network regression test. I7B (PR #59): WasteEvidence type + buildWasteEvidence. I7C (PR #79): D1-D7 evidence contract regression coverage. All acceptance criteria met. Issue closed by BG 2026-04-30. |
-| #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. |
+| #5 | I6: Rule engine — Pre-flight rules B1-B3 and W1-W5 | OPEN | Future issue. Requires separate BG approval. RULES.md depends on this. |
 | #4 | I5: Rule engine — Diagnose rules D1-D7 | **CLOSED (COMPLETED)** | D1-D7 sub-slices all CLOSED. Issue closed by BG 2026-04-30. |
 | #3 | I4: Domain layer — pricing data and cost calculation | OPEN | Partially advanced by I3.2B conservative-estimate fallback and I3.2C-A split pricing UI. Full issue scope requires separate BG decision. |
 | #2 | I3: Add parser modules with tests | **CLOSED** | I3A (PR #53): 12 inline characterization tests. I3B (PR #55): 4 fixture-based tests. Combined 16 tests in tests/parser.test.ts. src/parser.ts unchanged. Closed 2026-04-28. |
