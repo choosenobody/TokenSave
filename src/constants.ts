@@ -16,31 +16,31 @@ export const FIX_LIBRARY = {
   CRITICAL: {
     title: "Burning too many tokens",
     problem: "This job runs on a very short schedule with agent-turn mode, burning tokens on every single run.",
-    action: "1) Run: openclaw jobs list — find this job\n2) Run: openclaw jobs edit [JOB_ID] --schedule \"*/30 * * * *\" (or any interval >= 30min)\n3) Or if it's a simple check: openclaw jobs edit [JOB_ID] --no-agent-turn\n4) Then run: openclaw export to verify the change",
+    action: "1) Run: openclaw cron list --all — find this job\n2) Run: openclaw cron edit [JOB_ID] --every 30m (or any interval >= 30min)\n3) Or if it is a simple check: openclaw cron edit [JOB_ID] --disable, re-create as plain cron\n4) Then re-import ~/.openclaw/cron/jobs.json to verify the change",
     impactLabel: "cost per run"
   },
   LLM_AGENT_CRON: {
     title: "LLM-powered cron job",
     problem: "This scheduled job uses agent-turn mode — the LLM is invoked on every trigger to decide what to do, even for routine tasks. This is the single biggest source of token waste in OpenClaw.",
-    action: "1) Run: openclaw jobs list — find this job\n2) Run: openclaw jobs edit [JOB_ID] --no-agent-turn\n3) Run: openclaw export to verify the change",
+    action: "1) Run: openclaw cron list --all — find this job\n2) Run: openclaw cron disable [JOB_ID] to stop the waste immediately\n3) Re-import ~/.openclaw/cron/jobs.json to verify the change",
     impactLabel: "agent-turn overhead"
   },
   ERROR_WASTE: {
     title: "Failing repeatedly",
     problem: "This job is failing repeatedly, and each failed run burns tokens with nothing to show.",
-    action: "1) Run: openclaw jobs logs [JOB_ID] --last 1 — get the first error message\n2) Fix the cause (bad credentials, missing file, wrong API key, etc.)\n3) Run: openclaw jobs edit [JOB_ID] --resume\n4) Watch: openclaw jobs logs [JOB_ID] --watch",
+    action: "1) Run: openclaw cron runs [JOB_ID] --limit 5 — read recent error messages\n2) Fix the cause (bad credentials, missing file, wrong API key, etc.)\n3) Run: openclaw cron edit [JOB_ID] --enable to re-activate\n4) Watch: openclaw cron runs [JOB_ID] --limit 10",
     impactLabel: "wasted tokens"
   },
   PREMIUM_MODEL_WASTE: {
     title: "Overpaying for simple work",
     problem: "This job uses an expensive model (Claude Opus / GPT-4o) for a simple check or monitor task.",
-    action: "1) Run: openclaw jobs list — find this job\n2) Run: openclaw jobs edit [JOB_ID] --model mini-max/m2.7\n3) Run: openclaw jobs run [JOB_ID] --dry-run to verify it still works\n4) Monitor the next 3 runs to confirm output quality",
+    action: "1) Run: openclaw cron list --all — find this job\n2) Run: openclaw cron edit [JOB_ID] --model mini-max/m2.7\n3) Run: openclaw cron run [JOB_ID] to verify it still works\n4) Monitor the next 3 runs to confirm output quality",
     impactLabel: "potential saving"
   },
   WARNING: {
     title: "Running too often",
     problem: "This job runs very frequently. It works, but the frequency may be unnecessary.",
-    action: "1) Run: openclaw jobs list — find this job\n2) Ask: does this need to run every [SCHEDULE]? Could it run every 1h / 6h / daily?\n3) Run: openclaw jobs edit [JOB_ID] --schedule \"0 */6 * * *\" (e.g. 6h)\n4) Compare results after 3 runs before committing the new schedule",
+    action: "1) Run: openclaw cron list --all — find this job\n2) Ask: does this need to run every [SCHEDULE]? Could it run every 1h / 6h / daily?\n3) Run: openclaw cron edit [JOB_ID] --every 6h (or a slower --every value)\n4) Compare results after 3 runs before committing the new schedule",
     impactLabel: "schedule"
   },
   OK: {

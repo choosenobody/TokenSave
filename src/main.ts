@@ -478,7 +478,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       const importTip = `
         <div class="import-tip">
           <span class="gap-next-label">Tip:</span>
-          Re-run <code>openclaw export</code> after any config changes to include the latest jobs, schedules, and model fields.
+          Re-import <code>~/.openclaw/cron/jobs.json</code> (and re-drop the run JSONL folder) after any config changes to see the latest jobs, schedules, and model fields.
         </div>
       `;
 
@@ -819,28 +819,27 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       // Build step-by-step HTML with real job IDs, one command per line with copy button
       if (category === "CRITICAL") {
         const steps = [
-          `openclaw jobs list`,
-          `openclaw jobs edit ${idList} --schedule "*/30 * * * *"`,
-          `openclaw jobs edit ${idList} --no-agent-turn`,
-          `openclaw export`
+          `openclaw cron list --all`,
+          `openclaw cron edit ${idList} --every 30m`,
+          `openclaw cron edit ${idList} --disable`,
+          `Re-import ~/.openclaw/cron/jobs.json to verify`
         ];
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
       }
       if (category === "LLM_AGENT_CRON") {
         const steps = [
-          { cmd: `openclaw jobs list`, label: "Find the job" },
-          { cmd: `openclaw jobs edit ${idList} --no-agent-turn`, label: "Disable agent-turn (LLM will not be invoked on every run)" },
-          { cmd: `openclaw jobs edit ${idList} --type cron`, label: "Convert to plain cron (skip LLM decision on every trigger)" },
-          { cmd: `openclaw export`, label: "Verify changes" }
+          { cmd: `openclaw cron list --all`, label: "Find the job" },
+          { cmd: `openclaw cron disable ${idList}`, label: "Stop the waste immediately" },
+          { cmd: `Re-import ~/.openclaw/cron/jobs.json`, label: "Verify changes" }
         ];
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body"><span class="step-label">${escapeHtml(s.label)}</span>${cmdLine(s.cmd)}</div></div>`).join("");
       }
       if (category === "ERROR_WASTE") {
         const steps = [
-          { cmd: `openclaw jobs logs ${idList} --last 1` },
+          { cmd: `openclaw cron runs ${idList} --limit 5` },
           { text: `Fix the cause (bad credentials, missing file, wrong API key, etc.)` },
-          { cmd: `openclaw jobs edit ${idList} --resume` },
-          { cmd: `openclaw jobs logs ${idList} --watch` }
+          { cmd: `openclaw cron edit ${idList} --enable` },
+          { cmd: `openclaw cron runs ${idList} --limit 10` }
         ];
         return steps.map((s, i) => {
           const content = s.cmd ? cmdLine(s.cmd) : `<span style="color:#a8b1d1;font-size:0.88rem">${escapeHtml(s.text)}</span>`;
@@ -849,17 +848,17 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       }
       if (category === "PREMIUM_MODEL_WASTE") {
         const steps = [
-          `openclaw jobs list`,
-          `openclaw jobs edit ${idList} --model mini-max/m2.7`,
-          `openclaw jobs run ${idList} --dry-run`,
+          `openclaw cron list --all`,
+          `openclaw cron edit ${idList} --model mini-max/m2.7`,
+          `openclaw cron run ${idList}`,
           `Monitor the next 3 runs to confirm quality`
         ];
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
       }
       if (category === "WARNING") {
         const steps = [
-          `openclaw jobs list`,
-          `openclaw jobs edit ${idList} --schedule "0 */6 * * *"`,
+          `openclaw cron list --all`,
+          `openclaw cron edit ${idList} --every 6h`,
           `Compare results after 3 runs before committing`
         ];
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
