@@ -2,6 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { FIX_LIBRARY } from '../src/constants';
 import { buildFixCards } from '../src/fixes';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 // Helper: minimal job with issues
 const makeJob = (issues, extra = {}) => ({
@@ -68,8 +70,6 @@ describe('I15-A: OpenClaw CLI guidance — fix-card actionability', () => {
     });
     const cards = buildFixCards([job]);
     const card = cards.find(c => c.category === 'CRITICAL');
-    // html is built by buildFixSteps in main.ts; we verify the idList is not embedded raw in FIX_LIBRARY.action
-    // The id substitution happens at render time; the template must NOT have bare ${idList} or ${id}
     expect(card.config.action).not.toMatch(/\$\{idList\}/);
     expect(card.config.action).not.toMatch(/\$\{id\}/);
   });
@@ -125,14 +125,6 @@ describe('I15-A: OpenClaw CLI guidance — fix-card actionability', () => {
 });
 
 describe('I15-A: buildFixCards — no forbidden patterns in action', () => {
-  const makeJob = (issues, extra = {}) => ({
-    issues,
-    totalTokens: 1000,
-    errorRate: 0,
-    evidence: [],
-    ...extra
-  });
-
   const FORBIDDEN_PATTERNS = [
     { pattern: /openclaw jobs\b/,                reason: 'openclaw jobs subcommand removed in 2026.5.5' },
     { pattern: /openclaw export\b/,              reason: 'openclaw export does not exist in 2026.5.5' },
@@ -141,15 +133,11 @@ describe('I15-A: buildFixCards — no forbidden patterns in action', () => {
     { pattern: /--dry-run\b/,                   reason: '--dry-run not available on cron run' },
     { pattern: /--schedule "[^"]*\*[^"]*"/,     reason: 'cron expression strings not used; use --every duration' },
     { pattern: /--type cron\b/,                  reason: '--type not available on cron edit' },
-    { pattern: /\$#\?id\b/,                      reason: 'no shell interpolation in action strings' },
+    { pattern: /\$\#\?id\b/,                      reason: 'no shell interpolation in action strings' },
   ];
 
-  for (const [category, label] of [
-    ['CRITICAL', 'CRITICAL'],
-    ['LLM_AGENT_CRON', 'LLM_AGENT_CRON'],
-    ['ERROR_WASTE', 'ERROR_WASTE'],
-    ['PREMIUM_MODEL_WASTE', 'PREMIUM_MODEL_WASTE'],
-    ['WARNING', 'WARNING'],
+  for (const [category] of [
+    ['CRITICAL'], ['LLM_AGENT_CRON'], ['ERROR_WASTE'], ['PREMIUM_MODEL_WASTE'], ['WARNING'],
   ]) {
     for (const { pattern, reason } of FORBIDDEN_PATTERNS) {
       it(`FIX_LIBRARY.${category} action has no forbidden pattern: ${reason}`, () => {
@@ -157,5 +145,183 @@ describe('I15-A: buildFixCards — no forbidden patterns in action', () => {
         expect(action).not.toMatch(pattern);
       });
     }
+  }
+});
+
+// ── I15-A: buildFixSteps multi-ID rendering ──────────────────────────────────
+// Extracts the buildFixSteps function from main.ts to test it directly.
+
+function extractBuildFixSteps() {
+  const src = readFileSync(resolve(__dirname, '../src/main.ts'), 'utf8');
+
+  // Extract cmdLine helper
+  const cmdLineStart = src.indexOf('function cmdLine(text) {');
+  let depth = 0, cmdLineEnd = cmdLineStart;
+  for (let i = cmdLineStart; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) { cmdLineEnd = i + 1; break; } }
+  }
+  const cmdLineFn = src.slice(cmdLineStart, cmdLineEnd);
+
+  // Extract buildFixSteps
+  const fnStart = src.indexOf('function buildFixSteps(category, idList, genericAction) {');
+  if (fnStart === -1) throw new Error('buildFixSteps not found');
+  depth = 0; let fnEnd = fnStart;
+  for (let i = fnStart; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) { fnEnd = i + 1; break; } }
+  }
+  const fnBody = src.slice(fnStart, fnEnd);
+
+  // Minimal escapeHtml shim
+  const escapeShim = `function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }`;
+
+  const wrapper = `(function(){
+    ${cmdLineFn}
+    ${escapeShim}
+    ${fnBody}
+    return buildFixSteps;
+  })()`;
+  // eslint-disable-next-line no-eval
+  return eval(wrapper);
+}
+
+const buildFixSteps = extractBuildFixSteps();
+
+// Forbidden multi-ID command patterns (I15-A: one command per job ID)
+const FORBIDDEN_MULTI_ID_PATTERNS = [
+  // Only flag-style patterns where the second ID is preceded by a space (not a dash)
+  { pattern: /cron runs\s+--id\s+[\w-]+\s+[a-z]{3,}/i, label: 'cron runs --id ID1 ID2' },
+  { pattern: /cron edit\s+[\w-]+\s+[a-z]{3,}\s+--/i, label: 'cron edit ID1 ID2 --' },
+  { pattern: /cron disable\s+[\w-]+\s+[a-z]{3,}/i, label: 'cron disable ID1 ID2' },
+  { pattern: /cron run\s+[\w-]+\s+[a-z]{3,}/i, label: 'cron run ID1 ID2' },
+  { pattern: /cron show\s+[\w-]+\s+[a-z]{3,}/i, label: 'cron show ID1 ID2' },
+];
+
+// Per-category expected command counts (whitespace-separated multi-ID)
+const CATEGORY_WS_COUNTS = {
+  ERROR_WASTE:         { show: 2, runs: 4, edit: 2, disable: 0, run: 0 },
+  CRITICAL:            { show: 0, runs: 0, edit: 2, disable: 2, run: 0 },
+  LLM_AGENT_CRON:      { show: 0, runs: 0, edit: 0, disable: 2, run: 0 },
+  PREMIUM_MODEL_WASTE: { show: 0, runs: 0, edit: 2, disable: 0, run: 2 },
+  WARNING:             { show: 0, runs: 0, edit: 2, disable: 0, run: 0 },
+} as const;
+
+// Per-category expected command counts (comma-separated multi-ID — same as whitespace)
+const CATEGORY_COMMA_COUNTS = CATEGORY_WS_COUNTS;
+
+const WS_TEST_CASES = [
+  ['ERROR_WASTE',  'err-aaaa-bbbb-cccc err-dddd-eeee-ffff'],
+  ['CRITICAL',     'crit-x-y crit-p-q'],
+  ['LLM_AGENT_CRON','llm-a-b lmm-c-d'],
+  ['PREMIUM_MODEL_WASTE', 'prem-a-b prem-c-d'],
+  ['WARNING',      'warn-a-b warn-c-d'],
+] as const;
+
+const COMMA_TEST_CASES = [
+  ['ERROR_WASTE',  'err-aaaa-bbbb-cccc,err-dddd-eeee-ffff'],
+  ['CRITICAL',     'crit-x-y,crit-p-q'],
+  ['LLM_AGENT_CRON','llm-a-b,llm-c-d'],
+  ['PREMIUM_MODEL_WASTE', 'prem-a-b,prem-c-d'],
+  ['WARNING',      'warn-a-b,warn-c-d'],
+] as const;
+
+function assertCommandCounts(html, expected) {
+  if (expected.show > 0) {
+    const matches = html.match(/cron show\s+[\w-]+/g) ?? [];
+    expect(matches).toHaveLength(expected.show);
+  }
+  if (expected.runs > 0) {
+    const matches = html.match(/cron runs\s+--id\s+[\w-]+/g) ?? [];
+    expect(matches).toHaveLength(expected.runs);
+  }
+  if (expected.edit > 0) {
+    const matches = html.match(/cron edit\s+[\w-]+/g) ?? [];
+    expect(matches).toHaveLength(expected.edit);
+  }
+  if (expected.disable > 0) {
+    const matches = html.match(/cron disable\s+[\w-]+/g) ?? [];
+    expect(matches).toHaveLength(expected.disable);
+  }
+  if (expected.run > 0) {
+    const matches = html.match(/cron run\s+[\w-]+/g) ?? [];
+    expect(matches).toHaveLength(expected.run);
+  }
+}
+
+describe('buildFixSteps — whitespace-separated multi-ID (I15-A fix)', () => {
+  for (const [category, multiId] of WS_TEST_CASES) {
+    const html = buildFixSteps(category, multiId, 'generic action');
+    const expected = CATEGORY_WS_COUNTS[category];
+
+    it(`${category}: correct command counts (show=${expected.show} runs=${expected.runs} edit=${expected.edit} disable=${expected.disable} run=${expected.run})`, () => {
+      assertCommandCounts(html, expected);
+    });
+
+    for (const { pattern, label } of FORBIDDEN_MULTI_ID_PATTERNS) {
+      it(`${category}: FORBIDDEN — no "${label}"`, () => {
+        expect(html).not.toMatch(pattern);
+      });
+    }
+  }
+});
+
+describe('buildFixSteps — comma-separated multi-ID (I15-A regression)', () => {
+  for (const [category, commaId] of COMMA_TEST_CASES) {
+    const html = buildFixSteps(category, commaId, 'generic action');
+    const expected = CATEGORY_COMMA_COUNTS[category];
+
+    it(`${category}: correct command counts`, () => {
+      assertCommandCounts(html, expected);
+    });
+
+    for (const { pattern, label } of FORBIDDEN_MULTI_ID_PATTERNS) {
+      it(`${category}: FORBIDDEN — no "${label}"`, () => {
+        expect(html).not.toMatch(pattern);
+      });
+    }
+  }
+});
+
+describe('buildFixSteps — stale forbidden patterns remain absent', () => {
+  const STALE_PATTERNS = [
+    { pattern: /openclaw jobs\b/,   label: 'openclaw jobs' },
+    { pattern: /openclaw export\b/, label: 'openclaw export' },
+    { pattern: /--resume\b/,        label: '--resume' },
+    { pattern: /--watch\b/,         label: '--watch' },
+    { pattern: /--last\s+1\b/,      label: '--last 1' },
+  ];
+
+  for (const [category] of COMMA_TEST_CASES) {
+    for (const { pattern, label } of STALE_PATTERNS) {
+      it(`${category}: no stale "${label}"`, () => {
+        const html = buildFixSteps(category, 'id-a id-b id-c', 'generic action');
+        expect(html).not.toMatch(pattern);
+      });
+    }
+  }
+});
+
+describe('buildFixSteps — single ID still works', () => {
+  // Use realistic long IDs for single-ID tests (same format as multi-ID tests)
+  for (const [category] of COMMA_TEST_CASES) {
+    it(`${category}: single ID produces no multi-ID command pattern`, () => {
+      const html = buildFixSteps(category, 'single-long-job-id-abc', 'generic action');
+      // Extract all raw command text from <code> elements
+      const cmds = [...html.matchAll(/<code>([^<]+)<\/code>/g)].map(m => m[1].trim());
+      let checked = 0;
+      for (const cmd of cmds) {
+        // Only check commands that target a specific job (have an ID position)
+        // cron list --all, Re-import, Compare results, Monitor — have no ID, skip them
+        if (!/cron\s+(show|runs\s+--id|edit|disable|run)\s+/.test(cmd)) continue;
+        // Job IDs are long (>= 12 chars) with multiple hyphens
+        // Flags like --enable, --every, --limit are short and start with dashes — not IDs
+        const idTokens = cmd.split(/\s+/).filter(t => t.length >= 12 && /[a-z]+-[a-z]+-[a-z]+/i.test(t));
+        expect(idTokens.length, `command "${cmd}" should have exactly 1 ID token`).toBe(1);
+        checked++;
+      }
+      // Sanity: at least one command should have been checked
+      expect(checked).toBeGreaterThan(0);
+    });
   }
 });
