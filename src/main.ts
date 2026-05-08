@@ -151,6 +151,10 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return;
       }
 
+      if (/\.rar$/i.test(fileName)) {
+        throw new Error("RAR archive detected. Please extract locally and drag in jobs.json and runs/*.jsonl.");
+      }
+
       if (/\.json$/i.test(fileName)) {
         const payload = parseJson(text, fileName);
         ingestStructuredPayload(payload, fileName, dataset);
@@ -1045,6 +1049,9 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       }
       if (msg.includes("Unsupported file type")) {
         return "Use a .zip, .json, or .jsonl file from your OpenClaw export.";
+      }
+      if (msg.includes("RAR archive detected")) {
+        return ".rar files need to be extracted locally first. Please extract the RAR file on your device, then drag in jobs.json and runs/*.jsonl. TokenSave supports direct import for .zip, .json, and .jsonl files.";
       }
       return msg;
     }
