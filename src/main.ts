@@ -3,7 +3,7 @@ import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInte
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
 import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
-import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateWastePerRun, estimateDailyWasteTokens } from './domain';
+import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateWastePerRun, estimateDailyWasteTokens, isActiveJob } from './domain';
 import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     const state = {
@@ -272,7 +272,34 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       });
 
       const jobs = Array.from(statsById.values()).map((stat) => finalizeStat(stat));
-      const activeJobs = jobs.filter((job) => job.totalRuns > 0 || !job.synthetic);
+
+      // I15-B: lifecycleStatus for each job
+      // 'active'    = not synthetic AND enabled !== false
+      // 'disabled'  = not synthetic AND enabled === false
+      // 'historical'= synthetic (no job definition, only run records)
+      // Missing enabled field → 'active' (conservative: do not hide)
+      jobs.forEach((job) => {
+        job.lifecycleStatus = isActiveJob(job);
+      });
+      // Active jobs for topWaste ranking and jobs table: enabled=true, non-synthetic jobs only
+      // Exclude: disabled jobs, all synthetic jobs (they have no job definition → no fix possible)
+      const activeJobs = jobs.filter((job) => {
+        if (job.lifecycleStatus === 'disabled') return false;
+        if (job.lifecycleStatus === 'historical') return false; // synthetic, no job def
+        return true;
+      });
+
+      // All jobs (enabled + disabled + synthetic) for display in the jobs table
+      const allJobs = jobs;
+
+      // Historical/disabled secondary list: disabled=true OR synthetic (any, including those with runs)
+      // Synthetic jobs have no job definition → cannot be fixed with edit/disable/enable commands
+      // They appear here for visibility only with inspect-only guidance
+      const historicalJobs = jobs.filter((job) => {
+        if (job.lifecycleStatus === 'disabled') return true;
+        if (job.lifecycleStatus === 'historical') return true; // all synthetic jobs go here
+        return false;
+      });
 
       // Get cheapRate once for all waste computations
       const minimaxRef = detectCostRate("MiniMax M2.7");
@@ -378,9 +405,11 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         summary,
         importSummary,
         readinessGaps,
-        jobs: activeJobs,
+        jobs: allJobs,
         topWaste,
-        fixes: buildFixCards(activeJobs)
+        historicalJobs,
+        fixes: buildFixCards(activeJobs.filter(j => j.lifecycleStatus !== 'disabled' && j.lifecycleStatus !== 'historical')),
+        historicalFixes: buildFixCards(historicalJobs)
       };
     }
 
@@ -413,9 +442,9 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
       renderImportSummary(report.importSummary, report.readinessGaps);
       renderSummary(report.summary, report.meta);
-      renderTopWaste(report.topWaste, report.summary.totalCost);
+      renderTopWaste(report.topWaste, report.historicalJobs, report.summary.totalCost);
       renderJobTable(report.jobs);
-      renderFixes(report.fixes, report.importSummary, report.readinessGaps);
+      renderFixes(report.fixes, report.historicalFixes, report.importSummary, report.readinessGaps);
     }
 
     function renderImportSummary(summary, readinessGaps) {
@@ -610,8 +639,8 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       }
     }
 
-    function renderTopWaste(topWaste, totalCost) {
-      if (!topWaste.length) {
+    function renderTopWaste(topWaste, historicalJobs, totalCost) {
+      if (!topWaste.length && !historicalJobs.length) {
         wasteList.innerHTML = `<div class="panel waste-card"><div>No jobs found in the loaded export.</div></div>`;
         renderPieChart([], 0);
         return;
@@ -645,10 +674,14 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       wasteList.innerHTML = sortedWaste.map((job, rank) => {
         const wastedTokens = Math.round(job.totalTokens * job.errorRate);
         const wastedCost = (wastedTokens / 1_000_000) * job.rate.rate;
+        const isSynthetic = job.lifecycleStatus === 'historical';
+        const isDisabled = job.lifecycleStatus === 'disabled';
         return `
         <article class="panel waste-card">
           <div class="rank-chip">#${rank + 1}</div>
           <div>
+            ${isSynthetic ? `<div style="color:#9ca3af;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Unmapped historical run</div>` : ''}
+            ${isDisabled ? `<div style="color:#9ca3af;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Disabled</div>` : ''}
             <h3>${escapeHtml(job.name)}</h3>
             <div class="meta-line">${escapeHtml(formatInteger(job.totalTokens))} tokens &mdash; ~${escapeHtml(formatCurrency(job.totalCost))} approx. &mdash; ${escapeHtml(job.model || "Unknown")}</div>
             ${wastedTokens > 0 ? `<div class="meta-line" style="color:#ff7849">~${escapeHtml(formatInteger(wastedTokens))} tokens wasted (~${escapeHtml(formatCurrency(wastedCost))})</div>` : ""}
@@ -656,6 +689,40 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           <div>${renderBadge(job.badge)}</div>
         </article>
       `}).join("");
+
+      // I15-B: Historical / disabled review signals section
+      // Rendered after active Top Waste, visually muted
+      if (historicalJobs && historicalJobs.length) {
+        const histHeader = document.createElement('div');
+        histHeader.className = 'secondary-section-header';
+        histHeader.style.cssText = 'color:#9ca3af;font-size:0.85rem;font-weight:600;margin:16px 0 8px 0;padding-top:12px;border-top:1px solid #374151';
+        histHeader.textContent = 'Historical / disabled review signals';
+        wasteList.appendChild(histHeader);
+
+        historicalJobs.forEach((job, idx) => {
+          const card = document.createElement('article');
+          card.className = 'panel waste-card historical-card';
+          card.style.cssText = 'opacity:0.7;border-left:3px solid #6b7280';
+
+          const wastedTokens = Math.round(job.totalTokens * job.errorRate);
+          const wastedCost = (wastedTokens / 1_000_000) * job.rate.rate;
+
+          // Label: unmapped historical run vs disabled job
+          const isHistorical = job.lifecycleStatus === 'historical';
+          const isDisabled = job.lifecycleStatus === 'disabled';
+          const statusLabel = isHistorical
+            ? 'Unmapped historical run'
+            : `Disabled${job.name ? ': ' + escapeHtml(job.name) : ''}`;
+
+          card.innerHTML = `
+            <div style="color:#9ca3af;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${statusLabel}</div>
+            ${job.name && !isHistorical ? `<h3>${escapeHtml(job.name)}</h3>` : ''}
+            <div class="meta-line" style="color:#9ca3af">${escapeHtml(formatInteger(job.totalTokens))} tokens${job.model ? ' &mdash; ' + escapeHtml(job.model) : ''}</div>
+            <div><span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:4px;background:#374151;color:#9ca3af;text-transform:uppercase">Historical</span></div>
+          `;
+          wasteList.appendChild(card);
+        });
+      }
 
       renderPieChart(sortedWaste, totalCost);
     }
@@ -755,7 +822,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       </div>`;
     }
 
-    function renderFixes(fixes, importSummary, readinessGaps) {
+    function renderFixes(fixes, historicalFixes, importSummary, readinessGaps) {
       // If BOTH job definitions AND run history are missing, suppress fix cards.
       // Jobs without runs → show fixes (job-level evidence is present).
       // Runs without jobs → show fixes (usage evidence is present).
@@ -802,6 +869,58 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           </article>
 `;
       }).join("");
+
+      // I15-B: Historical / disabled review signals — muted, inspect-only
+      if (historicalFixes && historicalFixes.length) {
+        const histHeader = document.createElement('div');
+        histHeader.style.cssText = 'color:#9ca3af;font-size:0.85rem;font-weight:600;margin:20px 0 8px 0;padding-top:12px;border-top:1px solid #374151';
+        histHeader.textContent = 'Historical / disabled review signals';
+        fixGrid.appendChild(histHeader);
+
+        historicalFixes.forEach((item) => {
+          const isRed = ["CRITICAL", "ERROR_WASTE"].includes(item.category);
+          const cardClass = isRed ? "fix-card red-header" : "fix-card";
+          // Historical section: use neutral grey tags, never red/green
+          const tagClass = 'grey';
+          const jobTags = item.jobs.slice(0, 5).map((job) =>
+            `<span class="fix-job-tag ${tagClass}" style="opacity:0.7">${escapeHtml(job.name)}</span>`
+          ).join("");
+          const more = item.jobs.length > 5 ? `<span class="fix-job-tag ${tagClass}" style="opacity:0.4">+${item.jobs.length - 5} more</span>` : "";
+
+          // Historical/disabled fix: inspect/review only — no edit/disable/enable for these jobs
+          // Never run cron show/runs on synthetic pseudo-IDs — they have no real job definition
+          const firstJob = item.jobs[0];
+          const hasRealId = firstJob && firstJob.id && !String(firstJob.id).startsWith('synthetic:');
+          const inspectOnly = item.jobs.some(j => j.lifecycleStatus === 'disabled' || j.lifecycleStatus === 'historical');
+          const actionHtml = inspectOnly
+            ? hasRealId
+              ? `<code style="color:#9ca3af;opacity:0.8">openclaw cron show ${escapeHtml(firstJob.id)}</code><br>
+                 <code style="color:#9ca3af;opacity:0.8">openclaw cron runs --id ${escapeHtml(firstJob.id)} --limit 50</code>`
+              : `<span style="color:#9ca3af;opacity:0.7">No active job definition — inspect raw run history at</span><br>
+                 <code style="color:#9ca3af;opacity:0.8">~/.openclaw/cron/runs/</code>`
+            : buildFixSteps(item.category, item.jobs.map(j => j.id || j.name).filter(Boolean).join(' '), item.config.action);
+
+          const evidenceBlurb = formatEvidenceBlurb(item.jobs, item.category);
+
+        // Historical/disabled fix: muted styling, neutral copy, inspect-only commands
+        // Never render CRITICAL/ERROR_WASTE badge or urgent problem text for these jobs
+        const histCard = document.createElement('article');
+        histCard.className = 'panel fix-card';
+        histCard.style.cssText = 'opacity:0.75;border-left:3px solid #6b7280;margin-top:8px';
+        histCard.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <span style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:#374151;color:#9ca3af;text-transform:uppercase">Review signal</span>
+          </div>
+          <div style="margin-bottom:8px">
+            <strong style="font-size:1rem;color:#9ca3af">Review this job before taking action. Inspect the run history to understand its current status.</strong>
+          </div>
+          ${evidenceBlurb ? `<div class="fix-evidence" style="color:#9ca3af">Why: ${escapeHtml(evidenceBlurb)}</div>` : ''}
+          <div class="fix-action">${actionHtml}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px">${jobTags}</div>
+        `;
+          fixGrid.appendChild(histCard);
+        });
+      }
 
       // Add copy function to window so inline onclick works
       if (!window.copyCmd) {

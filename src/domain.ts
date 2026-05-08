@@ -82,6 +82,43 @@ export function readBoolean(value) {
   return Boolean(value);
 }
 
+/**
+ * Reads the `enabled` field from a job's raw object (handles aliases).
+ * Returns true/false when the field is present and boolean-castable.
+ * Returns null when the field is absent or unparseable.
+ */
+export function isEnabled(job) {
+  if (!job || typeof job !== 'object') return null;
+  const raw = job.raw;
+  if (!raw || typeof raw !== 'object') return null;
+  const candidates = [raw.enabled, raw.active];
+  for (const candidate of candidates) {
+    if (candidate === undefined || candidate === null) continue;
+    if (typeof candidate === 'boolean') return candidate;
+    if (typeof candidate === 'string' || typeof candidate === 'number') {
+      return readBoolean(candidate);
+    }
+  }
+  return null;
+}
+
+/**
+ * Classifies a job's lifecycle status based on enabled flag and synthetic flag.
+ * Returns 'active' | 'disabled' | 'historical'.
+ *
+ * Rules:
+ * - synthetic=true → 'historical' (no job definition, only run records)
+ * - enabled === false → 'disabled' (job exists but is turned off)
+ * - enabled === true → 'active'
+ * - enabled === null (missing/unknown) → 'active' (conservative: do not hide)
+ */
+export function isActiveJob(job) {
+  if (job.synthetic) return 'historical';
+  const enabled = isEnabled(job);
+  if (enabled === false) return 'disabled';
+  return 'active';
+}
+
 export function buildFixSuggestion(badge, scheduleMinutes) {
   if (badge === "CRITICAL") {
     return "Reduce frequency (>= 30 min) or disable agent-turn mode.";
