@@ -54,8 +54,8 @@
 
 ## Latest Merged PRs
 
-|| PR | Title | Merged | Merge Commit |
-||----|-------|--------|-------------|
+| PR | Title | Merged | Merge Commit |
+|----|-------|--------|-------------|
 | #117 | feat(I15-B): active vs historical/disabled waste distinction | 2026-05-08 | `d9ed115d4a64c9797af1c20aba8293c064d4f10e` |
 | #115 | fix(I15-A): OpenClaw CLI guidance — cron command family + local data paths | 2026-05-07 | `da48c3d` |
 | #113 | docs(PROJECT_STATE): refresh after PR #112 — I7B Slice B CLOSED | 2026-05-07 | `8e0cb16` |
