@@ -936,9 +936,12 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     function buildFixSteps(category, idList, genericAction) {
       // Build step-by-step HTML with real job IDs, one command per line with copy button
+      // Support both comma-separated and whitespace-separated ID lists
+      const splitIds = (s) => String(s).split(/[,\s]+/).map(id => id.trim()).filter(Boolean);
+
       if (category === "CRITICAL") {
         // One command per job ID to avoid multi-ID risk
-        const idLines = idList.split(',').map(id => id.trim()).filter(Boolean);
+        const idLines = splitIds(idList);
         const editSteps = idLines.map(id => `openclaw cron edit ${id} --every 30m`);
         const disableSteps = idLines.map(id => `openclaw cron disable ${id}`);
         const steps = [
@@ -950,7 +953,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
       }
       if (category === "LLM_AGENT_CRON") {
-        const idLines = idList.split(',').map(id => id.trim()).filter(Boolean);
+        const idLines = splitIds(idList);
         const steps = [
           { cmd: `openclaw cron list --all`, label: "Find the job" },
           ...idLines.map(id => ({ cmd: `openclaw cron disable ${id}`, label: `Stop waste for ${id.slice(0,8)}…` })),
@@ -959,7 +962,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body"><span class="step-label">${escapeHtml(s.label)}</span>${cmdLine(s.cmd)}</div></div>`).join("");
       }
       if (category === "ERROR_WASTE") {
-        const idLines = idList.split(',').map(id => id.trim()).filter(Boolean);
+        const idLines = splitIds(idList);
         const runsShowSteps = idLines.flatMap(id => [
           `openclaw cron show ${id}`,
           `openclaw cron runs --id ${id} --limit 5`
@@ -977,7 +980,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         }).join("");
       }
       if (category === "PREMIUM_MODEL_WASTE") {
-        const idLines = idList.split(',').map(id => id.trim()).filter(Boolean);
+        const idLines = splitIds(idList);
         const editSteps = idLines.map(id => `openclaw cron edit ${id} --model mini-max/m2.7`);
         const runSteps = idLines.map(id => `openclaw cron run ${id}`);
         const steps = [
@@ -989,7 +992,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
       }
       if (category === "WARNING") {
-        const idLines = idList.split(',').map(id => id.trim()).filter(Boolean);
+        const idLines = splitIds(idList);
         const editSteps = idLines.map(id => `openclaw cron edit ${id} --every 6h`);
         const steps = [
           `openclaw cron list --all`,
