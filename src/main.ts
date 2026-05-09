@@ -141,6 +141,12 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
     async function ingestLooseFile(file, dataset) {
       const fileName = file.name;
+
+      // Fail-fast: reject RAR before loading a potentially large binary file into memory
+      if (/\.rar$/i.test(fileName)) {
+        throw new Error("RAR archive detected. Please extract locally and drag in jobs.json and runs/*.jsonl.");
+      }
+
       const text = await file.text();
 
       if (/\.jsonl$/i.test(fileName)) {
@@ -149,10 +155,6 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           records: parseJsonl(text, fileName)
         });
         return;
-      }
-
-      if (/\.rar$/i.test(fileName)) {
-        throw new Error("RAR archive detected. Please extract locally and drag in jobs.json and runs/*.jsonl.");
       }
 
       if (/\.json$/i.test(fileName)) {
