@@ -1047,11 +1047,11 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       if (msg.includes("does not contain jobs.json or run")) {
         return "This ZIP does not contain jobs.json or run/*.jsonl. Export a full OpenClaw diagnostic ZIP.";
       }
-      if (msg.includes("Unsupported file type")) {
-        return "Use a .zip, .json, or .jsonl file from your OpenClaw export.";
-      }
       if (msg.includes("RAR archive detected")) {
         return ".rar files need to be extracted locally first. Please extract the RAR file on your device, then drag in jobs.json and runs/*.jsonl. TokenSave supports direct import for .zip, .json, and .jsonl files.";
+      }
+      if (msg.includes("Unsupported file type")) {
+        return "Use a .zip, .json, or .jsonl file from your OpenClaw export.";
       }
       return msg;
     }

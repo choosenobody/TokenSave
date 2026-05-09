@@ -38,10 +38,7 @@ describe('I16: RAR import guidance', () => {
   it('RAR archive error maps to local-extract guidance with supported formats', () => {
     const input = 'RAR archive detected. Please extract locally and drag in jobs.json and runs/*.jsonl.';
     const result = mapErrorMessage(input);
-    expect(result).toContain('.rar files need to be extracted locally first');
-    expect(result).toContain('jobs.json');
-    expect(result).toContain('runs/*.jsonl');
-    expect(result).toContain('.zip, .json, and .jsonl');
+    expect(result).toBe(".rar files need to be extracted locally first. Please extract the RAR file on your device, then drag in jobs.json and runs/*.jsonl. TokenSave supports direct import for .zip, .json, and .jsonl files.");
   });
 
   it('generic unsupported file type still maps to OpenClaw export guidance', () => {
