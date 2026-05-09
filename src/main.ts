@@ -682,6 +682,14 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         const wastedCost = (wastedTokens / 1_000_000) * job.rate.rate;
         const isSynthetic = job.lifecycleStatus === 'historical';
         const isDisabled = job.lifecycleStatus === 'disabled';
+
+        // I17-A: Priority basis — active waste cards only
+        const dailyWaste = estimateDailyWasteTokens(job, cheapRate);
+        const perRunWaste = estimateWastePerRun(job, cheapRate);
+        const priorityBasis = (!isSynthetic && !isDisabled)
+          ? buildPriorityBasisText(dailyWaste, perRunWaste)
+          : '';
+
         return `
         <article class="panel waste-card">
           <div class="rank-chip">#${rank + 1}</div>
@@ -691,6 +699,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
             <h3>${escapeHtml(job.name)}</h3>
             <div class="meta-line">${escapeHtml(formatInteger(job.totalTokens))} tokens &mdash; ~${escapeHtml(formatCurrency(job.totalCost))} approx. &mdash; ${escapeHtml(job.model || "Unknown")}</div>
             ${wastedTokens > 0 ? `<div class="meta-line" style="color:#ff7849">~${escapeHtml(formatInteger(wastedTokens))} tokens wasted (~${escapeHtml(formatCurrency(wastedCost))})</div>` : ""}
+            ${priorityBasis ? `<div class="meta-line" style="color:#9ca3af;font-size:0.75rem">${escapeHtml(priorityBasis)}</div>` : ''}
           </div>
           <div>${renderBadge(job.badge)}</div>
         </article>
@@ -1056,6 +1065,29 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return "Use a .zip, .json, or .jsonl file from your OpenClaw export.";
       }
       return msg;
+    }
+
+    function buildPriorityBasisText(dailyWaste, perRunWaste) {
+      // I17-A: Build compact priority basis explanation for active waste cards.
+      // Uses exact same tier logic as the ranking sort in analyzeDataset().
+      //
+      // Tier 1: estimateDailyWasteTokens > 0 — schedule known, daily projection available
+      // Tier 2: estimateWastePerRun > 0 — schedule unavailable, per-run waste known
+      // Tier 3: fallback — no tier 1 or tier 2, ranked by tokens × errorRate
+      //
+      // No cost projection, no savings language.
+      if (dailyWaste !== null && dailyWaste > 0) {
+        // Tier 1: schedule known, daily projection available
+        const formatted = formatInteger(Math.round(dailyWaste));
+        return `Priority basis: approx. ${formatted} token waste/day from schedule × estimated waste/run.`;
+      }
+      if (perRunWaste !== null && perRunWaste > 0) {
+        // Tier 2: schedule unavailable, per-run waste known
+        const formatted = formatInteger(Math.round(perRunWaste));
+        return `Priority basis: approx. ${formatted} token waste/run; schedule unavailable, so daily priority is not projected.`;
+      }
+      // Tier 3: fallback
+      return 'Priority basis: fallback ranking by tokens × error rate; import schedules and run history for stronger priority.';
     }
 
     function showError(message) {
