@@ -174,7 +174,11 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
       const jobsEntry = entries.find((entry) => /(^|\/)jobs\.json$/i.test(entry.name));
       const metaEntry = entries.find((entry) => /(^|\/)meta\.json$/i.test(entry.name));
-      const runEntries = entries.filter((entry) => /(^|\/)run[s]?\//i.test(entry.name) && /\.jsonl$/i.test(entry.name));
+      const runEntries = entries.filter((entry) => {
+        // Normalize Windows-style backslashes to forward slashes for path matching
+        const normalizedName = entry.name.replace(/\\/g, '/');
+        return /(^|\/)run[s]?\//i.test(normalizedName) && /\.jsonl$/i.test(entry.name);
+      });
 
       if (!jobsEntry && !runEntries.length) {
         throw new Error("The ZIP file does not contain jobs.json or run/*.jsonl files.");
