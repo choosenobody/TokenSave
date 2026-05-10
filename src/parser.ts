@@ -169,7 +169,7 @@ export function detectImportSource(dataset) {
     if (job.schedule ?? job.interval ?? job.frequency ?? job.cron) {
       evidenceHint.hasSchedules = true;
     }
-    if (job.model ?? job.model_name ?? job.modelName) {
+    if (job.model ?? job.model_name ?? job.modelName ?? (job.payload && job.payload.model)) {
       evidenceHint.hasModels = true;
     }
     if (Array.isArray(job.runs) && job.runs.length > 0) {

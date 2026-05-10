@@ -242,7 +242,7 @@ export function normalizeJobs(jobs) {
     const id = stringify(job.id != null ? job.id : `job-${index + 1}`);
     const name = stringify(job.name || job.title || `Unnamed Job ${index + 1}`);
     const schedule = job.schedule ?? job.interval ?? job.frequency ?? job.cron ?? null;
-    const model = stringify(job.model || job.model_name || job.modelName || "Unknown");
+    const model = stringify(job.model || job.model_name || job.modelName || (job.payload && job.payload.model) || "Unknown");
     const promptText = [job.task, job.type, job.description, job.prompt, name].filter(Boolean).join(" ");
     return {
       raw: job,
@@ -340,13 +340,17 @@ export function parseScheduleMinutes(schedule) {
   }
 
   if (typeof schedule === "object") {
-    const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? null;
+    const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? schedule.everyMs ?? null;
     if (everyVal != null && everyVal !== schedule) {
       return parseScheduleMinutes(everyVal);
     }
-    const nested = schedule.interval_minutes ?? schedule.intervalMinutes ?? schedule.minutes ?? schedule.cron ?? schedule.value;
+    const nested = schedule.interval_minutes ?? schedule.intervalMinutes ?? schedule.minutes ?? schedule.cron ?? schedule.value ?? null;
     if (nested != null && nested !== schedule) {
       return parseScheduleMinutes(nested);
+    }
+    // Handle schedule.expr as a cron expression string (e.g., OpenClaw export)
+    if (typeof schedule.expr === 'string') {
+      return parseScheduleMinutes(schedule.expr);
     }
   }
 
