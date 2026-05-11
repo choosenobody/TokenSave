@@ -981,24 +981,40 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body"><span class="step-label">${escapeHtml(s.label)}</span>${cmdLine(s.cmd)}</div></div>`).join("");
       }
       if (category === "ERROR_WASTE") {
+        // I19-A: Grouped compact blocks — no 17 separate numbered steps.
+        // Block A: inspect all jobs (read-only)
+        // Block B: diagnostic prompt — do NOT enable/disable/edit/delete
+        // Block C: verify after manual fix
         const idLines = splitIds(idList);
-        const showSteps = idLines.map(id => `openclaw cron show ${id}`);
-        const runsInspectSteps = idLines.flatMap(id => [
+        const inspectLines = idLines.flatMap(id => [
+          `openclaw cron show ${id}`,
           `openclaw cron runs --id ${id} --limit 5`
         ]);
-        const runVerifySteps = idLines.map(id => `openclaw cron run ${id}`);
-        const runsConfirmSteps = idLines.map(id => `openclaw cron runs --id ${id} --limit 10`);
-        const steps = [
-          ...showSteps,
-          ...runsInspectSteps,
-          { text: `Fix the cause (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.)` },
-          ...runVerifySteps,
-          ...runsConfirmSteps
-        ];
-        return steps.map((s, i) => {
-          const content = typeof s === 'string' ? cmdLine(s) : `<span style="color:#a8b1d1;font-size:0.88rem">${escapeHtml(s.text)}</span>`;
-          return `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${content}</div></div>`;
-        }).join("");
+        const verifyLines = idLines.flatMap(id => [
+          `openclaw cron run ${id}`,
+          `openclaw cron runs --id ${id} --limit 10`
+        ]);
+
+        const block = (label, lines, labelColor) => {
+          const linesHtml = lines.map(l => `<div class="fix-step"><div class="step-body">${cmdLine(l)}</div></div>`).join('');
+          return `
+            <div class="fix-block">
+              <div class="fix-block-label" style="color:${labelColor}">${escapeHtml(label)}</div>
+              ${linesHtml}
+            </div>`;
+        };
+
+        return (
+          block('A. Inspect all affected jobs (read-only)', inspectLines, '#61dafb') +
+          `<div class="fix-step"><div class="step-body">
+            <span style="color:#ffd5db;font-size:0.88rem">
+              <strong>B. Diagnose root cause</strong> — do NOT run any edit/disable/enable/delete command yet.<br>
+              Review the run output above to identify the failure (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.).<br>
+              Fix the root cause manually in your OpenClaw config, then re-import jobs.json to confirm.
+            </span>
+          </div></div>` +
+          block('C. Verify after manual fix', verifyLines, '#35d07f')
+        );
       }
       if (category === "PREMIUM_MODEL_WASTE") {
         const idLines = splitIds(idList);
