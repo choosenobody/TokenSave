@@ -28,7 +28,7 @@ export const FIX_LIBRARY = {
   ERROR_WASTE: {
     title: "Failing repeatedly",
     problem: "This job is failing repeatedly, and each failed run burns tokens with nothing to show.",
-    action: "1) openclaw cron runs --id [JOB_ID] --limit 5 — read recent error messages\n2) Fix the cause (bad credentials, missing file, wrong API key, etc.)\n3) openclaw cron edit [JOB_ID] --enable to re-activate\n4) openclaw cron runs --id [JOB_ID] --limit 10",
+    action: "1) openclaw cron show [JOB_ID]\n2) openclaw cron runs --id [JOB_ID] --limit 5\n3) Fix the cause (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.)\n4) openclaw cron run [JOB_ID]\n5) openclaw cron runs --id [JOB_ID] --limit 10",
     impactLabel: "wasted tokens"
   },
   PREMIUM_MODEL_WASTE: {
