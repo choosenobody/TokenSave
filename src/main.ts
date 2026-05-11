@@ -848,7 +848,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         <div class="fix-block-label" style="color:#61dafb">${escapeHtml(label)}</div>
         <div class="cmd-block">
           <pre class="cmd-pre">${escapeHtml(content)}</pre>
-          <button class="copy-btn" onclick="copyBlock(this)" title="Copy all">📋</button>
+          <button class="copy-btn" onclick="_copyBlock(this)" title="Copy all">📋</button>
         </div>
       </div>`;
     }

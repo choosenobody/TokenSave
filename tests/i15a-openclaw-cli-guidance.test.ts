@@ -407,4 +407,22 @@ describe('ERROR_WASTE — I19-A copy-once diagnostic packet structure', () => {
     const promptSection = htmlMulti.match(/B\.[^C]*/s)?.[0] ?? '';
     expect(promptSection).not.toMatch(/cron (edit|disable|enable)/i);
   });
+
+  // I19-A-g: onclick handler consistency — cmdBlock uses _copyBlock (installed at window level)
+  it('cmdBlock output calls the same handler name that main.ts installs', () => {
+    // The cmdBlock HTML must use onclick="_copyBlock(this)" to match window._copyBlock
+    expect(htmlMulti).toMatch(/onclick="_copyBlock\(this\)"/);
+  });
+
+  // I19-A-h: exactly three copy-once blocks for A/B/C in multi-ID output
+  it('exactly three copy-once cmdBlock elements for multi-ID ERROR_WASTE', () => {
+    const blockCount = (htmlMulti.match(/class="cmd-block"/g) ?? []).length;
+    expect(blockCount).toBe(3);
+  });
+
+  // I19-A-i: single-ID also gets 3 cmdBlocks (A linear, B prompt, C linear)
+  it('single-ID also produces exactly three copy-once blocks', () => {
+    const blockCount = (htmlSingle.match(/class="cmd-block"/g) ?? []).length;
+    expect(blockCount).toBe(3);
+  });
 });
