@@ -50,9 +50,12 @@ describe('I15-A: OpenClaw CLI guidance — fix-card actionability', () => {
     expect(allActions).not.toMatch(/openclaw export\b/);
   });
 
-  // ── 3. ERROR_WASTE uses --enable flag (not --resume) ──
-  it('ERROR_WASTE uses --enable to re-activate job (not --resume)', () => {
-    expect(FIX_LIBRARY.ERROR_WASTE.action).toMatch(/--enable/);
+  // ── 3. ERROR_WASTE uses inspect + root-cause fix + manual verification (no --enable) ──
+  it('ERROR_WASTE uses cron show + cron runs --id + cron run + cron runs confirm (no --enable)', () => {
+    expect(FIX_LIBRARY.ERROR_WASTE.action).toMatch(/openclaw cron show/);
+    expect(FIX_LIBRARY.ERROR_WASTE.action).toMatch(/openclaw cron runs --id/);
+    expect(FIX_LIBRARY.ERROR_WASTE.action).toMatch(/openclaw cron run\b/);
+    expect(FIX_LIBRARY.ERROR_WASTE.action).not.toMatch(/--enable/);
     expect(FIX_LIBRARY.ERROR_WASTE.action).not.toMatch(/--resume/);
   });
 
@@ -74,7 +77,7 @@ describe('I15-A: OpenClaw CLI guidance — fix-card actionability', () => {
     expect(card.config.action).not.toMatch(/\$\{id\}/);
   });
 
-  it('ERROR_WASTE buildFixCards: uses --id flag syntax in action text', () => {
+  it('ERROR_WASTE buildFixCards: uses inspect + verify flow (no --enable, no edit)', () => {
     const job = makeJob(['ERROR_WASTE'], {
       id: 'err-456',
       errorRate: 0.7,
@@ -83,9 +86,13 @@ describe('I15-A: OpenClaw CLI guidance — fix-card actionability', () => {
     const cards = buildFixCards([job]);
     const card = cards.find(c => c.category === 'ERROR_WASTE');
     expect(card.config.action).toMatch(/--id/);
-    expect(card.config.action).toMatch(/\-\-enable/);
+    expect(card.config.action).not.toMatch(/--enable/);
     expect(card.config.action).not.toMatch(/openclaw jobs/);
     expect(card.config.action).not.toMatch(/--resume/);
+    expect(card.config.action).toMatch(/cron show/);
+    expect(card.config.action).toMatch(/cron run\b/);
+    expect(card.config.action).toMatch(/cron runs --id.*--limit 5/);
+    expect(card.config.action).toMatch(/cron runs --id.*--limit 10/);
   });
 
   // ── 6. CRITICAL uses "cron disable" (not edit --disable, not --no-agent-turn) ──
@@ -200,7 +207,7 @@ const FORBIDDEN_MULTI_ID_PATTERNS = [
 
 // Per-category expected command counts (whitespace-separated multi-ID)
 const CATEGORY_WS_COUNTS = {
-  ERROR_WASTE:         { show: 2, runs: 4, edit: 2, disable: 0, run: 0 },
+  ERROR_WASTE:         { show: 2, runs: 4, edit: 0, disable: 0, run: 2 },
   CRITICAL:            { show: 0, runs: 0, edit: 2, disable: 2, run: 0 },
   LLM_AGENT_CRON:      { show: 0, runs: 0, edit: 0, disable: 2, run: 0 },
   PREMIUM_MODEL_WASTE: { show: 0, runs: 0, edit: 2, disable: 0, run: 2 },

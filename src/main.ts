@@ -982,16 +982,18 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       }
       if (category === "ERROR_WASTE") {
         const idLines = splitIds(idList);
-        const runsShowSteps = idLines.flatMap(id => [
-          `openclaw cron show ${id}`,
+        const showSteps = idLines.map(id => `openclaw cron show ${id}`);
+        const runsInspectSteps = idLines.flatMap(id => [
           `openclaw cron runs --id ${id} --limit 5`
         ]);
-        const enableSteps = idLines.map(id => `openclaw cron edit ${id} --enable`);
+        const runVerifySteps = idLines.map(id => `openclaw cron run ${id}`);
+        const runsConfirmSteps = idLines.map(id => `openclaw cron runs --id ${id} --limit 10`);
         const steps = [
-          ...runsShowSteps,
-          { text: `Fix the cause (bad credentials, missing file, wrong API key, etc.)` },
-          ...enableSteps,
-          ...idLines.map(id => `openclaw cron runs --id ${id} --limit 10`)
+          ...showSteps,
+          ...runsInspectSteps,
+          { text: `Fix the cause (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.)` },
+          ...runVerifySteps,
+          ...runsConfirmSteps
         ];
         return steps.map((s, i) => {
           const content = typeof s === 'string' ? cmdLine(s) : `<span style="color:#a8b1d1;font-size:0.88rem">${escapeHtml(s.text)}</span>`;
