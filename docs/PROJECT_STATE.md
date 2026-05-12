@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-11T09:45:00Z
-**Source**: GitHub `origin/main` at commit `4fea4fa0bff2d0c88a4e36d50a907a63fcc79c4` (PR #127 fix(I18-C): align recurring waste subtitle and remove ERROR_WASTE enable guidance; merge commit `4fea4fa`)
+**Last updated**: 2026-05-12T08:46:00Z
+**Source**: GitHub `origin/main` at commit `a5e5d1e` (PR #129 fix(I19-A): compress ERROR_WASTE fix guidance + clarify evidence percentages + add CSS containment; merge commit `a5e5d1e`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `4fea4fa0bff2d0c88a4e36d50a907a63fcc79c4` (PR #127 fix(I18-C): align recurring waste subtitle and remove ERROR_WASTE enable guidance; merge commit `4fea4fa`) |
+| Main branch SHA | `a5e5d1e` (PR #129 fix(I19-A): compress ERROR_WASTE fix guidance + clarify evidence percentages + add CSS containment; merge commit `a5e5d1e`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -58,6 +58,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #129 | fix(I19-A): compress ERROR_WASTE fix guidance + clarify evidence percentages + add CSS containment | 2026-05-12 | `a5e5d1e` |
 | #127 | fix(I18-C): align recurring waste subtitle and remove ERROR_WASTE enable guidance | 2026-05-11 | `4fea4fa` |
 | #125 | feat(I18-B): OpenClaw ZIP export compatibility — Windows paths, payload.model, schedule.expr/everyMs | 2026-05-10 | `aa21f0b` |
 | #123 | feat(I17-A): add Priority basis line to active top waste cards | 2026-05-10 | `8bb6212` |
@@ -198,7 +199,7 @@
 | I15-B (Active vs Historical/Disabled Waste Distinction) | src/domain.ts: added `isEnabled(job)` pure helper — reads `enabled`/`active` field from `job.raw`, returns `boolean|null`. Added `isActiveJob(job)` — classifies `lifecycleStatus` as `'active'|'disabled'|'historical'`. Rules: synthetic=true → 'historical'; enabled===false → 'disabled'; otherwise → 'active' (conservative, missing enabled→'active'). src/main.ts: per-job `lifecycleStatus` assignment; `activeJobs` filtered to exclude disabled and all synthetic jobs (no job definition = no fix possible); `historicalJobs` includes disabled jobs and all synthetic jobs; `renderTopWaste` adds secondary muted 'Historical / disabled review signals' section after active top waste; disabled jobs show 'Disabled' label, grey opacity, no urgent color; synthetic jobs show 'Unmapped historical run' label, no name heading; `renderFixes` adds muted historical fix cards with 'Review signal' badge (never CRITICAL/ERROR_WASTE) and grey job tags; historical/disabled fix cards show only inspect commands (`cron show`/`cron runs`) — no edit/disable/enable. tests/i15b-active-historical.test.ts: 38 tests covering isEnabled aliases, synthetic classification, active/conservative fallback, synthetic-with-runs edge case (historical but included in historicalJobs, excluded from activeJobs), disabled job outrank prevention. Total test suite: 354 tests / 10 files. | #117 | CLOSED |
 | I17-A (Priority Basis Line) | active top waste cards now show "Priority basis" metadata line explaining the waste estimation method used: (1) approx. token waste/day from schedule × estimated waste/run when schedule available, (2) approx. token waste/run when schedule unavailable, (3) fallback ranking by tokens × error rate when neither schedule nor run data available; historical/disabled cards do not show Priority basis; no ranking algorithm change, no fix-card generation change, no cost projection, no backend/network/telemetry/export/report/share/runtime write path | #123 | CLOSED |
 | I18-B (OpenClaw ZIP Export Compatibility) | Real OpenClaw ZIP exports from Windows machines contain three incompatibilities: (1) Windows backslash paths in ZIP entries (run\jobs\*.jsonl) don't match the POSIX slash regex in ingestZipFile — fixed by normalizing entry.name with replace(/\\/g, '/'); (2) OpenClaw stores model in job.payload.model, not top-level model/model_name/modelName — fixed in both normalizeJobs (fallback) and detectImportSource (hasModels check); (3) OpenClaw stores interval as schedule.everyMs (milliseconds number) or schedule.expr (cron string), not the expected field names — fixed in parseScheduleMinutes with everyVal chain adding everyMs support and a dedicated typeof schedule.expr === 'string' branch that recurses into the text/cron parsing path; 15 synthetic tests added in tests/i18b-openclaw-zip-compat.test.ts covering all 6 verification points; total test suite now 480 tests / 13 files; no backend/network/telemetry/export/report/share/runtime-write | #125 | CLOSED |
-| I18-C (Actionability Copy Fixes — Top Waste Subtitle + ERROR_WASTE Guidance) | index.html: replace stale \"Ranked by absolute wasted tokens — highest first\" with \"Ranked by recurring waste priority — tokens/day first, then tokens/run, then fallback tokens × error rate\" to match actual 3-tier priority ranking; src/constants.ts + src/main.ts: remove misleading `openclaw cron edit [JOB_ID] --enable` from ERROR_WASTE fix flow; replace with inspect (cron show + cron runs --id --limit 5) → root-cause fix → manual `cron run` verification → confirm (cron runs --id --limit 10); tests/i15a: updated ERROR_WASTE assertions to confirm no --enable, presence of new steps, edit=0/run=2 counts; tests/i17a: 4 new tests for subtitle accuracy (old absent, new present, tokens/day mentioned, fallback × error rate mentioned); total test suite now 484 tests / 13 files; historical/disabled label cleanup deferred to future slice | #127 | CLOSED |
+| I19-A (ERROR_WASTE Copy-once Blocks + Handler Consistency + Evidence Percentage Clarity + CSS Containment) | Copy-once A/B/C diagnostic blocks for ERROR_WASTE in buildFixSteps (src/main.ts), copyBlock handler added (src/fixes.ts), _copyBlock handler name consistency in renderFixes, percentage clarity in evidence-backed problem text, CSS contain: content on .card; 4 files changed (+278/-23); validation: npm run build pass (25.92 kB / 49.32 kB JS), npm test 497/497 pass / 13 files | #129 | **CLOSED** |
 | I16 (UX-only .rar Import Guidance) | src/main.ts: fail-fast RAR rejection in `ingestLooseFile()` — checks /\.rar$/i before `await file.text()` to avoid loading a potentially large binary archive into memory; `mapErrorMessage()` maps RAR-specific error to user-facing local-extraction guidance with supported format list (.zip, .json, .jsonl). No RAR parser added. No WASM, no backend, no telemetry, no dependency changes. tests/i16-rar-import-guidance.test.ts: 4 tests covering RAR guidance exact-string, generic unsupported regression, unrelated-error pass-through, case-sensitivity. Total test suite at merge: 448 tests / 11 files. | #121 | CLOSED |
 | I13-B (Audit-Language UI Rename) | index.html copy-only: <title> renamed to "TokenSave — Agent Job Waste Audit", <h1> renamed to "Agent Job Waste Audit", subhead changed from passive "inspect job waste" to active "surface recurring token burn, failure loops, and fix priorities". No logic, no rules, no domain changes. | #104 | CLOSED |
 | I13-A (Evidence-to-Fix Card Clarity) | src/main.ts copy/UX only. renderImportSummary: added audit-strength framing note that explains what the audit can prove based on evidence quality (full → core diagnostics have strongest evidence; partial → most diagnostics available, some weakened; limited → only basic diagnostics; minimal → audit strength limited). renderFixes restrained-state: improved message to explain fix cards need at least job definitions OR run history, specific import paths, and explicitly states fixes are CLI text only — no auto-apply. No parser/rules/domain/pricing/constants/fixes behavior changes. | #102 | CLOSED |
@@ -258,7 +259,7 @@
 ## Current Local Validation Reality
 
 - `npm run build` passes.
-- `npm test` passes 465 tests (PR #123: 17 tests in tests/i17a-top-waste-priority-basis.test.ts; PR #121: 4 tests in tests/i16-rar-import-guidance.test.ts; PR #119: 145 tests in tests/i15a-openclaw-cli-guidance.test.ts; PR #117: 38 tests in tests/i15b-active-historical.test.ts; total suite 12 files, 465 tests).
+- `npm test` passes 497 tests (PR #129: 96 tests in tests/i15a-openclaw-cli-guidance.test.ts; total suite 497 tests / 13 files).
 - `tests/no-network.test.ts` now handles the Vite modulepreload polyfill false positive from generated `dist/assets` output.
 - Source/runtime scan remains intended to catch forbidden app network APIs, including fetch, XMLHttpRequest, sendBeacon, WebSocket, and EventSource.
 
