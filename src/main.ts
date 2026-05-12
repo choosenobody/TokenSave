@@ -450,16 +450,31 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       emptyState.classList.add("hidden");
       reportSection.classList.remove("hidden");
 
-      renderImportSummary(report.importSummary, report.readinessGaps);
+      renderImportSummary(report.importSummary, report.readinessGaps, report.historicalJobs);
       renderSummary(report.summary, report.meta);
       renderTopWaste(report.topWaste, report.historicalJobs, report.summary.totalCost);
       renderJobTable(report.jobs);
       renderFixes(report.fixes, report.historicalFixes, report.importSummary, report.readinessGaps);
     }
 
-    function renderImportSummary(summary, readinessGaps) {
+    function renderImportSummary(summary, readinessGaps, historicalJobs) {
       const container = document.getElementById("importSummary");
       if (!container) return;
+
+      // I20: Stale snapshot warning — shown only when synthetic/unmatched run-only records detected
+      // Disabled jobs (lifecycleStatus === 'disabled') do NOT trigger this warning
+      const hasSyntheticJobs = historicalJobs && historicalJobs.some(j => j.lifecycleStatus === 'historical');
+      const staleSnapshotWarning = hasSyntheticJobs
+        ? `<div class="gap-section" style="border-left-color:#fbbf24;margin-top:8px">
+            <div class="gap-label" style="color:#fbbf24">⚠ Stale snapshot detected</div>
+            <div style="font-size:11px;color:#94a3b8;line-height:1.6">
+              Some job IDs could not be matched to current OpenClaw job definitions.
+              If <code>openclaw cron show [JOB_ID]</code> returns "cron job not found",
+              the imported data is stale — re-export current OpenClaw cron data:
+              <code>~/.openclaw/cron/jobs.json</code> and <code>~/.openclaw/cron/runs/*.jsonl</code>.
+            </div>
+          </div>`
+        : '';
 
       const sourceLabel = {
         'openclaw-like': 'OpenClaw Export',
@@ -552,6 +567,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           ${auditStrengthNote ? `<div class="gap-section" style="margin-top:8px"><span class="gap-next-label">Audit strength:</span> ${escapeHtml(auditStrengthNote)} Fix cards below are evidence-backed — they are manual CLI guidance only, not auto-applied changes.</div>` : ''}
           ${gapSections.length > 0 ? `<div class="gap-list">${gapSections}</div>` : ''}
           ${gapSections.length > 0 ? importTip : ''}
+          ${staleSnapshotWarning}
           <div class="import-privacy-note">All analysis stays on your device — no data is sent anywhere.</div>
         </div>
       `;
@@ -902,12 +918,20 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
               ${renderBadge(item.category)}
             </div>
-            <div style="margin-bottom:8px">
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Problem</div>
+            <div style="margin-bottom:12px">
               <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
             </div>
-            ${evidenceBlurb ? `<div class="fix-evidence">Why: ${escapeHtml(evidenceBlurb)}</div>` : ''}
-            <div class="fix-action">${actionHtml}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px">${jobTags}${more}</div>
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
+            <div class="fix-evidence" style="margin-bottom:12px">${item.category === 'OK' ? '' : (evidenceBlurb ? escapeHtml(evidenceBlurb) : 'Token waste patterns detected in run history.')}</div>
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Fix</div>
+            <div class="fix-action" style="margin-bottom:12px">${actionHtml}</div>
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verify</div>
+            <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
+              Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.
+              ${item.category === 'ERROR_WASTE' ? '<br>If <code>openclaw cron show [JOB_ID]</code> returns "cron job not found", the imported data may be stale — re-export current OpenClaw cron data.' : ''}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">${jobTags}${more}</div>
           </article>
 `;
       }).join("");

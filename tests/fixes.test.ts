@@ -218,3 +218,35 @@ describe('buildFixCards with evidence-backed problem', () => {
     expect(card.jobs[0].totalTokens).toBe(1000); // higher waste first
   });
 });
+
+describe('I20: LLM_AGENT_CRON in buildFixCards ordering', () => {
+  const makeJob = (issues, evidence = []) => ({
+    issues,
+    totalTokens: 1000,
+    errorRate: 0.5,
+    evidence
+  });
+
+  it('LLM_AGENT_CRON appears in output when jobs have that issue', () => {
+    const job = makeJob(['LLM_AGENT_CRON'], []);
+    const cards = buildFixCards([job]);
+    const cats = cards.map((c) => c.category);
+    expect(cats).toContain('LLM_AGENT_CRON');
+  });
+
+  it('LLM_AGENT_CRON appears before ERROR_WASTE in output order', () => {
+    const llmJob = makeJob(['LLM_AGENT_CRON'], []);
+    const errJob = makeJob(['ERROR_WASTE'], [{ ruleId: 'ERROR_WASTE', observedValue: 0.67, threshold: 0.10 }]);
+    const cards = buildFixCards([llmJob, errJob]);
+    const cats = cards.map((c) => c.category);
+    expect(cats.indexOf('LLM_AGENT_CRON')).toBeLessThan(cats.indexOf('ERROR_WASTE'));
+  });
+
+  it('LLM_AGENT_CRON appears after CRITICAL in output order', () => {
+    const critJob = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: 10, threshold: 30 }]);
+    const llmJob = makeJob(['LLM_AGENT_CRON'], []);
+    const cards = buildFixCards([llmJob, critJob]);
+    const cats = cards.map((c) => c.category);
+    expect(cats.indexOf('CRITICAL')).toBeLessThan(cats.indexOf('LLM_AGENT_CRON'));
+  });
+});
