@@ -513,6 +513,41 @@
       contain: layout style;
     }
 
+    .first-action-card {
+      grid-column: 1 / -1;
+      border: 1px solid rgba(97, 218, 251, 0.38);
+      background: linear-gradient(180deg, rgba(97, 218, 251, 0.08), rgba(255,255,255,0.02));
+    }
+
+    .start-here {
+      color: #d9f3ff;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .historical-review {
+      grid-column: 1 / -1;
+      color: #9ca3af;
+      font-size: 0.9rem;
+      padding-top: 12px;
+      border-top: 1px solid #374151;
+    }
+
+    .historical-review summary {
+      cursor: pointer;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .historical-review-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
     .fix-card.red-header {
       border-top: 3px solid #ff5d73;
     }
@@ -967,7 +1002,7 @@
         <div id="wasteSectionBody" class="waste-section-body">
           <div id="wasteList" class="waste-list"></div>
           <div class="panel pie-panel">
-            <div class="pie-title">Cost by Job</div>
+            <div class="pie-title">Approx. Cost by Job (Secondary)</div>
             <div id="pieChart"></div>
             <div id="pieLegend" class="pie-legend"></div>
           </div>

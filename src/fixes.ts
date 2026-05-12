@@ -112,31 +112,17 @@ export function buildEvidenceBackedProblem(category, jobs) {
 }
 
 export function buildFixCards(jobs) {
-  const categoryMap = new Map();
+  const order = ["CRITICAL", "LLM_AGENT_CRON", "ERROR_WASTE", "PREMIUM_MODEL_WASTE", "WARNING"];
+  const categoryRank = new Map(order.map((category, index) => [category, index]));
 
-  jobs.forEach((job) => {
-    const categories = job.issues[0] === "OK" ? ["OK"] : job.issues;
-    categories.forEach((category) => {
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, []);
-      }
-      categoryMap.get(category).push(job);
-    });
-  });
-
-      const order = ["CRITICAL", "LLM_AGENT_CRON", "ERROR_WASTE", "PREMIUM_MODEL_WASTE", "WARNING", "OK"];
-  return order
-    .filter((category) => categoryMap.has(category))
-    .map((category) => {
-      const sortedJobs = categoryMap.get(category)
-        .sort((left, right) => {
-          const lw = left.totalTokens * left.errorRate;
-          const rw = right.totalTokens * right.errorRate;
-          return rw - lw;
-        })
-        .slice(0, 4);
-
-      const evidenceBackedProblem = buildEvidenceBackedProblem(category, sortedJobs);
+  return (jobs || [])
+    .filter((job) => {
+      if (!job || job.lifecycleStatus === 'disabled' || job.lifecycleStatus === 'historical') return false;
+      return (job.issues || []).some((issue) => issue !== 'OK' && categoryRank.has(issue));
+    })
+    .map((job) => {
+      const category = (job.issues || []).find((issue) => issue !== 'OK' && categoryRank.has(issue));
+      const evidenceBackedProblem = buildEvidenceBackedProblem(category, [job]);
 
       return {
         category,
@@ -144,7 +130,15 @@ export function buildFixCards(jobs) {
           ...FIX_LIBRARY[category],
           problem: evidenceBackedProblem ?? FIX_LIBRARY[category].problem,
         },
-        jobs: sortedJobs,
+        job,
+        jobs: [job],
       };
+    })
+    .sort((left, right) => {
+      const categoryDelta = categoryRank.get(left.category) - categoryRank.get(right.category);
+      if (categoryDelta !== 0) return categoryDelta;
+      const lw = left.job.totalTokens * left.job.errorRate;
+      const rw = right.job.totalTokens * right.job.errorRate;
+      return rw - lw;
     });
 }

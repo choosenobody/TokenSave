@@ -418,8 +418,8 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         jobs: allJobs,
         topWaste,
         historicalJobs,
-        fixes: buildFixCards(activeJobs.filter(j => j.lifecycleStatus !== 'disabled' && j.lifecycleStatus !== 'historical')),
-        historicalFixes: buildFixCards(historicalJobs)
+        fixes: buildFixCards(activeJobs),
+        historicalFixes: historicalJobs.filter((job) => job.badge !== 'OK')
       };
     }
 
@@ -466,12 +466,13 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       const hasSyntheticJobs = historicalJobs && historicalJobs.some(j => j.lifecycleStatus === 'historical');
       const staleSnapshotWarning = hasSyntheticJobs
         ? `<div class="gap-section" style="border-left-color:#fbbf24;margin-top:8px">
-            <div class="gap-label" style="color:#fbbf24">⚠ Stale snapshot detected</div>
+            <div class="gap-label" style="color:#fbbf24">Unmatched historical run records</div>
             <div style="font-size:11px;color:#94a3b8;line-height:1.6">
-              Some job IDs could not be matched to current OpenClaw job definitions.
+              Some historical run records could not be matched to current OpenClaw job definitions.
               If <code>openclaw cron show [JOB_ID]</code> returns "cron job not found",
-              the imported data is stale — re-export current OpenClaw cron data:
+              re-export current OpenClaw cron data before acting on those unmatched records:
               <code>~/.openclaw/cron/jobs.json</code> and <code>~/.openclaw/cron/runs/*.jsonl</code>.
+              Active jobs with current job definitions are not marked stale by this warning.
             </div>
           </div>`
         : '';
@@ -897,95 +898,84 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return;
       }
 
-      fixGrid.innerHTML = fixes.map((item) => {
+      const activeCards = fixes.map((item, index) => {
         const isRed = ["CRITICAL", "ERROR_WASTE"].includes(item.category);
-        const isGreen = item.category === "OK";
-        const cardClass = isRed ? "fix-card red-header" : isGreen ? "fix-card green-header" : "fix-card";
-        const tagClass = isRed ? "red" : "green";
-        const jobTags = item.jobs.slice(0, 5).map((job) =>
-          `<span class="fix-job-tag ${tagClass}">${escapeHtml(job.name)}</span>`
-        ).join("");
-        const more = item.jobs.length > 5 ? `<span class="fix-job-tag ${tagClass}" style="opacity:0.5">+${item.jobs.length - 5} more</span>` : "";
+        const cardClass = `${isRed ? "fix-card red-header" : "fix-card"}${index === 0 ? " first-action-card" : ""}`;
+        const job = item.job || item.jobs[0];
 
         // Build action steps with real job IDs
-        const jobIds = item.jobs.map((j) => j.jobId || j.id || j.name).filter(Boolean);
-        const idList = jobIds.join(" ");
-        const actionHtml = buildFixSteps(item.category, idList, item.config.action);
+        const jobId = job && (job.jobId || job.id || job.name);
+        const idList = jobId || "[JOB_ID]";
+        const actionHtml = item.category === 'ERROR_WASTE'
+          ? buildFixSteps(item.category, idList, item.config.action)
+          : buildInspectSteps(idList);
         const evidenceBlurb = formatEvidenceBlurb(item.jobs, item.category);
+        const firstActionHeader = index === 0
+          ? `<div class="start-here">Start here: inspect this job first</div>`
+          : '';
+        const evidenceText = evidenceBlurb || 'Token waste patterns detected in run history.';
+        const whyText = buildWhyFirstText(item.category, job, evidenceText, index === 0);
 
         return `
           <article class="panel ${cardClass}">
+            ${firstActionHeader}
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
               ${renderBadge(item.category)}
             </div>
+            <h3>${escapeHtml(job.name || "Unknown job")}</h3>
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Problem</div>
             <div style="margin-bottom:12px">
               <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
             </div>
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Why ${index === 0 ? 'This Is First' : 'Inspect This Job'}</div>
+            <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(whyText)}</div>
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
-            <div class="fix-evidence" style="margin-bottom:12px">${item.category === 'OK' ? '' : (evidenceBlurb ? escapeHtml(evidenceBlurb) : 'Token waste patterns detected in run history.')}</div>
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Fix</div>
+            <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(evidenceText)}</div>
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Safe Inspect Command</div>
             <div class="fix-action" style="margin-bottom:12px">${actionHtml}</div>
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verify</div>
+            ${item.category === 'ERROR_WASTE' ? `
+              <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Diagnosis Guidance</div>
+              <div class="fix-evidence" style="margin-bottom:12px">Inspect recent failed runs, identify the root cause such as bad credentials, missing file, wrong API key, wrong path, permission issue, stale environment, or model provider error, fix that root cause manually, then verify with a manual run.</div>
+            ` : ''}
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verification After Manual Fix</div>
             <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
-              Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.
-              ${item.category === 'ERROR_WASTE' ? '<br>If <code>openclaw cron show [JOB_ID]</code> returns "cron job not found", the imported data may be stale — re-export current OpenClaw cron data.' : ''}
+              ${item.category === 'ERROR_WASTE'
+                ? `${cmdLine(`openclaw cron run ${idList}`)}${cmdLine(`openclaw cron runs --id ${idList} --limit 10`)}`
+                : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px">${jobTags}${more}</div>
           </article>
 `;
       }).join("");
 
+      fixGrid.innerHTML = activeCards || `
+        <div class="panel fix-card restraint-card">
+          <div class="restraint-message">No active recurring waste findings detected in this import.</div>
+        </div>
+      `;
+
       // I15-B: Historical / disabled review signals — muted, inspect-only
       if (historicalFixes && historicalFixes.length) {
-        const histHeader = document.createElement('div');
-        histHeader.style.cssText = 'color:#9ca3af;font-size:0.85rem;font-weight:600;margin:20px 0 8px 0;padding-top:12px;border-top:1px solid #374151';
-        histHeader.textContent = 'Historical / disabled review signals';
-        fixGrid.appendChild(histHeader);
-
-        historicalFixes.forEach((item) => {
-          const isRed = ["CRITICAL", "ERROR_WASTE"].includes(item.category);
-          const cardClass = isRed ? "fix-card red-header" : "fix-card";
-          // Historical section: use neutral grey tags, never red/green
-          const tagClass = 'grey';
-          const jobTags = item.jobs.slice(0, 5).map((job) =>
-            `<span class="fix-job-tag ${tagClass}" style="opacity:0.7">${escapeHtml(job.name)}</span>`
-          ).join("");
-          const more = item.jobs.length > 5 ? `<span class="fix-job-tag ${tagClass}" style="opacity:0.4">+${item.jobs.length - 5} more</span>` : "";
-
-          // Historical/disabled fix: inspect/review only — no edit/disable/enable for these jobs
-          // Never run cron show/runs on synthetic pseudo-IDs — they have no real job definition
-          const firstJob = item.jobs[0];
-          const hasRealId = firstJob && firstJob.id && !String(firstJob.id).startsWith('synthetic:');
-          const inspectOnly = item.jobs.some(j => j.lifecycleStatus === 'disabled' || j.lifecycleStatus === 'historical');
-          const actionHtml = inspectOnly
-            ? hasRealId
-              ? `<code style="color:#9ca3af;opacity:0.8">openclaw cron show ${escapeHtml(firstJob.id)}</code><br>
-                 <code style="color:#9ca3af;opacity:0.8">openclaw cron runs --id ${escapeHtml(firstJob.id)} --limit 50</code>`
-              : `<span style="color:#9ca3af;opacity:0.7">No active job definition — inspect raw run history at</span><br>
-                 <code style="color:#9ca3af;opacity:0.8">~/.openclaw/cron/runs/</code>`
-            : buildFixSteps(item.category, item.jobs.map(j => j.id || j.name).filter(Boolean).join(' '), item.config.action);
-
-          const evidenceBlurb = formatEvidenceBlurb(item.jobs, item.category);
-
-        // Historical/disabled fix: muted styling, neutral copy, inspect-only commands
-        // Never render CRITICAL/ERROR_WASTE badge or urgent problem text for these jobs
-        const histCard = document.createElement('article');
-        histCard.className = 'panel fix-card';
-        histCard.style.cssText = 'opacity:0.75;border-left:3px solid #6b7280;margin-top:8px';
-        histCard.innerHTML = `
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-            <span style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:#374151;color:#9ca3af;text-transform:uppercase">Review signal</span>
+        const details = document.createElement('details');
+        details.className = 'historical-review';
+        details.innerHTML = `
+          <summary>Historical / disabled review signals: ${historicalFixes.length} items. Expand only if you need to review old or disabled jobs.</summary>
+          <div class="historical-review-list">
+            ${historicalFixes.map((job) => {
+              const isSynthetic = job.lifecycleStatus === 'historical';
+              const guidance = isSynthetic
+                ? 'This run record has no matching current job definition. Re-export current OpenClaw cron data before acting.'
+                : 'This job is disabled or not currently actionable. Review only if you need old context.';
+              return `
+                <article class="panel fix-card historical-card">
+                  <span style="font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:4px;background:#374151;color:#9ca3af;text-transform:uppercase">Review signal</span>
+                  <h3>${escapeHtml(job.name || 'Unmatched run record')}</h3>
+                  <div class="fix-evidence">${escapeHtml(guidance)}</div>
+                </article>
+              `;
+            }).join('')}
           </div>
-          <div style="margin-bottom:8px">
-            <strong style="font-size:1rem;color:#9ca3af">Review this job before taking action. Inspect the run history to understand its current status.</strong>
-          </div>
-          ${evidenceBlurb ? `<div class="fix-evidence" style="color:#9ca3af">Why: ${escapeHtml(evidenceBlurb)}</div>` : ''}
-          <div class="fix-action">${actionHtml}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:12px">${jobTags}</div>
         `;
-          fixGrid.appendChild(histCard);
-        });
+        fixGrid.appendChild(details);
       }
 
       // Add copy function to window so inline onclick works
@@ -1028,48 +1018,10 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body"><span class="step-label">${escapeHtml(s.label)}</span>${cmdLine(s.cmd)}</div></div>`).join("");
       }
       if (category === "ERROR_WASTE") {
-        // I19-A: copy-once diagnostic packet — 3 blocks, one button per block.
-        // Block A: shell loop for inspection (read-only)
-        // Block B: agent diagnostic prompt (do NOT enable/disable/edit/delete yet)
-        // Block C: shell loop for verification (after manual fix)
+        // I21: first action is read-only inspection. Manual changes happen outside TokenSave after diagnosis.
         const idLines = splitIds(idList);
-        const idArg = idLines.map(id => `  ${id}`).join(' \\\n');
-
-        // Block A: read-only inspection loop
-        const inspectBlock = idLines.length > 1
-          ? `for id in \\
-${idArg}
-do
-  openclaw cron show "$id"
-  openclaw cron runs --id "$id" --limit 5
-done`
-          : `openclaw cron show ${idLines[0] || '[JOB_ID]'}
-openclaw cron runs --id ${idLines[0] || '[JOB_ID]'} --limit 5`;
-
-        // Block B: diagnostic prompt — explicit do-NOT instruction
-        const diagnosePrompt = `Do NOT run any edit/disable/enable/delete commands yet.
-
-Diagnose the root cause of the repeated failures first:
-1. Review the run output from Block A
-2. Identify the failure pattern (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.)
-3. Return: likely cause, safest manual fix, and verification plan`;
-
-        // Block C: verify after manual fix
-        const verifyBlock = idLines.length > 1
-          ? `for id in \\
-${idArg}
-do
-  openclaw cron run "$id"
-  openclaw cron runs --id "$id" --limit 10
-done`
-          : `openclaw cron run ${idLines[0] || '[JOB_ID]'}
-openclaw cron runs --id ${idLines[0] || '[JOB_ID]'} --limit 10`;
-
-        return (
-          cmdBlock('A. Inspect all affected jobs (read-only)', inspectBlock) +
-          cmdBlock('B. Ask your agent to diagnose, not auto-fix', diagnosePrompt) +
-          cmdBlock('C. Verify after manual fix', verifyBlock)
-        );
+        const id = idLines[0] || '[JOB_ID]';
+        return cmdLine(`openclaw cron show ${id}`) + cmdLine(`openclaw cron runs --id ${id} --limit 5`);
       }
       if (category === "PREMIUM_MODEL_WASTE") {
         const idLines = splitIds(idList);
@@ -1094,6 +1046,24 @@ openclaw cron runs --id ${idLines[0] || '[JOB_ID]'} --limit 10`;
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${cmdLine(s)}</div></div>`).join("");
       }
       return `<span style="color:#a8b1d1;font-size:0.88rem">${escapeHtml(genericAction)}</span>`;
+    }
+
+    function buildInspectSteps(id) {
+      return cmdLine(`openclaw cron show ${id}`) + cmdLine(`openclaw cron runs --id ${id} --limit 5`);
+    }
+
+    function buildWhyFirstText(category, job, evidenceText, isFirst) {
+      const prefix = isFirst ? 'Highest priority active recurring finding in this import.' : 'Active recurring finding with job-level evidence.';
+      if (category === 'ERROR_WASTE') {
+        return `${prefix} Recent run history shows repeated failures, so inspect the failed runs before spending more tokens on the same root cause. ${evidenceText}`;
+      }
+      if (category === 'CRITICAL' || category === 'LLM_AGENT_CRON' || category === 'WARNING') {
+        return `${prefix} The schedule can compound token burn quickly if the job keeps recurring. ${evidenceText}`;
+      }
+      if (category === 'PREMIUM_MODEL_WASTE') {
+        return `${prefix} Model choice may be creating avoidable token-cost exposure; inspect the job before changing anything. ${evidenceText}`;
+      }
+      return `${prefix} ${evidenceText}`;
     }
 
     function updateSortIndicators() {
