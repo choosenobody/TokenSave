@@ -210,9 +210,9 @@ describe('I18-C: Top Waste subtitle reflects actual tier ranking', () => {
     expect(html).not.toMatch(/Ranked by absolute wasted tokens/);
   });
 
-  it('new subtitle "Ranked by recurring waste priority" is present in index.html', () => {
+  it('updated subtitle "Ranked by recurring token waste" is present in index.html', () => {
     const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
-    expect(html).toMatch(/Ranked by recurring waste priority/);
+    expect(html).toMatch(/Ranked by recurring token waste/);
   });
 
   it('new subtitle mentions tokens/day first', () => {

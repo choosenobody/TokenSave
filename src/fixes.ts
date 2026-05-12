@@ -124,7 +124,7 @@ export function buildFixCards(jobs) {
     });
   });
 
-  const order = ["CRITICAL", "ERROR_WASTE", "PREMIUM_MODEL_WASTE", "WARNING", "OK"];
+      const order = ["CRITICAL", "LLM_AGENT_CRON", "ERROR_WASTE", "PREMIUM_MODEL_WASTE", "WARNING", "OK"];
   return order
     .filter((category) => categoryMap.has(category))
     .map((category) => {
