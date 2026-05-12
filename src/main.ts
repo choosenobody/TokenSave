@@ -841,6 +841,29 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       </div>`;
     }
 
+    function cmdBlock(label, content) {
+      // I19-A: Render a multi-line copy-once block (shell loop or diagnostic prompt).
+      // content is raw text that will be displayed as a <pre> block with one copy button.
+      return `<div class="fix-block">
+        <div class="fix-block-label" style="color:#61dafb">${escapeHtml(label)}</div>
+        <div class="cmd-block">
+          <pre class="cmd-pre">${escapeHtml(content)}</pre>
+          <button class="copy-btn" onclick="_copyBlock(this)" title="Copy all">📋</button>
+        </div>
+      </div>`;
+    }
+
+    // Install copy-once helper at window level so onclick works
+    if (!window._copyBlock) {
+      window._copyBlock = function(btn) {
+        const pre = btn.closest('.cmd-block').querySelector('.cmd-pre');
+        navigator.clipboard.writeText(pre.textContent).then(() => {
+          btn.textContent = '✓';
+          setTimeout(() => { btn.textContent = '📋'; }, 1200);
+        });
+      };
+    }
+
     function renderFixes(fixes, historicalFixes, importSummary, readinessGaps) {
       // If BOTH job definitions AND run history are missing, suppress fix cards.
       // Jobs without runs → show fixes (job-level evidence is present).
@@ -981,24 +1004,48 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return steps.map((s, i) => `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body"><span class="step-label">${escapeHtml(s.label)}</span>${cmdLine(s.cmd)}</div></div>`).join("");
       }
       if (category === "ERROR_WASTE") {
+        // I19-A: copy-once diagnostic packet — 3 blocks, one button per block.
+        // Block A: shell loop for inspection (read-only)
+        // Block B: agent diagnostic prompt (do NOT enable/disable/edit/delete yet)
+        // Block C: shell loop for verification (after manual fix)
         const idLines = splitIds(idList);
-        const showSteps = idLines.map(id => `openclaw cron show ${id}`);
-        const runsInspectSteps = idLines.flatMap(id => [
-          `openclaw cron runs --id ${id} --limit 5`
-        ]);
-        const runVerifySteps = idLines.map(id => `openclaw cron run ${id}`);
-        const runsConfirmSteps = idLines.map(id => `openclaw cron runs --id ${id} --limit 10`);
-        const steps = [
-          ...showSteps,
-          ...runsInspectSteps,
-          { text: `Fix the cause (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.)` },
-          ...runVerifySteps,
-          ...runsConfirmSteps
-        ];
-        return steps.map((s, i) => {
-          const content = typeof s === 'string' ? cmdLine(s) : `<span style="color:#a8b1d1;font-size:0.88rem">${escapeHtml(s.text)}</span>`;
-          return `<div class="fix-step"><span class="step-num">${i + 1}.</span><div class="step-body">${content}</div></div>`;
-        }).join("");
+        const idArg = idLines.map(id => `  ${id}`).join(' \\\n');
+
+        // Block A: read-only inspection loop
+        const inspectBlock = idLines.length > 1
+          ? `for id in \\
+${idArg}
+do
+  openclaw cron show "$id"
+  openclaw cron runs --id "$id" --limit 5
+done`
+          : `openclaw cron show ${idLines[0] || '[JOB_ID]'}
+openclaw cron runs --id ${idLines[0] || '[JOB_ID]'} --limit 5`;
+
+        // Block B: diagnostic prompt — explicit do-NOT instruction
+        const diagnosePrompt = `Do NOT run any edit/disable/enable/delete commands yet.
+
+Diagnose the root cause of the repeated failures first:
+1. Review the run output from Block A
+2. Identify the failure pattern (bad credentials, missing file, wrong API key, wrong path, permission issue, etc.)
+3. Return: likely cause, safest manual fix, and verification plan`;
+
+        // Block C: verify after manual fix
+        const verifyBlock = idLines.length > 1
+          ? `for id in \\
+${idArg}
+do
+  openclaw cron run "$id"
+  openclaw cron runs --id "$id" --limit 10
+done`
+          : `openclaw cron run ${idLines[0] || '[JOB_ID]'}
+openclaw cron runs --id ${idLines[0] || '[JOB_ID]'} --limit 10`;
+
+        return (
+          cmdBlock('A. Inspect all affected jobs (read-only)', inspectBlock) +
+          cmdBlock('B. Ask your agent to diagnose, not auto-fix', diagnosePrompt) +
+          cmdBlock('C. Verify after manual fix', verifyBlock)
+        );
       }
       if (category === "PREMIUM_MODEL_WASTE") {
         const idLines = splitIds(idList);

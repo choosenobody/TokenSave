@@ -170,6 +170,17 @@ function extractBuildFixSteps() {
   }
   const cmdLineFn = src.slice(cmdLineStart, cmdLineEnd);
 
+  // Extract cmdBlock helper (I19-A: copy-once multi-line block renderer)
+  const cmdBlockStart = src.indexOf('function cmdBlock(label, content) {');
+  if (cmdBlockStart !== -1) {
+    depth = 0; let cmdBlockEnd = cmdBlockStart;
+    for (let i = cmdBlockStart; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') { depth--; if (depth === 0) { cmdBlockEnd = i + 1; break; } }
+    }
+    var cmdBlockFn = src.slice(cmdBlockStart, cmdBlockEnd);
+  }
+
   // Extract buildFixSteps
   const fnStart = src.indexOf('function buildFixSteps(category, idList, genericAction) {');
   if (fnStart === -1) throw new Error('buildFixSteps not found');
@@ -185,6 +196,7 @@ function extractBuildFixSteps() {
 
   const wrapper = `(function(){
     ${cmdLineFn}
+    ${cmdBlockFn || ''}
     ${escapeShim}
     ${fnBody}
     return buildFixSteps;
@@ -206,8 +218,9 @@ const FORBIDDEN_MULTI_ID_PATTERNS = [
 ];
 
 // Per-category expected command counts (whitespace-separated multi-ID)
+// NOTE: ERROR_WASTE now uses copy-once shell-loop blocks (I19-A) — no per-ID cmdLine counts
 const CATEGORY_WS_COUNTS = {
-  ERROR_WASTE:         { show: 2, runs: 4, edit: 0, disable: 0, run: 2 },
+  ERROR_WASTE:         { show: 0, runs: 0, edit: 0, disable: 0, run: 0 },
   CRITICAL:            { show: 0, runs: 0, edit: 2, disable: 2, run: 0 },
   LLM_AGENT_CRON:      { show: 0, runs: 0, edit: 0, disable: 2, run: 0 },
   PREMIUM_MODEL_WASTE: { show: 0, runs: 0, edit: 2, disable: 0, run: 2 },
@@ -312,6 +325,8 @@ describe('buildFixSteps — stale forbidden patterns remain absent', () => {
 describe('buildFixSteps — single ID still works', () => {
   // Use realistic long IDs for single-ID tests (same format as multi-ID tests)
   for (const [category] of COMMA_TEST_CASES) {
+    // I19-A: ERROR_WASTE uses cmdBlock/pre format, not <code> cmdLine — skip in single-ID <code> check
+    if (category === 'ERROR_WASTE') continue;
     it(`${category}: single ID produces no multi-ID command pattern`, () => {
       const html = buildFixSteps(category, 'single-long-job-id-abc', 'generic action');
       // Extract all raw command text from <code> elements
@@ -331,4 +346,83 @@ describe('buildFixSteps — single ID still works', () => {
       expect(checked).toBeGreaterThan(0);
     });
   }
+});
+
+// I19-A: ERROR_WASTE copy-once block structure tests
+describe('ERROR_WASTE — I19-A copy-once diagnostic packet structure', () => {
+  const multiId = 'err-aaaa-bbbb-cccc err-dddd-eeee-ffff';
+  const singleId = 'err-single-job-id-abc';
+  const htmlMulti = buildFixSteps('ERROR_WASTE', multiId, 'generic action');
+  const htmlSingle = buildFixSteps('ERROR_WASTE', singleId, 'generic action');
+
+  // I19-A-a: A/B/C labels exist
+  it('A. Inspect all affected jobs (read-only) label exists', () => {
+    expect(htmlMulti).toContain('A. Inspect all affected jobs (read-only)');
+  });
+  it('B. Ask your agent to diagnose, not auto-fix label exists', () => {
+    expect(htmlMulti).toContain('B. Ask your agent to diagnose, not auto-fix');
+  });
+  it('C. Verify after manual fix label exists', () => {
+    expect(htmlMulti).toContain('C. Verify after manual fix');
+  });
+
+  // I19-A-b: Block B contains do NOT run edit/disable/enable/delete
+  it('Block B contains do NOT run edit/disable/enable/delete', () => {
+    expect(htmlMulti).toMatch(/do NOT run any edit\/disable\/enable\/delete commands? yet/i);
+  });
+
+  // I19-A-c: "Verify after manual fix" exists
+  it('"Verify after manual fix" text exists', () => {
+    expect(htmlMulti).toContain('C. Verify after manual fix');
+  });
+
+  // I19-A-d: no --enable anywhere in ERROR_WASTE
+  it('no --enable in ERROR_WASTE output', () => {
+    expect(htmlMulti).not.toContain('--enable');
+  });
+
+  // I19-A-e: no old 17-numbered-step pattern for multi-job ERROR_WASTE
+  it('no numbered step pattern for multi-job ERROR_WASTE', () => {
+    // The new format should NOT have <span class="step-num">NN.</span> pattern
+    expect(htmlMulti).not.toMatch(/<span class="step-num">\d+\.<\/span>/);
+  });
+
+  // I19-A-f: copy-once block helper (cmdBlock) produces pre elements
+  it('multi-job uses shell loop in for-do-done form', () => {
+    expect(htmlMulti).toContain('for id in \\');
+    expect(htmlMulti).toContain('done');
+  });
+
+  it('single-job uses linear commands (not a loop)', () => {
+    expect(htmlSingle).not.toContain('for id in \\');
+    expect(htmlSingle).toContain('openclaw cron show');
+  });
+
+  it('diagnose prompt includes root cause and verification plan', () => {
+    expect(htmlMulti).toContain('root cause');
+    expect(htmlMulti).toContain('verification plan');
+  });
+
+  it('diagnose prompt does NOT suggest running edit/disable/enable commands', () => {
+    const promptSection = htmlMulti.match(/B\.[^C]*/s)?.[0] ?? '';
+    expect(promptSection).not.toMatch(/cron (edit|disable|enable)/i);
+  });
+
+  // I19-A-g: onclick handler consistency — cmdBlock uses _copyBlock (installed at window level)
+  it('cmdBlock output calls the same handler name that main.ts installs', () => {
+    // The cmdBlock HTML must use onclick="_copyBlock(this)" to match window._copyBlock
+    expect(htmlMulti).toMatch(/onclick="_copyBlock\(this\)"/);
+  });
+
+  // I19-A-h: exactly three copy-once blocks for A/B/C in multi-ID output
+  it('exactly three copy-once cmdBlock elements for multi-ID ERROR_WASTE', () => {
+    const blockCount = (htmlMulti.match(/class="cmd-block"/g) ?? []).length;
+    expect(blockCount).toBe(3);
+  });
+
+  // I19-A-i: single-ID also gets 3 cmdBlocks (A linear, B prompt, C linear)
+  it('single-ID also produces exactly three copy-once blocks', () => {
+    const blockCount = (htmlSingle.match(/class="cmd-block"/g) ?? []).length;
+    expect(blockCount).toBe(3);
+  });
 });

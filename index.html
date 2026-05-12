@@ -510,6 +510,7 @@
 
     .fix-card {
       padding: 18px;
+      contain: layout style;
     }
 
     .fix-card.red-header {
@@ -588,6 +589,64 @@
 
     .copy-btn:hover {
       background: rgba(97,218,251,0.1);
+    }
+
+    /* I19-A: copy-once diagnostic blocks for ERROR_WASTE */
+    .fix-block {
+      margin-bottom: 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.02);
+      padding: 8px 10px;
+      /* Ensure block label always has a color context */
+    }
+
+    .fix-block-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    /* .cmd-block wraps a pre + copy button for copy-once multiline blocks */
+    .cmd-block {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cmd-pre {
+      margin: 0;
+      padding: 8px 10px;
+      background: #0d1117;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: #79c0ff;
+      white-space: pre;
+      overflow: auto;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Inline copy button inside cmd-block: top-right corner */
+    .cmd-block .copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(97,218,251,0.1);
+      border: 1px solid rgba(97,218,251,0.3);
+      border-radius: 4px;
+      color: #61dafb;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 2px 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .cmd-block .copy-btn:hover {
+      background: rgba(97,218,251,0.2);
     }
 
     .fix-card.red-header .fix-action {

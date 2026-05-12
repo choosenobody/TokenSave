@@ -26,11 +26,15 @@ export function formatEvidenceBlurb(jobs, category) {
   }
 
   // ERROR_WASTE: error rate as percentage
+  // Show one decimal place when observed is close to threshold to avoid "10% above 10%" ambiguity
   if (category === 'ERROR_WASTE') {
-    const pct = typeof observedValue === 'number'
-      ? (observedValue * 100).toFixed(0)
+    const obsPct = typeof observedValue === 'number'
+      ? (observedValue * 100).toFixed(observedValue * 100 % 1 === 0 ? 0 : 1)
       : observedValue;
-    return `Error rate: ${pct}% · threshold: ${threshold != null ? (Number(threshold) * 100).toFixed(0) : '?'}%`;
+    const threshPct = threshold != null
+      ? (Number(threshold) * 100).toFixed(Number(threshold) * 100 % 1 === 0 ? 0 : 1)
+      : '?';
+    return `Error rate: ${obsPct}% · threshold: ${threshPct}%`;
   }
 
   // PREMIUM_MODEL_WASTE: model name
@@ -96,8 +100,11 @@ export function buildEvidenceBackedProblem(category, jobs) {
   }
 
   if (category === 'ERROR_WASTE') {
-    const obsPct = (observedValue * 100).toFixed(0);
-    const threshPct = (threshold * 100).toFixed(0);
+    // Show one decimal place when needed to avoid "10% above 10%" ambiguity
+    const rawObs = observedValue * 100;
+    const rawThresh = threshold * 100;
+    const obsPct = rawObs % 1 === 0 ? rawObs.toFixed(0) : rawObs.toFixed(1);
+    const threshPct = rawThresh % 1 === 0 ? rawThresh.toFixed(0) : rawThresh.toFixed(1);
     return `${obsPct}% error rate, above the ${threshPct}% threshold.`;
   }
 
