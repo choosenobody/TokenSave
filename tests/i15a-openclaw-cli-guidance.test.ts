@@ -348,81 +348,37 @@ describe('buildFixSteps — single ID still works', () => {
   }
 });
 
-// I19-A: ERROR_WASTE copy-once block structure tests
-describe('ERROR_WASTE — I19-A copy-once diagnostic packet structure', () => {
+// I21: ERROR_WASTE first action is a job-level read-only inspect packet.
+describe('ERROR_WASTE — I21 read-only first action structure', () => {
   const multiId = 'err-aaaa-bbbb-cccc err-dddd-eeee-ffff';
   const singleId = 'err-single-job-id-abc';
   const htmlMulti = buildFixSteps('ERROR_WASTE', multiId, 'generic action');
   const htmlSingle = buildFixSteps('ERROR_WASTE', singleId, 'generic action');
 
-  // I19-A-a: A/B/C labels exist
-  it('A. Inspect all affected jobs (read-only) label exists', () => {
-    expect(htmlMulti).toContain('A. Inspect all affected jobs (read-only)');
-  });
-  it('B. Ask your agent to diagnose, not auto-fix label exists', () => {
-    expect(htmlMulti).toContain('B. Ask your agent to diagnose, not auto-fix');
-  });
-  it('C. Verify after manual fix label exists', () => {
-    expect(htmlMulti).toContain('C. Verify after manual fix');
+  it('renders cron show and recent runs with --id for the first job only', () => {
+    expect(htmlMulti).toContain('openclaw cron show err-aaaa-bbbb-cccc');
+    expect(htmlMulti).toContain('openclaw cron runs --id err-aaaa-bbbb-cccc --limit 5');
+    expect(htmlMulti).not.toContain('err-dddd-eeee-ffff');
   });
 
-  // I19-A-b: Block B contains do NOT run edit/disable/enable/delete
-  it('Block B contains do NOT run edit/disable/enable/delete', () => {
-    expect(htmlMulti).toMatch(/do NOT run any edit\/disable\/enable\/delete commands? yet/i);
+  it('single-job output also uses read-only inspect commands', () => {
+    expect(htmlSingle).toContain('openclaw cron show err-single-job-id-abc');
+    expect(htmlSingle).toContain('openclaw cron runs --id err-single-job-id-abc --limit 5');
   });
 
-  // I19-A-c: "Verify after manual fix" exists
-  it('"Verify after manual fix" text exists', () => {
-    expect(htmlMulti).toContain('C. Verify after manual fix');
+  it('does not render forbidden first-action commands', () => {
+    expect(htmlMulti).not.toMatch(/openclaw cron (edit|disable|enable|delete)\b/);
+    expect(htmlSingle).not.toMatch(/openclaw cron (edit|disable|enable|delete)\b/);
   });
 
-  // I19-A-d: no --enable anywhere in ERROR_WASTE
-  it('no --enable in ERROR_WASTE output', () => {
-    expect(htmlMulti).not.toContain('--enable');
-  });
-
-  // I19-A-e: no old 17-numbered-step pattern for multi-job ERROR_WASTE
-  it('no numbered step pattern for multi-job ERROR_WASTE', () => {
-    // The new format should NOT have <span class="step-num">NN.</span> pattern
+  it('uses simple command lines, not shell loops or numbered mutation steps', () => {
+    expect(htmlMulti).not.toContain('for id in \\');
+    expect(htmlMulti).not.toContain('done');
     expect(htmlMulti).not.toMatch(/<span class="step-num">\d+\.<\/span>/);
-  });
-
-  // I19-A-f: copy-once block helper (cmdBlock) produces pre elements
-  it('multi-job uses shell loop in for-do-done form', () => {
-    expect(htmlMulti).toContain('for id in \\');
-    expect(htmlMulti).toContain('done');
-  });
-
-  it('single-job uses linear commands (not a loop)', () => {
     expect(htmlSingle).not.toContain('for id in \\');
-    expect(htmlSingle).toContain('openclaw cron show');
   });
 
-  it('diagnose prompt includes root cause and verification plan', () => {
-    expect(htmlMulti).toContain('root cause');
-    expect(htmlMulti).toContain('verification plan');
-  });
-
-  it('diagnose prompt does NOT suggest running edit/disable/enable commands', () => {
-    const promptSection = htmlMulti.match(/B\.[^C]*/s)?.[0] ?? '';
-    expect(promptSection).not.toMatch(/cron (edit|disable|enable)/i);
-  });
-
-  // I19-A-g: onclick handler consistency — cmdBlock uses _copyBlock (installed at window level)
-  it('cmdBlock output calls the same handler name that main.ts installs', () => {
-    // The cmdBlock HTML must use onclick="_copyBlock(this)" to match window._copyBlock
-    expect(htmlMulti).toMatch(/onclick="_copyBlock\(this\)"/);
-  });
-
-  // I19-A-h: exactly three copy-once blocks for A/B/C in multi-ID output
-  it('exactly three copy-once cmdBlock elements for multi-ID ERROR_WASTE', () => {
-    const blockCount = (htmlMulti.match(/class="cmd-block"/g) ?? []).length;
-    expect(blockCount).toBe(3);
-  });
-
-  // I19-A-i: single-ID also gets 3 cmdBlocks (A linear, B prompt, C linear)
-  it('single-ID also produces exactly three copy-once blocks', () => {
-    const blockCount = (htmlSingle.match(/class="cmd-block"/g) ?? []).length;
-    expect(blockCount).toBe(3);
+  it('keeps copy buttons wired to the single-line copy handler', () => {
+    expect(htmlMulti).toMatch(/onclick="copyCmd\(this\)"/);
   });
 });

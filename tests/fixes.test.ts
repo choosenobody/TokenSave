@@ -6,6 +6,9 @@ describe('buildEvidenceBackedProblem', () => {
   // Helper: minimal job with evidence
   const makeJob = (issues, evidence) => ({
     issues,
+    id: `job-${Math.random()}`,
+    name: 'test job',
+    lifecycleStatus: 'active',
     totalTokens: 1000,
     errorRate: 0.5,
     evidence: evidence || []
@@ -207,21 +210,25 @@ describe('buildFixCards with evidence-backed problem', () => {
     expect(card.config.problem).toBe('Runs every 10 min, below the 30 min threshold.');
   });
 
-  it('CRITICAL jobs sorted by tokens*errorRate desc, sliced to 4', () => {
+  it('multiple jobs with same category produce separate job-level cards', () => {
     const j1 = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: 10, threshold: 30 }]);
     j1.totalTokens = 100; j1.errorRate = 0.1;
     const j2 = makeJob(['CRITICAL'], [{ ruleId: 'CRITICAL', observedValue: 10, threshold: 30 }]);
     j2.totalTokens = 1000; j2.errorRate = 0.5;
     const cards = buildFixCards([j1, j2]);
-    const card = cards.find((c) => c.category === 'CRITICAL');
-    expect(card.jobs.length).toBeLessThanOrEqual(4);
-    expect(card.jobs[0].totalTokens).toBe(1000); // higher waste first
+    const criticalCards = cards.filter((c) => c.category === 'CRITICAL');
+    expect(criticalCards).toHaveLength(2);
+    expect(criticalCards[0].jobs).toHaveLength(1);
+    expect(criticalCards[0].job.totalTokens).toBe(1000); // higher waste first inside category
   });
 });
 
 describe('I20: LLM_AGENT_CRON in buildFixCards ordering', () => {
   const makeJob = (issues, evidence = []) => ({
     issues,
+    id: `job-${Math.random()}`,
+    name: 'test job',
+    lifecycleStatus: 'active',
     totalTokens: 1000,
     errorRate: 0.5,
     evidence
@@ -248,5 +255,40 @@ describe('I20: LLM_AGENT_CRON in buildFixCards ordering', () => {
     const cards = buildFixCards([llmJob, critJob]);
     const cats = cards.map((c) => c.category);
     expect(cats.indexOf('CRITICAL')).toBeLessThan(cats.indexOf('LLM_AGENT_CRON'));
+  });
+});
+
+describe('I21: buildFixCards active actionability', () => {
+  const makeJob = (overrides = {}) => ({
+    id: overrides.id || 'job-id',
+    name: overrides.name || 'job name',
+    issues: overrides.issues || ['ERROR_WASTE'],
+    lifecycleStatus: overrides.lifecycleStatus || 'active',
+    totalTokens: overrides.totalTokens ?? 1000,
+    errorRate: overrides.errorRate ?? 0.5,
+    evidence: overrides.evidence || [{ ruleId: 'ERROR_WASTE', observedValue: 0.5, threshold: 0.1 }],
+  });
+
+  it('OK jobs are not rendered in How To Fix input cards', () => {
+    expect(buildFixCards([makeJob({ issues: ['OK'] })])).toHaveLength(0);
+  });
+
+  it('historical jobs are not rendered as active action cards', () => {
+    expect(buildFixCards([makeJob({ lifecycleStatus: 'historical' })])).toHaveLength(0);
+  });
+
+  it('disabled jobs are not rendered as active action cards', () => {
+    expect(buildFixCards([makeJob({ lifecycleStatus: 'disabled' })])).toHaveLength(0);
+  });
+
+  it('multiple ERROR_WASTE jobs produce separate job action cards', () => {
+    const cards = buildFixCards([
+      makeJob({ id: 'err-a', name: 'err a', totalTokens: 1000 }),
+      makeJob({ id: 'err-b', name: 'err b', totalTokens: 2000 }),
+    ]);
+    expect(cards).toHaveLength(2);
+    expect(cards.every((card) => card.category === 'ERROR_WASTE')).toBe(true);
+    expect(cards.every((card) => card.jobs.length === 1)).toBe(true);
+    expect(cards.map((card) => card.job.id)).toEqual(['err-b', 'err-a']);
   });
 });
