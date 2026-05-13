@@ -450,11 +450,22 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       emptyState.classList.add("hidden");
       reportSection.classList.remove("hidden");
 
-      renderImportSummary(report.importSummary, report.readinessGaps, report.historicalJobs);
-      renderSummary(report.summary, report.meta);
-      renderTopWaste(report.topWaste, report.historicalJobs, report.summary.totalCost);
-      renderJobTable(report.jobs);
+      // Action-first shell: fixes come FIRST, everything else is collapsed
+      // Render fixes first so the "Inspect this job first" card is the first thing seen
       renderFixes(report.fixes, report.historicalFixes, report.importSummary, report.readinessGaps);
+
+      // Everything else — import summary, summary grid, waste section, job table — collapsed
+      // These sections are preserved but moved BELOW the action card
+      const fullReportDetails = document.getElementById("fullReportDetails");
+      if (fullReportDetails) {
+        // Render into the hidden shell
+        renderImportSummary(report.importSummary, report.readinessGaps, report.historicalJobs);
+        renderSummary(report.summary, report.meta);
+        renderTopWaste(report.topWaste, report.historicalJobs, report.summary.totalCost);
+        renderJobTable(report.jobs);
+        // Keep the full report shell collapsed by default
+        fullReportDetails.open = false;
+      }
     }
 
     function renderImportSummary(summary, readinessGaps, historicalJobs) {
@@ -898,23 +909,29 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         return;
       }
 
-      const activeCards = fixes.map((item, index) => {
+      // Action-first: only the first card is rendered directly.
+      // All subsequent active cards are wrapped in a collapsed <details>.
+      const firstItem = fixes[0];
+      const otherItems = fixes.slice(1);
+
+      // Build a single card HTML for a given fix item
+      function buildCardHtml(item, index) {
         const isRed = ["CRITICAL", "ERROR_WASTE"].includes(item.category);
-        const cardClass = `${isRed ? "fix-card red-header" : "fix-card"}${index === 0 ? " first-action-card" : ""}`;
+        const isFirst = index === 0;
+        const cardClass = `${isRed ? "fix-card red-header" : "fix-card"}${isFirst ? " first-action-card" : ""}`;
         const job = item.job || item.jobs[0];
 
-        // Build action steps with real job IDs
         const jobId = job && (job.jobId || job.id || job.name);
         const idList = jobId || "[JOB_ID]";
         const actionHtml = item.category === 'ERROR_WASTE'
           ? buildFixSteps(item.category, idList, item.config.action)
           : buildInspectSteps(idList);
         const evidenceBlurb = formatEvidenceBlurb(item.jobs, item.category);
-        const firstActionHeader = index === 0
+        const firstActionHeader = isFirst
           ? `<div class="start-here">Start here: inspect this job first</div>`
           : '';
         const evidenceText = evidenceBlurb || 'Token waste patterns detected in run history.';
-        const whyText = buildWhyFirstText(item.category, job, evidenceText, index === 0);
+        const whyText = buildWhyFirstText(item.category, job, evidenceText, isFirst);
 
         return `
           <article class="panel ${cardClass}">
@@ -927,7 +944,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
             <div style="margin-bottom:12px">
               <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
             </div>
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Why ${index === 0 ? 'This Is First' : 'Inspect This Job'}</div>
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Why ${isFirst ? 'This Is First' : 'Inspect This Job'}</div>
             <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(whyText)}</div>
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
             <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(evidenceText)}</div>
@@ -944,14 +961,34 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
                 : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
             </div>
           </article>
-`;
-      }).join("");
+        `;
+      }
 
-      fixGrid.innerHTML = activeCards || `
-        <div class="panel fix-card restraint-card">
-          <div class="restraint-message">No active recurring waste findings detected in this import.</div>
-        </div>
-      `;
+      if (!firstItem) {
+        fixGrid.innerHTML = `
+          <div class="panel fix-card restraint-card">
+            <div class="restraint-message">No active recurring waste findings detected in this import.</div>
+          </div>
+        `;
+      } else {
+        // First card — always visible
+        fixGrid.innerHTML = buildCardHtml(firstItem, 0);
+
+        // Remaining active cards — collapsed details
+        if (otherItems.length > 0) {
+          const othersDetails = document.createElement('details');
+          othersDetails.className = 'other-findings';
+          othersDetails.innerHTML = `
+            <summary class="other-findings-summary">
+              ${otherItems.length} more active finding${otherItems.length > 1 ? 's' : ''} — expand after fixing the first job
+            </summary>
+            <div class="fix-grid" style="margin-top:12px">
+              ${otherItems.map((item, i) => buildCardHtml(item, i + 1)).join('')}
+            </div>
+          `;
+          fixGrid.appendChild(othersDetails);
+        }
+      }
 
       // I15-B: Historical / disabled review signals — muted, inspect-only
       if (historicalFixes && historicalFixes.length) {

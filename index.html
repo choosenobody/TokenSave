@@ -282,7 +282,7 @@
       font-size: 0.92rem;
     }
 
-    /* Top Waste + Pie chart layout */
+    /* Top Waste + Pie chart layout — restored to two-column when expanded inside fullReportDetails */
     .waste-section-body {
       display: grid;
       grid-template-columns: 1fr 280px;
@@ -294,6 +294,53 @@
       .waste-section-body {
         grid-template-columns: 1fr;
       }
+    }
+
+    .full-report-details {
+      margin-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 16px;
+    }
+
+    .full-report-summary {
+      cursor: pointer;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      list-style: none;
+      user-select: none;
+    }
+
+    .full-report-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .full-report-summary::before {
+      content: "▶";
+      font-size: 0.7rem;
+      color: var(--info);
+      transition: transform 0.2s ease;
+      display: inline-block;
+    }
+
+    details[open] > .full-report-summary::before {
+      transform: rotate(90deg);
+    }
+
+    .full-report-summary-label {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .full-report-summary-hint {
+      font-size: 0.85rem;
+      color: var(--muted);
     }
 
     .pie-panel {
@@ -909,6 +956,43 @@
       font-size: 13px;
       line-height: 1.6;
     }
+
+    /* Other active findings collapsed section */
+    .other-findings {
+      margin-top: 16px;
+    }
+
+    .other-findings-summary {
+      cursor: pointer;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      color: var(--muted);
+      font-weight: 600;
+      list-style: none;
+      user-select: none;
+    }
+
+    .other-findings-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .other-findings-summary::before {
+      content: "▶ ";
+      font-size: 0.7rem;
+      color: var(--info);
+      display: inline-block;
+    }
+
+    details[open] > .other-findings-summary::before {
+      content: "▼ ";
+    }
+
+    details[open] > .other-findings-summary {
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -991,55 +1075,64 @@
     </section>
 
     <section id="report" class="hidden">
-      <div id="importSummary"></div>
-      <div id="summaryGrid" class="summary-grid"></div>
-
+      <!-- Fix grid: always first — "Inspect this job first" action card comes before everything else -->
       <section class="section">
         <div class="section-head">
-          <h2>Active Recurring Waste Findings</h2>
-          <div class="section-note">Ranked by recurring token waste — tokens/day first, then tokens/run, then fallback tokens × error rate</div>
-        </div>
-        <div id="wasteSectionBody" class="waste-section-body">
-          <div id="wasteList" class="waste-list"></div>
-          <div class="panel pie-panel">
-            <div class="pie-title">Approx. Cost by Job (Secondary)</div>
-            <div id="pieChart"></div>
-            <div id="pieLegend" class="pie-legend"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="section-head">
-          <button id="toggleTable" class="sort-button" type="button">
-            <h2 style="margin:0">Full Job Table</h2>
-            <span class="sort-indicator">&#9658;</span>
-          </button>
-          <div class="section-note">Tap a column header to sort</div>
-        </div>
-        <div id="tableWrap" class="panel table-wrap" style="display:none">
-          <table>
-            <thead>
-              <tr>
-                <th><button class="sort-button" data-sort="name" type="button">Name <span class="sort-indicator"></span></button></th>
-                <th><button class="sort-button" data-sort="tokens" type="button">Tokens <span class="sort-indicator"></span></button></th>
-                <th><button class="sort-button" data-sort="cost" type="button">Cost <span class="sort-indicator"></span></button></th>
-                <th><button class="sort-button" data-sort="frequency" type="button">Frequency <span class="sort-indicator"></span></button></th>
-                <th><button class="sort-button" data-sort="errorRate" type="button">Error Rate <span class="sort-indicator"></span></button></th>
-              </tr>
-            </thead>
-            <tbody id="jobTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="section-head">
-          <h2>How To Fix</h2>
-          <div class="section-note">Prioritized by the waste patterns found in this export</div>
+          <h2>What To Do First</h2>
+          <div class="section-note">Start here — one job at a time</div>
         </div>
         <div id="fixGrid" class="fix-grid"></div>
       </section>
+
+      <!-- Everything else collapsed by default -->
+      <details id="fullReportDetails" class="full-report-details">
+        <summary class="full-report-summary">
+          <span class="full-report-summary-label">View full report</span>
+          <span class="full-report-summary-hint">Import summary · Waste findings · Job table</span>
+        </summary>
+
+        <div id="importSummary"></div>
+        <div id="summaryGrid" class="summary-grid"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Active Recurring Waste Findings</h2>
+            <div class="section-note">Ranked by recurring token waste — tokens/day first, then tokens/run, then fallback tokens × error rate</div>
+          </div>
+          <div id="wasteSectionBody" class="waste-section-body">
+            <div id="wasteList" class="waste-list"></div>
+            <div class="panel pie-panel">
+              <div class="pie-title">Approx. Cost by Job (Secondary)</div>
+              <div id="pieChart"></div>
+              <div id="pieLegend" class="pie-legend"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <button id="toggleTable" class="sort-button" type="button">
+              <h2 style="margin:0">Full Job Table</h2>
+              <span class="sort-indicator">&#9658;</span>
+            </button>
+            <div class="section-note">Tap a column header to sort</div>
+          </div>
+          <div id="tableWrap" class="panel table-wrap" style="display:none">
+            <table>
+              <thead>
+                <tr>
+                  <th><button class="sort-button" data-sort="name" type="button">Name <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-button" data-sort="tokens" type="button">Tokens <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-button" data-sort="cost" type="button">Cost <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-button" data-sort="frequency" type="button">Frequency <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-button" data-sort="errorRate" type="button">Error Rate <span class="sort-indicator"></span></button></th>
+                </tr>
+              </thead>
+              <tbody id="jobTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </details>
     </section>
   </main>
 
