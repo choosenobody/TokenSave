@@ -933,6 +933,23 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         const evidenceText = evidenceBlurb || 'Token waste patterns detected in run history.';
         const whyText = buildWhyFirstText(item.category, job, evidenceText, isFirst);
 
+        // I17-A reuse: compute token waste estimates for first card using same tier logic as ranking sort
+        const minimaxRef = detectCostRate("MiniMax M2.7");
+        const cheapRate = (minimaxRef.pricingSource === "known-local" && isFinite(minimaxRef.rate) && minimaxRef.rate > 0)
+          ? minimaxRef.rate
+          : undefined;
+        const dailyWaste = estimateDailyWasteTokens(job, cheapRate);
+        const perRunWaste = estimateWastePerRun(job, cheapRate);
+        const priorityBasis = (dailyWaste !== null || perRunWaste !== null)
+          ? buildPriorityBasisText(dailyWaste, perRunWaste)
+          : '';
+        const wasteSectionHtml = isFirst && priorityBasis
+          ? `
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Estimated Recurring Waste</div>
+            <div class="fix-evidence" style="margin-bottom:12px;color:#ff7849">${escapeHtml(priorityBasis)}</div>
+          `
+          : '';
+
         return `
           <article class="panel ${cardClass}">
             ${firstActionHeader}
@@ -946,6 +963,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
             </div>
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Why ${isFirst ? 'This Is First' : 'Inspect This Job'}</div>
             <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(whyText)}</div>
+            ${wasteSectionHtml}
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
             <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(evidenceText)}</div>
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Safe Inspect Command</div>
