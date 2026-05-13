@@ -1055,9 +1055,6 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           ? buildFixSteps(item.category, idList, item.config.action)
           : buildInspectSteps(idList);
         const evidenceBlurb = formatEvidenceBlurb(item.jobs, item.category);
-        const firstActionHeader = isFirst
-          ? `<div class="start-here">Start here: inspect this job first</div>`
-          : '';
         const evidenceText = evidenceBlurb || 'Token waste patterns detected in run history.';
         const whyText = buildWhyFirstText(item.category, job, evidenceText, isFirst);
 
@@ -1146,9 +1143,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
               ` : ''}
               <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verification After Manual Fix</div>
               <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
-                ${item.category === 'ERROR_WASTE'
-                  ? `${cmdLine(`openclaw cron run ${idList}`)}${cmdLine(`openclaw cron runs --id ${idList} --limit 10`)}`
-                  : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
+                After the agent diagnoses the issue and you confirm a manual fix, ask the agent for verification commands.
               </div>
             </div>
           </details>
@@ -1161,9 +1156,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           ` : ''}
           <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verification After Manual Fix</div>
           <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
-            ${item.category === 'ERROR_WASTE'
-              ? `${cmdLine(`openclaw cron run ${idList}`)}${cmdLine(`openclaw cron runs --id ${idList} --limit 10`)}`
-              : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
+            After the agent diagnoses the issue and you confirm a manual fix, ask the agent for verification commands.
           </div>
         `;
 

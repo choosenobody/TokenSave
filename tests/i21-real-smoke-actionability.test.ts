@@ -54,9 +54,13 @@ describe('I21 real smoke actionability rendering contract', () => {
     expect(fnBody).not.toMatch(/openclaw cron (edit|disable|enable|delete)\b/);
   });
 
-  it('primary action area contains Start here first-action language', () => {
+  it('primary action area contains "What To Do First" with copy-the-prompt CTA', () => {
     const src = readFileSync(resolve(__dirname, '../src/main.ts'), 'utf8');
-    expect(src).toMatch(/Start here: inspect this job first/);
+    // The old "Start here" language is gone
+    expect(src).not.toMatch(/Start here: inspect this job first/);
+    // The new first card uses "What To Do First" section with copy CTA
+    expect(src).toMatch(/What To Do First/);
+    expect(src).toMatch(/Copy the agent diagnosis prompt below/);
     expect(src).toMatch(/first-action-card/);
   });
 
