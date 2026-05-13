@@ -952,34 +952,70 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         `openclaw cron runs --id ${jobId} --limit 5`
       ].join('\n');
 
-      // Safety rules footer
+      // Classification options the receiving agent must choose from
+      const classificationOptions = [
+        "provider/model failure — model provider returning errors or rate limiting",
+        "prompt/tool failure — prompt is malformed or tool configuration is wrong",
+        "delivery configuration issue — schedule, routing, or webhook configuration error",
+        "stale job/config issue — job config or environment has become outdated",
+        "job no longer needed — recurring job is obsolete and should be deleted",
+        "schedule too frequent — job runs more often than needed",
+        "duplicate or redundant recurring job — multiple jobs doing the same work",
+        "unknown / needs more evidence — not enough data to determine root cause yet"
+      ].join('\n');
+
+      // Required output structure for the receiving agent
+      const requiredOutput = [
+        "Root cause hypothesis — what is most likely causing this issue",
+        "Evidence — specific data points from the inspect commands that support the hypothesis",
+        "Risk of doing nothing — what happens if this job continues running without fixing it",
+        "Safest manual fix — concrete, reversible action the user can take to resolve it",
+        "Exact verification plan — how to confirm the fix worked after applying it",
+        "Recommendation — keep the job, edit the job, pause the job, disable the job, or delete the job",
+        "Commands — openclaw CLI commands to run ONLY after the user explicitly confirms"
+      ].join('\n');
+
+      // Safety rules footer — strict no-mutation until user confirms
       const safetyRules = [
         "SAFETY RULES:",
-        "1. Do not edit, disable, enable, delete, or mutate the job yet.",
-        "2. Do not run or retry the job yet.",
-        "3. First run read-only inspection only.",
-        "4. Diagnose the root cause before proposing any fix.",
-        "5. Return evidence, safest manual fix, and verification plan.",
-        "6. Ask for explicit user confirmation before any destructive or mutating action."
+        "1. Do NOT edit, disable, enable, delete, or mutate the job yet.",
+        "2. Do NOT run or retry the job yet.",
+        "3. First run read-only inspection only: openclaw cron show and openclaw cron runs.",
+        "4. Classify the issue using the categories below before proposing any fix.",
+        "5. Return the required output (root cause, evidence, risk, fix, verification, recommendation, and commands).",
+        "6. Commands are output only — do not run them until the user explicitly confirms.",
+        "7. Ask for explicit user confirmation before any destructive or mutating action."
       ].join('\n');
 
       return [
+        `## Agent Diagnosis Task`,
+        ``,
+        `### Job Context`,
         `Job name: ${jobName}`,
         `Job ID: ${jobId}`,
         `Issue category: ${category}`,
-        `Error rate: ${errorRateText}`,
-        `Threshold: ${thresholdText}`,
+        `Error rate: ${errorRateText} (threshold: ${thresholdText})`,
         `Estimated recurring token waste: ${wasteText}`,
         `${costSection}`,
         `${scheduleSection}`,
         `${modelSection}`,
         ``,
-        `Recent error summary:`,
+        `### Recent Error Summary`,
         `${errorSummary}`,
         ``,
-        `Read-only inspect commands:`,
+        `### Read-only Inspect Commands`,
+        `Run these first to gather evidence:`,
         `${inspectCommands}`,
         ``,
+        `### Issue Classification`,
+        `Classify the issue as one or more of:`,
+        `${classificationOptions}`,
+        ``,
+        `### Required Output`,
+        `After inspecting, return the following:`,
+        `${requiredOutput}`,
+        ``,
+        `### Safety Rules`,
         `${safetyRules}`
       ].join('\n');
     }
@@ -1052,47 +1088,91 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           ? buildAgentPromptText(item, job, dailyWaste, perRunWaste, costExposureStr)
           : '';
 
-        // Agent prompt CTA and block for first card only
-        const agentPromptSection = isFirst ? `
+        // Problem Summary section — visible by default for first card
+        const problemSummaryHtml = isFirst ? `
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Problem Summary</div>
+          <div style="margin-bottom:4px;font-size:0.88rem;color:#a8b1d1">Job: ${escapeHtml(job.name || "Unknown job")}</div>
+          <div style="margin-bottom:4px;font-size:0.88rem;color:#a8b1d1">Job ID: ${escapeHtml(jobId || "[JOB_ID]")}</div>
+          <div style="margin-bottom:8px">
+            ${renderBadge(item.category)}
+          </div>
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Problem</div>
+          <div style="margin-bottom:12px">
+            <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
+          </div>
+          ${wasteSectionHtml}
+        ` : `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            ${renderBadge(item.category)}
+          </div>
+          <h3>${escapeHtml(job.name || "Unknown job")}</h3>
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Problem</div>
+          <div style="margin-bottom:12px">
+            <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
+          </div>
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Why ${isFirst ? 'This Is First' : 'Inspect This Job'}</div>
+          <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(whyText)}</div>
+          ${wasteSectionHtml}
+        `;
+
+        // What To Do First CTA — only for first card
+        const whatToDoFirstHtml = isFirst ? `
           <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">What To Do First</div>
           <div class="agent-prompt-cta" style="margin-bottom:14px">
-            <div style="font-size:0.92rem;color:#d9f3ff;margin-bottom:8px">Copy the agent diagnosis prompt below and paste it into your AI agent to get contextual fix guidance for this specific job.</div>
+            <div style="font-size:0.92rem;color:#d9f3ff;margin-bottom:8px">Copy the agent diagnosis prompt below and paste it into your AI agent (Hermes / OpenClaw agent / Claude Code / Codex) to get contextual fix guidance for this specific job.</div>
           </div>
+        ` : '';
+
+        // Agent Prompt — only for first card
+        const agentPromptSection = isFirst ? `
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Agent Prompt</div>
           <div class="agent-prompt-section" style="margin-bottom:14px">
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Agent Prompt</div>
             ${cmdBlock('Agent Diagnosis Prompt', agentPromptText)}
           </div>
         ` : '';
 
+        // Advanced Details — collapsed by default for first card; not rendered for others
+        const advancedDetails = isFirst ? `
+          <details class="advanced-details">
+            <summary class="advanced-details-summary">Advanced Details — Evidence, Inspect Commands, and Verification</summary>
+            <div style="padding-top:12px">
+              <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
+              <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(evidenceText)}</div>
+              <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Read-only Inspect Commands</div>
+              <div class="fix-action" style="margin-bottom:12px">${actionHtml}</div>
+              ${item.category === 'ERROR_WASTE' ? `
+                <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Diagnosis Guidance</div>
+                <div class="fix-evidence" style="margin-bottom:12px">Inspect recent failed runs, identify the root cause such as bad credentials, missing file, wrong API key, wrong path, permission issue, stale environment, or model provider error, fix that root cause manually, then verify with a manual run.</div>
+              ` : ''}
+              <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verification After Manual Fix</div>
+              <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
+                ${item.category === 'ERROR_WASTE'
+                  ? `${cmdLine(`openclaw cron run ${idList}`)}${cmdLine(`openclaw cron runs --id ${idList} --limit 10`)}`
+                  : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
+              </div>
+            </div>
+          </details>
+        ` : `
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Safe Inspect Command</div>
+          <div class="fix-action" style="margin-bottom:12px">${actionHtml}</div>
+          ${item.category === 'ERROR_WASTE' ? `
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Diagnosis Guidance</div>
+            <div class="fix-evidence" style="margin-bottom:12px">Inspect recent failed runs, identify the root cause such as bad credentials, missing file, wrong API key, wrong path, permission issue, stale environment, or model provider error, fix that root cause manually, then verify with a manual run.</div>
+          ` : ''}
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verification After Manual Fix</div>
+          <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
+            ${item.category === 'ERROR_WASTE'
+              ? `${cmdLine(`openclaw cron run ${idList}`)}${cmdLine(`openclaw cron runs --id ${idList} --limit 10`)}`
+              : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
+          </div>
+        `;
+
         return `
           <article class="panel ${cardClass}">
-            ${firstActionHeader}
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-              ${renderBadge(item.category)}
-            </div>
-            <h3>${escapeHtml(job.name || "Unknown job")}</h3>
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Problem</div>
-            <div style="margin-bottom:12px">
-              <strong style="font-size:1rem;color:#ffd5db">${escapeHtml(item.config.problem)}</strong>
-            </div>
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Why ${isFirst ? 'This Is First' : 'Inspect This Job'}</div>
-            <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(whyText)}</div>
-            ${wasteSectionHtml}
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
-            <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(evidenceText)}</div>
+            ${problemSummaryHtml}
+            ${whatToDoFirstHtml}
             ${agentPromptSection}
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">${isFirst ? 'Verify' : 'Safe Inspect Command'}</div>
-            <div class="fix-action" style="margin-bottom:12px">${actionHtml}</div>
-            ${item.category === 'ERROR_WASTE' ? `
-              <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Diagnosis Guidance</div>
-              <div class="fix-evidence" style="margin-bottom:12px">Inspect recent failed runs, identify the root cause such as bad credentials, missing file, wrong API key, wrong path, permission issue, stale environment, or model provider error, fix that root cause manually, then verify with a manual run.</div>
-            ` : ''}
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Verification After Manual Fix</div>
-            <div style="font-size:0.88rem;color:#94a3b8;margin-bottom:12px">
-              ${item.category === 'ERROR_WASTE'
-                ? `${cmdLine(`openclaw cron run ${idList}`)}${cmdLine(`openclaw cron runs --id ${idList} --limit 10`)}`
-                : 'Re-import <code>~/.openclaw/cron/jobs.json</code> and check the next 3 runs.'}
-            </div>
+            ${advancedDetails}
           </article>
         `;
       }
