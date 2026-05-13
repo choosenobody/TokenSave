@@ -892,6 +892,98 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
       };
     }
 
+    function buildAgentPromptText(item, job, dailyWaste, perRunWaste, costExposureStr) {
+      // Build a plain-text agent diagnosis prompt from job data.
+      // Returns a string suitable for pasting into an AI agent.
+      const jobId = job && (job.jobId || job.id || job.name) || '[JOB_ID]';
+      const jobName = job && job.name ? job.name : '[Unknown Job]';
+      const category = item.category || 'UNKNOWN';
+
+      // Error rate and threshold from evidence
+      let errorRateText = 'N/A';
+      let thresholdText = 'N/A';
+      if (job.evidence && Array.isArray(job.evidence)) {
+        const entry = job.evidence.find(e => e.ruleId === category);
+        if (entry) {
+          if (category === 'ERROR_WASTE') {
+            errorRateText = `${(entry.observedValue * 100).toFixed(1)}%`;
+            thresholdText = `${(entry.threshold * 100).toFixed(1)}%`;
+          } else if (category === 'CRITICAL' || category === 'LLM_AGENT_CRON' || category === 'WARNING') {
+            errorRateText = `${entry.observedValue} min`;
+            thresholdText = `${entry.threshold} min`;
+          }
+        }
+      }
+      if (errorRateText === 'N/A' && job.errorRate != null) {
+        errorRateText = `${(job.errorRate * 100).toFixed(1)}%`;
+      }
+
+      // Estimated recurring waste (same tier logic as buildPriorityBasisText)
+      let wasteText = 'Unable to estimate — schedule or waste/run data unavailable.';
+      if (dailyWaste !== null && dailyWaste > 0) {
+        wasteText = `~${formatInteger(Math.round(dailyWaste))} tokens/day (based on schedule × waste/run)`;
+      } else if (perRunWaste !== null && perRunWaste > 0) {
+        wasteText = `~${formatInteger(Math.round(perRunWaste))} tokens/run; daily projection unavailable without schedule`;
+      }
+
+      // Cost exposure string
+      const costSection = costExposureStr
+        ? `\nApprox cost exposure (secondary): ${costExposureStr}`
+        : '';
+
+      // Schedule/frequency
+      const scheduleSection = job.frequencyLabel
+        ? `\nSchedule/frequency: ${job.frequencyLabel}`
+        : (job.scheduleMinutes != null ? `\nSchedule: every ${job.scheduleMinutes} min` : '');
+
+      // Model/provider
+      const modelSection = job.model ? `\nModel/provider: ${job.model}` : '';
+
+      // Recent error summary — only aggregate stats available in this export format
+      let errorSummary = 'No recent error detail available in this export format.';
+      if (job.totalRuns != null && job.errorRuns != null && job.errorRate != null) {
+        const rawRate = (job.errorRate * 100).toFixed(1);
+        errorSummary = `Aggregate stats: ${job.errorRuns} errors out of ${job.totalRuns} total runs (${rawRate}% error rate). No per-run error messages are included in this export.`;
+      }
+
+      // Read-only inspect commands
+      const inspectCommands = [
+        `openclaw cron show ${jobId}`,
+        `openclaw cron runs --id ${jobId} --limit 5`
+      ].join('\n');
+
+      // Safety rules footer
+      const safetyRules = [
+        "SAFETY RULES:",
+        "1. Do not edit, disable, enable, delete, or mutate the job yet.",
+        "2. Do not run or retry the job yet.",
+        "3. First run read-only inspection only.",
+        "4. Diagnose the root cause before proposing any fix.",
+        "5. Return evidence, safest manual fix, and verification plan.",
+        "6. Ask for explicit user confirmation before any destructive or mutating action."
+      ].join('\n');
+
+      return [
+        `Job name: ${jobName}`,
+        `Job ID: ${jobId}`,
+        `Issue category: ${category}`,
+        `Error rate: ${errorRateText}`,
+        `Threshold: ${thresholdText}`,
+        `Estimated recurring token waste: ${wasteText}`,
+        `${costSection}`,
+        `${scheduleSection}`,
+        `${modelSection}`,
+        ``,
+        `Recent error summary:`,
+        `${errorSummary}`,
+        ``,
+        `Read-only inspect commands:`,
+        `${inspectCommands}`,
+        ``,
+        `${safetyRules}`
+      ].join('\n');
+    }
+
     function renderFixes(fixes, historicalFixes, importSummary, readinessGaps) {
       // If BOTH job definitions AND run history are missing, suppress fix cards.
       // Jobs without runs → show fixes (job-level evidence is present).
@@ -950,6 +1042,28 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           `
           : '';
 
+        // Build cost exposure string for the agent prompt (secondary, approximate)
+        const costExposureStr = (job.totalTokens != null && job.rate && isFinite(job.rate.rate))
+          ? `~${formatCurrency((job.totalTokens / 1_000_000) * job.rate.rate)} total processed (not savings/cost-saving estimate)`
+          : null;
+
+        // Build the agent prompt text for the first card
+        const agentPromptText = isFirst
+          ? buildAgentPromptText(item, job, dailyWaste, perRunWaste, costExposureStr)
+          : '';
+
+        // Agent prompt CTA and block for first card only
+        const agentPromptSection = isFirst ? `
+          <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">What To Do First</div>
+          <div class="agent-prompt-cta" style="margin-bottom:14px">
+            <div style="font-size:0.92rem;color:#d9f3ff;margin-bottom:8px">Copy the agent diagnosis prompt below and paste it into your AI agent to get contextual fix guidance for this specific job.</div>
+          </div>
+          <div class="agent-prompt-section" style="margin-bottom:14px">
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Agent Prompt</div>
+            ${cmdBlock('Agent Diagnosis Prompt', agentPromptText)}
+          </div>
+        ` : '';
+
         return `
           <article class="panel ${cardClass}">
             ${firstActionHeader}
@@ -966,7 +1080,8 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
             ${wasteSectionHtml}
             <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Evidence</div>
             <div class="fix-evidence" style="margin-bottom:12px">${escapeHtml(evidenceText)}</div>
-            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Safe Inspect Command</div>
+            ${agentPromptSection}
+            <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">${isFirst ? 'Verify' : 'Safe Inspect Command'}</div>
             <div class="fix-action" style="margin-bottom:12px">${actionHtml}</div>
             ${item.category === 'ERROR_WASTE' ? `
               <div style="margin-bottom:4px;font-size:0.78rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:#a8b1d1">Manual Diagnosis Guidance</div>
