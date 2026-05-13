@@ -86,4 +86,47 @@ describe('I21 real smoke actionability rendering contract', () => {
     expect(html).toMatch(/Approx\. Cost by Job \(Secondary\)/);
     expect(html).not.toMatch(/<div class="pie-title">Cost by Job<\/div>/);
   });
+
+  // --- reboot/v0-action-first contract tests ---
+
+  it('action section (fixGrid) appears before all report sections in index.html', () => {
+    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const fixGridPos = html.indexOf('id="fixGrid"');
+    const importSummaryPos = html.indexOf('id="importSummary"');
+    const summaryGridPos = html.indexOf('id="summaryGrid"');
+    const wasteSectionBodyPos = html.indexOf('id="wasteSectionBody"');
+    const jobTableBodyPos = html.indexOf('id="jobTableBody"');
+    expect(fixGridPos).toBeGreaterThan(0);
+    expect(importSummaryPos).toBeGreaterThan(fixGridPos);
+    expect(summaryGridPos).toBeGreaterThan(fixGridPos);
+    expect(wasteSectionBodyPos).toBeGreaterThan(fixGridPos);
+    expect(jobTableBodyPos).toBeGreaterThan(fixGridPos);
+  });
+
+  it('fullReportDetails is a <details> block and is not open by default', () => {
+    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    expect(html).toMatch(/<details[^>]*id="fullReportDetails"[^>]*>/);
+    // Must NOT have open attribute
+    expect(html).not.toMatch(/<details[^>]*id="fullReportDetails"[^>]*open/);
+  });
+
+  it('other active findings are rendered as <details class="other-findings">', () => {
+    const src = readFileSync(resolve(__dirname, '../src/main.ts'), 'utf8');
+    // details element created via createElement('details')
+    expect(src).toMatch(/createElement\('details'\)/);
+    // className property sets the class
+    expect(src).toMatch(/className = 'other-findings'/);
+    // innerHTML contains a summary with the expected class
+    expect(src).toMatch(/<summary class="other-findings-summary">/);
+  });
+
+  it('summary labels do not include hard-coded ▼ arrows — CSS ::before controls state', () => {
+    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    expect(html).not.toMatch(/▼ View full report/);
+    expect(html).not.toMatch(/full-report-summary-label">▼/);
+
+    const src = readFileSync(resolve(__dirname, '../src/main.ts'), 'utf8');
+    // Other-findings summary must not start with ▼
+    expect(src).not.toMatch(/summary class="other-findings-summary">\s*▼/);
+  });
 });

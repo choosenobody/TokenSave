@@ -463,8 +463,8 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
         renderSummary(report.summary, report.meta);
         renderTopWaste(report.topWaste, report.historicalJobs, report.summary.totalCost);
         renderJobTable(report.jobs);
-        // Expand the full report shell
-        fullReportDetails.open = false; // collapsed by default
+        // Keep the full report shell collapsed by default
+        fullReportDetails.open = false;
       }
     }
 
@@ -980,7 +980,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           othersDetails.className = 'other-findings';
           othersDetails.innerHTML = `
             <summary class="other-findings-summary">
-              ▼ ${otherItems.length} more active finding${otherItems.length > 1 ? 's' : ''} — expand after fixing the first job
+              ${otherItems.length} more active finding${otherItems.length > 1 ? 's' : ''} — expand after fixing the first job
             </summary>
             <div class="fix-grid" style="margin-top:12px">
               ${otherItems.map((item, i) => buildCardHtml(item, i + 1)).join('')}
