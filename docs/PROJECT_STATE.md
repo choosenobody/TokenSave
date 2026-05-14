@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-13T06:36:47Z
-**Source**: GitHub `origin/main` at commit `fdf7a33` (PR #137 fix(reboot): show estimated token waste on first action card; merge commit `fdf7a33`)
+**Last updated**: 2026-05-14T08:47:00Z
+**Source**: GitHub `origin/main` at commit `0371b79` (PR #139 feat(I22): agent prompt primary action — v3: remove cron run from first-card, source-level UI contract tests; merge commit `0371b79`)
 
 ---
 
@@ -15,11 +15,11 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `fdf7a33` (PR #137 fix(reboot): show estimated token waste on first action card; merge commit `fdf7a33`) |
+| Main branch SHA | `0371b79` (PR #139 feat(I22): agent prompt primary action — v3: remove cron run from first-card, source-level UI contract tests; merge commit `0371b79`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
-| index.html | HTML/CSS shell with module script reference to src/main.ts; I10-B1 adds 3-path OpenClaw diagnostic file guidance panel (Full ZIP export / jobs.json only / JSONL run history only); I15-A replaces openclaw export BEST option with ~/.openclaw/cron/jobs.json + ~/.openclaw/cron/runs/*.jsonl; reboot/v0-action-first (PR #135): post-import first visible section is "What To Do First" action grid; full report collapsed behind `<details id="fullReportDetails">`; other active findings collapsed behind `<details class="other-findings">`; cost chart / summary / table now inside collapsed shell; exactly one "Start here: inspect this job first" primary card renders first; summary labels use CSS `::before` for arrow state (no hard-coded ▼); I20/I21 hero copy and structure preserved inside shell |
+| index.html | HTML/CSS shell with module script reference to src/main.ts; I10-B1 adds 3-path OpenClaw diagnostic file guidance panel (Full ZIP export / jobs.json only / JSONL run history only); I15-A replaces openclaw export BEST option with ~/.openclaw/cron/jobs.json + ~/.openclaw/cron/runs/*.jsonl; reboot/v0-action-first (PR #135): post-import first visible section is "What To Do First" action grid; full report collapsed behind `<details id="fullReportDetails">`; other active findings collapsed behind `<details class="other-findings">`; cost chart / summary / table now inside collapsed shell; summary labels use CSS `::before` for arrow state (no hard-coded ▼); I20/I21 hero copy and structure preserved inside shell; I22: first action card uses Problem Summary / What To Do First / Agent Prompt as default visible flow; old "Start here: inspect this job first" language removed; Evidence / read-only inspect commands / verification guidance collapsed under `<details class="advanced-details">` |
 | src/types.ts | ~335 lines, domain types (JobStat, RunRecord, Report, CostRate, SummaryStats, FinalizedJob, WasteEvidence, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult, etc.) + PricingSource union type + hasConservativeEstimates; SummaryStats includes knownLocalCost and conservativeEstimateCost; FinalizedJob includes pricingSource and evidence |
 | src/rules.ts | ~761 lines, pure D-rule functions (diagnoseD1FailureLoopDetection, diagnoseD2BurstSpend, diagnoseD3PremiumModelOnSimpleJob, diagnoseD4AgentTurnCronBurn, diagnoseD5UnknownModelPricing, diagnoseD6ZeroTokenAbnormalRun, diagnoseD7ExactDuplicateActiveJob); DiagnoseRuleResult with nested evidence bundle; no side effects, no network |
 | src/domain.ts | ~530 lines, 21 exported helpers (8 predicates + classifyWaste + buildFixSuggestion + normalizeJobs + createJobStat + ensureSyntheticStat + resolveJob + applyRunRecord + parseScheduleMinutes + formatFrequency + compareJobs + buildWasteEvidence + estimateOccurrencesPerDay + estimateJobWasteTokens + estimateWastePerRun + estimateDailyWasteTokens + isEnabled + isActiveJob) + private computeWasteSignals helper shared by classifyWaste/buildWasteEvidence; I15-B: added isEnabled() and isActiveJob() for lifecycleStatus classification; I18-B: parseScheduleMinutes adds schedule.expr cron string recursion and schedule.everyMs support; normalizeJobs adds job.payload.model fallback; imports stringify/normalizeKey/slugify/cleanFileStem/formatShortDuration from utils |
@@ -42,7 +42,8 @@
 | tests/i17a-top-waste-priority-basis.test.ts | 17 tests, covers Priority basis line for active top waste cards: schedule-available shows "~N tokens/day" basis; schedule-unavailable shows "~N tokens/run" basis; fallback shows "tokens × error rate" basis; historical/disabled cards suppress Priority basis line; null/undefined schedule handling; estimatedDailyWasteTokens=0 edge case |
 | tests/diagnose-evidence-contract.test.ts | 156 lines, 8 tests — D1-D7 DiagnoseRuleResult evidence contract regression coverage (I7C); asserts result/severity/evidence structure, non-empty message, non-string evidence, structured evidence keys (ruleId/explanation/sourceFields/observedValue/threshold) |
 | tests/i18b-openclaw-zip-compat.test.ts | 239 lines, 15 tests — Windows path normalization (run\jobs\*.jsonl), payload.model detection, schedule.everyMs numeric minutes conversion, schedule.expr cron string recursion; all 15 tests pass; total suite 484 tests / 13 files |
-| tests/i21-real-smoke-actionability.test.ts | ~89 lines, 11 tests (was 7) — I21 real smoke actionability rendering contract: ERROR_WASTE read-only inspect commands (cron show + cron runs --id --limit 5), non-ERROR_WASTE inspect-only first commands (buildInspectSteps), "Start here: inspect this job first" header + `.first-action-card` CSS, historical review section re-export guidance (no buildFixSteps, no edit/disable/enable), OK healthy-state restraint message, stale warning scoped to hasSyntheticJobs, Cost by Job "(Secondary)" demotion; reboot/v0-action-first (PR #135): 4 new regression tests — fixGrid DOM ordering (before importSummary/summaryGrid/wasteSectionBody/jobTableBody), fullReportDetails is `<details>` not open by default, other-findings rendered as `<details class="other-findings">`, summary labels no hard-coded ▼; total suite 506 tests / 14 files |
+| tests/i21-real-smoke-actionability.test.ts | ~89 lines, 11 tests (was 7) — I21 real smoke actionability rendering contract: ERROR_WASTE read-only inspect commands (cron show + cron runs --id --limit 5), non-ERROR_WASTE inspect-only first commands (buildInspectSteps), `.first-action-card` CSS class, historical review section re-export guidance (no buildFixSteps, no edit/disable/enable), OK healthy-state restraint message, stale warning scoped to hasSyntheticJobs, Cost by Job "(Secondary)" demotion; reboot/v0-action-first (PR #135): 4 regression tests — fixGrid DOM ordering, fullReportDetails `<details>` not open by default, other-findings rendered as `<details class="other-findings">`, summary labels no hard-coded ▼; total suite 506 tests / 14 files (I21 tests only) |
+| tests/i22-agent-prompt-actionable.test.ts | ~400 lines, 48 tests — I22 agent diagnosis prompt primary action source-level UI contract tests: verifies Problem Summary / What To Do First / Agent Prompt visible flow (first action card default state); verifies old "Start here: inspect this job first" language absent from buildCardHtml; verifies first-card verification guidance collapsed under `<details class="advanced-details">`; verifies no `openclaw cron run` in first-card verification; verifies agent prompt classification output, prompt safety requirements, and generated guidance structure; total suite 554 tests / 15 files |
 | docs/AGENT_RULES.md | Development workflow rules + Merge Authorization Protocol + Stop Point Protocol + Negative Instruction Priority + Low-Risk Codex Review Lane (I12-A): narrow tests-only/docs-only PRs may skip guardian_cat review when all 12 conditions met and Codex review returns PASS |
 | docs/INCIDENTS.md | Incident log — PR #73 unauthorized merge recorded; both incidents CLOSED |
 | docs/PROJECT_STATE.md | This file |
@@ -59,6 +60,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #139 | feat(I22): make agent diagnosis prompt the primary action — v3: remove cron run from first-card, source-level UI contract tests | 2026-05-14 | `0371b79` |
+| #138 | docs(PROJECT_STATE): refresh after PR #137 — first-card Estimated Recurring Waste, main SHA fdf7a33, 506 tests | 2026-05-13 | `4c9c429` |
 | #137 | fix(reboot): show estimated token waste on first action card | 2026-05-13 | `fdf7a33` |
 | #136 | docs(PROJECT_STATE): refresh after PR #135 — action-first reboot, main SHA 9ddccee, 506 tests | 2026-05-13 | `7471e92` |
 | #135 | reboot(v0): make TokenSave action-first MVP | 2026-05-13 | `9ddccee` |
@@ -153,6 +156,7 @@
 | I7B (Slice B — PRIVACY + SECURITY) | Issue #7 (I8) docs — Slice B | #112 | **SLICE COMPLETE** — Issue #7 remains OPEN; RULES.md pending |
 | reboot/v0-action-first (Action-First MVP Shell) | No issue — UX reboot | #135 | **CLOSED** |
 | post-smoke first-card waste display | Founder smoke follow-up — first Start Here card now shows estimated recurring token waste (tokens/day or tokens/run per tier logic) | #137 | **CLOSED** |
+| I22 (Agent Prompt Primary Action) | First action card now shows Agent Diagnosis Prompt as primary action; old firstActionHeader removed; first-card verification guidance no longer includes cron run; advanced details remain collapsed; 48 I22 source-level UI contract tests added; total suite 554 tests / 15 files | #139 | **CLOSED** |
 | I1 | Remove tracked node_modules and add .gitignore | Direct commit | CLOSED |
 | I1.1 | Harden .gitignore + add docs/AGENT_RULES.md + docs/INCIDENTS.md | #13 | CLOSED |
 | I1.2 | Add project state snapshot document | #15 | CLOSED |
@@ -223,11 +227,13 @@
 
 ## Next Action
 
-**reboot/v0-action-first (PR #135) — CLOSED.** TokenSave is now action-first: post-import first visible section is "What To Do First" action grid with exactly one "Start here: inspect this job first" primary card; full report (import summary + summary grid + waste findings + job table) collapsed behind `<details id="fullReportDetails">`; other active findings collapsed behind `<details class="other-findings">`; cost chart / summary / table now inside collapsed shell and not before the primary action; summary labels use CSS `::before` for arrow state (no hard-coded ▼); buildInspectSteps() read-only commands for first action; 506 tests / 14 files.
+**I22 (Agent Prompt Primary Action, PR #139) — CLOSED.** First action card now shows Agent Diagnosis Prompt as primary action; old "Start here: inspect this job first" language removed. First card verification section is now `<details class="advanced-details">` (not open by default). Error waste first card shows `cron show [ID]` + `cron runs --id [ID] --limit 5` as inspect-only (no cron run). 48 new source-level UI contract tests. Total suite 554 tests / 15 files.
+
+**reboot/v0-action-first (PR #135) — CLOSED.** PR #135 introduced the earlier action-first shell with "What To Do First" action grid and full report collapsed behind `<details id="fullReportDetails">`; other findings collapsed behind `<details class="other-findings">`; summary labels use CSS `::before` for arrow state; buildInspectSteps() read-only commands for first action. I22 supersedes PR #135's first-card language by replacing the old "Start here: inspect this job first" primary card with the Agent Diagnosis Prompt flow. 554 tests / 15 files.
 
 **post-smoke first-card waste display (PR #137) — CLOSED.** First Start Here card now shows Estimated Recurring Waste section using existing tier logic (estimateDailyWasteTokens/estimateWastePerRun/buildPriorityBasisText): Tier 1 (schedule known) shows ~N tokens/day; Tier 2 (schedule unavailable) shows ~N tokens/run + schedule unavailable note; Tier 3 fallback shows Priority basis: tokens × error rate. Evidence block preserved unconditionally for all cards. First action remains read-only inspect commands. No parser/domain/rules/pricing/fixes changes.
 
-**Recommended Next Step**: Re-run founder smoke on the action-first MVP shell using redacted OpenClaw cron import. Verify the first card now answers: "what should I inspect first, why, and how much recurring token waste is at stake?" — one job, one clear inspect command, no dashboard noise above it. Do not start new implementation slices until real smoke confirms the action-first UX works.
+**Recommended Next Step**: Run real-data audit with the updated I22 first-card Agent Diagnosis Prompt flow. Verify the first action card answers: "what should I inspect first, why is it urgent, and how much recurring token waste is at stake?" — Problem Summary / What To Do First / Agent Prompt visible by default, Evidence / inspect commands / verification collapsed under advanced details.
 
 **I10-B1 (Export Guidance + Import Error UX) — CLOSED.** Added 3-path OpenClaw diagnostic file guidance in `index.html` and clearer import parse error messages in `src/main.ts`. This was guidance/UX only: no backend, no telemetry, no network calls in app code, and no runtime file-write path intended.
 
@@ -273,8 +279,8 @@
 
 ## Current Local Validation Reality
 
-- `npm run build` passes (51.74 kB JS / 29.28 kB HTML, PR #137).
-- `npm test` passes 506 tests (14 test files).
+- `npm run build` passes (58.88 kB JS / 30.00 kB HTML, PR #139).
+- `npm test` passes 554 tests (15 test files).
 - `tests/no-network.test.ts` handles Vite modulepreload polyfill false positive from generated `dist/assets` output.
 - Source/runtime scan catches forbidden app network APIs: fetch, XMLHttpRequest, sendBeacon, WebSocket, EventSource.
 
