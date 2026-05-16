@@ -1,35 +1,59 @@
 #!/usr/bin/env node
-// @ts-check
 /**
- * TokenSave OpenClaw Audit Probe
- * ==================================
+ * TokenSave OpenClaw Audit Probe — I23-A
+ * =======================================
  * Standalone diagnostic probe: reads local openclaw cron data,
- * runs D1–D7 diagnostic rules, ranks findings by estimated waste.
+ * runs D1-D7 diagnostic rules, ranks findings by estimated waste.
  *
  * NO external dependencies beyond Node.js built-ins.
  * NO build step required.
- * Output: structured, copyable into Hermes/guardian_cat/coding_cat.
  *
- * Usage: node scripts/tokensave-audit.mjs
+ * Usage:
+ *   node scripts/tokensave-audit.mjs
+ *   node scripts/tokensave-audit.mjs --openclaw-home /path/to/.openclaw --limit 5
+ *   node scripts/tokensave-audit.mjs --jobs /path/to/jobs.json --runs-dir /path/to/runs
  */
 
 import { readFileSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INLINED DOMAIN HELPERS (minimal — from src/domain.ts / src/utils.ts)
+// CLI ARGUMENT PARSING
+// ─────────────────────────────────────────────────────────────────────────────
+
+function parseArgs(argv) {
+  const opts = {
+    openclawHome: process.env.HOME || '/root',
+    jobs: null,       // null means derive from openclawHome
+    runsDir: null,    // null means derive from openclawHome
+    limit: null,      // null means no cap
+  };
+  const args = argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--openclaw-home' && i + 1 < args.length) {
+      opts.openclawHome = args[++i];
+    } else if (arg === '--jobs' && i + 1 < args.length) {
+      opts.jobs = args[++i];
+    } else if (arg === '--runs-dir' && i + 1 < args.length) {
+      opts.runsDir = args[++i];
+    } else if (arg === '--limit' && i + 1 < args.length) {
+      const n = Number(args[++i]);
+      opts.limit = Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    }
+  }
+  // Default derived paths
+  if (!opts.jobs)   opts.jobs   = join(opts.openclawHome, '.openclaw', 'cron', 'jobs.json');
+  if (!opts.runsDir) opts.runsDir = join(opts.openclawHome, '.openclaw', 'cron', 'runs');
+  return opts;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INLINED DOMAIN HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function stringify(v) {
   return v == null ? '' : String(v);
-}
-
-function normalizeKey(v) {
-  return stringify(v).trim().toLowerCase();
-}
-
-function slugify(v) {
-  return stringify(v).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function cleanFileStem(fileName) {
@@ -90,19 +114,9 @@ function isActiveJob(job) {
 
 function parseScheduleMinutes(schedule) {
   if (schedule == null) return null;
-
-  if (typeof schedule === 'object') {
-    const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? schedule.everyMs ?? null;
-    if (everyVal != null && everyVal !== schedule) return parseScheduleMinutes(everyVal);
-    const nested = schedule.interval_minutes ?? schedule.intervalMinutes ?? schedule.minutes ?? schedule.cron ?? schedule.value ?? null;
-    if (nested != null && nested !== schedule) return parseScheduleMinutes(nested);
-    if (typeof schedule.expr === 'string') return parseScheduleMinutes(schedule.expr);
-  }
-
   if (typeof schedule === 'number' && Number.isFinite(schedule)) {
     return schedule >= 60_000 ? schedule / 60_000 : schedule;
   }
-
   if (typeof schedule === 'object') {
     const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? schedule.everyMs ?? null;
     if (everyVal != null && everyVal !== schedule) return parseScheduleMinutes(everyVal);
@@ -110,12 +124,10 @@ function parseScheduleMinutes(schedule) {
     if (nested != null && nested !== schedule) return parseScheduleMinutes(nested);
     if (typeof schedule.expr === 'string') return parseScheduleMinutes(schedule.expr);
   }
-
   const text = stringify(schedule).trim().toLowerCase();
   if (!text) return null;
   if (/hourly/.test(text)) return 60;
   if (/daily/.test(text)) return 1440;
-
   let m = text.match(/every\s+(\d+)\s*(minute|min|minutes|mins|m)\b/);
   if (m) return Number(m[1]);
   m = text.match(/every\s+(\d+)\s*(hour|hours|hr|hrs|h)\b/);
@@ -126,7 +138,6 @@ function parseScheduleMinutes(schedule) {
   if (m) return Number(m[1]) * 60;
   m = text.match(/^(\d+)\s*(day|days|d)\b/);
   if (m) return Number(m[1]) * 1440;
-
   const cron = text.trim().split(/\s+/);
   if (cron.length >= 5) {
     if (cron[0].startsWith('*/')) return Number(cron[0].slice(2));
@@ -137,27 +148,18 @@ function parseScheduleMinutes(schedule) {
   return null;
 }
 
-function formatShortDuration(minutes) {
-  if (minutes < 60) return `${Math.round(minutes)}m`;
-  if (minutes % 1440 === 0) return `${Math.round(minutes / 1440)}d`;
-  if (minutes % 60 === 0) return `${Math.round(minutes / 60)}h`;
-  const h = Math.floor(minutes / 60);
-  const r = Math.round(minutes % 60);
-  return `${h}h ${r}m`;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// INLINED PRICING HELPERS (from src/pricing.ts / src/constants.ts)
+// INLINED PRICING HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COST_RATES = [
-  { label: 'MiniMax M2.7', match: /\bminimax.*m2\.?7\b|\bm2\.?7\b/i, rate: 0.14 },
-  { label: 'MiniMax M2.5', match: /\bminimax.*m2\.?5\b|\bm2\.?5\b/i, rate: 0.12 },
-  { label: 'GPT-4o',       match: /\bgpt-?4o\b/i,                     rate: 2.5  },
-  { label: 'Claude Sonnet',match: /\bsonnet\b/i,                       rate: 3    },
-  { label: 'Claude Opus',  match: /\bopus\b/i,                         rate: 15   },
-  { label: 'GPT-5-codex',  match: /\bgpt-?5[\d.]*.*codex\b|\bcodex\b/i, rate: 15 },
-  { label: 'DeepSeek Chat',match: /\bdeepseek\b/i,                     rate: 0.28 },
+  { label: 'MiniMax M2.7',   match: /\bminimax.*m2\.?7\b|\bm2\.?7\b/i,                rate: 0.14 },
+  { label: 'MiniMax M2.5',   match: /\bminimax.*m2\.?5\b|\bm2\.?5\b/i,                rate: 0.12 },
+  { label: 'GPT-4o',         match: /\bgpt-?4o\b/i,                                      rate: 2.5  },
+  { label: 'Claude Sonnet',  match: /\bsonnet\b/i,                                        rate: 3    },
+  { label: 'Claude Opus',    match: /\bopus\b/i,                                          rate: 15   },
+  { label: 'GPT-5-codex',    match: /\bgpt-?5[\d.]*.*codex\b|\bcodex\b/i,                rate: 15   },
+  { label: 'DeepSeek Chat', match: /\bdeepseek\b/i,                                      rate: 0.28 },
 ];
 
 function detectCostRate(model) {
@@ -168,10 +170,50 @@ function detectCostRate(model) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INLINED DIAGNOSTIC RULES (D1–D7 from src/rules.ts, simplified for probe)
+// WASTE ESTIMATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** D1: Aggregate failure loop — fires at ≥80% error rate with ≥3 runs */
+/**
+ * Estimated waste tokens per run for a job.
+ * Returns null when totalRuns is 0.
+ * Uses actual stat fields (not a badge).
+ */
+function wastePerRun(stat) {
+  if (stat.totalRuns === 0) return null;
+  // Error waste: tokens above 5% error rate
+  const errWaste = Math.round(stat.totalTokens * Math.max(0, stat.errorRate - 0.05));
+  // Model waste (D3): premium model on simple check
+  let modelWaste = 0;
+  if (stat.pricingSource !== 'conservative-estimate' && stat.scheduleMinutes != null) {
+    // Detect if this looks like a simple check job (heuristic on job name/title/type)
+    const raw = stat.raw || {};
+    const promptText = [raw.task, raw.type, raw.description, raw.prompt, stat.name].filter(Boolean).join(' ');
+    if (isSimpleCheck(raw, promptText)) {
+      const ref = detectCostRate('MiniMax M2.7');
+      if (ref.rate > 0 && stat.rate && stat.rate.rate > 0) {
+        modelWaste = Math.round(stat.totalTokens * Math.max(0, (stat.rate.rate - ref.rate) / stat.rate.rate));
+      }
+    }
+  }
+  return errWaste + modelWaste;
+}
+
+/**
+ * Estimated waste tokens per day for a job with a known schedule.
+ * Returns null when schedule is unknown.
+ */
+function wastePerDay(stat) {
+  const perRun = wastePerRun(stat);
+  if (perRun == null) return null;
+  if (stat.scheduleMinutes == null || stat.scheduleMinutes <= 0) return null;
+  const perDay = 1440 / stat.scheduleMinutes;
+  return Math.round(perRun * perDay);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DIAGNOSTIC RULES D1-D7
+// ─────────────────────────────────────────────────────────────────────────────
+
 function diagnoseD1(job) {
   const totalRuns  = typeof job.totalRuns  === 'number' && Number.isFinite(job.totalRuns)  ? job.totalRuns  : NaN;
   const errorRuns = typeof job.errorRuns === 'number' && Number.isFinite(job.errorRuns) ? job.errorRuns : NaN;
@@ -181,31 +223,27 @@ function diagnoseD1(job) {
   if (errorRate < 0.8) return null;
   return {
     ruleId: 'D1', severity: 'warning',
-    message: `Failure loop: ${errorRuns}/${totalRuns} runs (${(errorRate*100).toFixed(1)}% errors). Threshold: ≥80% error rate with ≥3 runs.`,
-    explanation: `Aggregate failure ratio is ${(errorRate*100).toFixed(1)}% (${errorRuns} errors / ${totalRuns} runs).`,
-    estimatedWaste: Math.round(job.totalTokens * Math.max(0, errorRate - 0.05)),
+    message: `Failure loop: ${errorRuns}/${totalRuns} runs (${(errorRate*100).toFixed(1)}% errors).`,
+    explanation: `Aggregate failure ratio is ${(errorRate*100).toFixed(1)}% (${errorRuns} errors / ${totalRuns} runs). Threshold: >=80% error rate with >=3 runs.`,
     observedValue: { totalRuns, errorRuns, errorRate },
+    // Raw waste basis only — ranking fn derives daily/per-run/fallback
+    _wasteBasis: Math.round(job.totalTokens * Math.max(0, errorRate - 0.05)),
   };
 }
 
-/** D2: Burst spend — rolling 60-min window with ≥3 jobs and ≥$50 */
 function diagnoseD2(records) {
   if (!Array.isArray(records) || records.length === 0) return null;
-
   const parsed = [];
   for (const rec of records) {
     const tsRaw = rec.timestamp ?? rec.createdAt ?? rec.created_at ?? rec.startedAt ?? rec.started_at ?? rec.time;
     if (tsRaw == null) continue;
     const ts = Number(new Date(tsRaw).getTime());
     if (!Number.isFinite(ts) || ts <= 0) continue;
-
     const tokens = Number(rec.tokens ?? rec.total_tokens ?? rec.token_count ??
       rec.usage?.total_tokens ?? rec.usage?.tokens ?? rec.metrics?.tokens);
     if (!Number.isFinite(tokens) || tokens <= 0) continue;
-
     const modelRaw = stringify(rec.model ?? rec.model_name ?? rec.modelName ?? '');
     if (!modelRaw) continue;
-
     const jobObj = rec.job;
     const jobKey = (
       stringify(rec.jobId) || stringify(rec.job_id) ||
@@ -214,12 +252,10 @@ function diagnoseD2(records) {
       stringify(rec.name) || stringify(rec.title) || stringify(rec.job)
     ).trim();
     if (!jobKey || jobKey === '[object Object]') continue;
-
     parsed.push({ timestamp: ts, model: modelRaw, totalTokens: tokens, jobKey });
   }
   if (parsed.length === 0) return null;
   parsed.sort((a, b) => a.timestamp - b.timestamp);
-
   const WINDOW_MS = 60 * 60 * 1000;
   let best = null;
   for (let i = 0; i < parsed.length; i++) {
@@ -239,12 +275,11 @@ function diagnoseD2(records) {
   return {
     ruleId: 'D2', severity: 'info',
     message: `Burst spend: ${best.distinctJobs.length} jobs spent $${best.totalCost.toFixed(2)} in 60 min.`,
-    explanation: `${best.distinctJobs.length} distinct jobs spent $${best.totalCost.toFixed(2)} in a 60-minute window.`,
+    explanation: `${best.distinctJobs.length} distinct jobs spent $${best.totalCost.toFixed(2)} in a 60-minute window. Review to confirm this was intended.`,
     observedValue: { windowStart: new Date(best.startTs).toISOString(), windowEnd: new Date(best.endTs).toISOString(), totalCost: best.totalCost, distinctJobs: best.distinctJobs },
   };
 }
 
-/** D3: Premium model on simple job — rate ≥5x MiniMax M2.7 + simple check detected */
 function diagnoseD3(job) {
   const model = stringify(job.model ?? job.model_name ?? job.modelName ?? '');
   if (!model) return null;
@@ -260,12 +295,11 @@ function diagnoseD3(job) {
     ruleId: 'D3', severity: 'warning',
     message: `Premium model "${model}" (${costInfo.rate}/1M) used for simple check — ${multiplier.toFixed(1)}x reference rate.`,
     explanation: `Rate multiplier ${multiplier.toFixed(1)}x exceeds 5x threshold. Using premium models for simple checks is wasteful.`,
-    estimatedWaste: Math.round(job.totalTokens * Math.max(0, (costInfo.rate - ref.rate) / costInfo.rate)),
     observedValue: { model, rate: costInfo.rate, referenceRate: ref.rate, multiplier },
+    _wasteBasis: Math.round(job.totalTokens * Math.max(0, (costInfo.rate - ref.rate) / costInfo.rate)),
   };
 }
 
-/** D4: Agent-turn on frequent cron — schedule <60 min with agentTurn enabled */
 function diagnoseD4(job) {
   const agentTurn = readBoolean(job.agentTurn ?? job.agent_turn ?? job.agent_turn_enabled);
   if (!agentTurn) return null;
@@ -276,12 +310,12 @@ function diagnoseD4(job) {
   return {
     ruleId: 'D4', severity: 'warning',
     message: `Agent-turn on ${mins}-minute schedule burns tokens on cron-like work.`,
-    explanation: `Agent-turn mode is enabled with schedule ${mins} min (<60 min). Frequent agent-turn jobs waste tokens.`,
+    explanation: `Agent-turn mode is enabled with schedule ${mins} min (<60 min). Frequent agent-turn jobs waste tokens on work that does not need an LLM agent.`,
     observedValue: { agentTurn: true, schedule, scheduleMinutes: mins },
+    _wasteBasis: 0, // D4 is a qualitative signal; we don't compute precise waste here
   };
 }
 
-/** D5: Unknown model pricing — model not in COST_RATES */
 function diagnoseD5(job) {
   const model = stringify(job.model ?? job.model_name ?? job.modelName ?? '');
   if (!model) return null;
@@ -290,13 +324,11 @@ function diagnoseD5(job) {
   return {
     ruleId: 'D5', severity: 'warning',
     message: `Model "${model}" is not in pricing database — conservative estimate ($${costInfo.rate}/1M) used.`,
-    explanation: `Model not found; conservative estimate may be significantly wrong.`,
-    estimatedWaste: null,
+    explanation: `Model not found in COST_RATES. Conservative estimate ($15/M) may be significantly wrong — verify actual rate with provider.`,
     observedValue: { model, pricingSource: costInfo.pricingSource, estimatedRate: costInfo.rate },
   };
 }
 
-/** D6: Zero-token abnormal run — runs>0 but tokens=0 */
 function diagnoseD6(job) {
   const totalRuns   = typeof job.totalRuns   === 'number' && Number.isFinite(job.totalRuns)   ? job.totalRuns   : NaN;
   const totalTokens = typeof job.totalTokens === 'number' && Number.isFinite(job.totalTokens) ? job.totalTokens : NaN;
@@ -304,12 +336,11 @@ function diagnoseD6(job) {
   return {
     ruleId: 'D6', severity: 'warning',
     message: `Job ran ${totalRuns} time(s) but consumed zero tokens — token counting may have failed.`,
-    explanation: `totalRuns=${totalRuns}, totalTokens=0. This is anomalous.`,
+    explanation: `totalRuns=${totalRuns}, totalTokens=0. This is anomalous — either token counting failed, the job was cached with no charge, or run records were not captured properly.`,
     observedValue: { totalRuns, totalTokens },
   };
 }
 
-/** D7: Exact duplicate active jobs — same model+schedule+task */
 function diagnoseD7(jobs) {
   const active = jobs.filter(j => !((j.raw || j).active === false || (j.raw || j).enabled === false || (j.raw || j).disabled === true));
   const groups = new Map();
@@ -328,7 +359,7 @@ function diagnoseD7(jobs) {
     return {
       ruleId: 'D7', severity: 'warning',
       message: `${group.length} active jobs share model+schedule — duplicate configuration.`,
-      explanation: `${group.length} jobs: ${key}`,
+      explanation: `${group.length} jobs have identical model and schedule. Review for redundancy to avoid duplicate billing.`,
       observedValue: { duplicateCount: group.length, duplicateKey: key, affectedJobIds: group.map(j => j.id || j.name || j.title) },
     };
   }
@@ -354,26 +385,64 @@ function runDiagnostics(jobs, allRecords) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RANKING & WASTE ESTIMATION
+// RANKING — by actual waste signal (I23-A contract)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function rankFindings(findings) {
-  return findings.sort((a, b) => {
-    // D1 (failure loop) always top priority
-    if (a.ruleId === 'D1' && b.ruleId !== 'D1') return -1;
-    if (b.ruleId === 'D1' && a.ruleId !== 'D1') return 1;
-    // D4 (agent-turn cron) next
-    if (a.ruleId === 'D4' && b.ruleId !== 'D4') return -1;
-    if (b.ruleId === 'D4' && a.ruleId !== 'D4') return 1;
-    // Then by estimated waste (desc), nulls last
-    const wa = a.estimatedWaste ?? -1;
-    const wb = b.estimatedWaste ?? -1;
-    if (wa !== wb) return wb - wa;
-    // D5 before D6 before D3 before D7 before D2
+/**
+ * Compute a comparable waste score for ranking.
+ * Priority:
+ *   1. estimated daily waste tokens (when schedule is available)
+ *   2. estimated waste tokens per run (when totalRuns > 0)
+ *   3. fallback: totalTokens * errorRate (strict; only used when nothing else available)
+ * Returns null when no numeric signal is available at all.
+ */
+function wasteScore(finding, stat) {
+  if (!stat) return null;
+  // D4: qualitative high-priority signal
+  if (finding.ruleId === 'D4') {
+    const perRun = wastePerRun(stat);
+    if (perRun != null && stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
+      return Math.round(perRun * (1440 / stat.scheduleMinutes));
+    }
+    return perRun ?? 0;
+  }
+  // D2, D7: informational, ranked lowest among numeric
+  if (finding.ruleId === 'D2' || finding.ruleId === 'D7') return -1;
+  // Try daily waste first
+  if (stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
+    const daily = wastePerDay(stat);
+    if (daily != null && daily > 0) return daily;
+  }
+  // Per-run fallback
+  const perRun = wastePerRun(stat);
+  if (perRun != null) return perRun;
+  // Last-resort fallback: totalTokens * errorRate
+  if (stat.errorRate > 0) {
+    return Math.round(stat.totalTokens * stat.errorRate);
+  }
+  // D5, D6: no numeric waste signal
+  return null;
+}
+
+function rankFindings(findings, statsMap) {
+  return findings.slice().sort((a, b) => {
+    const statA = statsMap.get(a.jobId);
+    const statB = statsMap.get(b.jobId);
+    const scoreA = wasteScore(a, statA);
+    const scoreB = wasteScore(b, statB);
+    // Both null: preserve relative order by ruleId priority
+    if (scoreA === null && scoreB === null) {
+      const order = { D5: 1, D6: 2, D3: 3, D7: 4, D2: 5 };
+      return (order[a.ruleId] ?? 99) - (order[b.ruleId] ?? 99);
+    }
+    // One null: numeric beats null
+    if (scoreA === null) return 1;
+    if (scoreB === null) return -1;
+    // Descending numeric
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    // Tie-break: ruleId order
     const order = { D5: 1, D6: 2, D3: 3, D7: 4, D2: 5 };
-    const oa = order[a.ruleId] ?? 99;
-    const ob = order[b.ruleId] ?? 99;
-    return oa - ob;
+    return (order[a.ruleId] ?? 99) - (order[b.ruleId] ?? 99);
   });
 }
 
@@ -381,13 +450,10 @@ function rankFindings(findings) {
 // DATA LOADING
 // ─────────────────────────────────────────────────────────────────────────────
 
-function loadOpenClawData() {
-  const jobsPath = join(process.env.HOME || '/root', '.openclaw/cron/jobs.json');
-  const runsDir  = join(process.env.HOME || '/root', '.openclaw/cron/runs');
-
+function loadOpenClawData(opts) {
   let jobs = [];
   try {
-    const raw = JSON.parse(readFileSync(jobsPath, 'utf8'));
+    const raw = JSON.parse(readFileSync(opts.jobs, 'utf8'));
     jobs = raw.jobs || [];
   } catch (e) {
     console.error('Cannot load jobs.json:', e.message);
@@ -395,32 +461,29 @@ function loadOpenClawData() {
 
   const allRecords = [];
   try {
-    for (const file of readdirSync(runsDir)) {
+    for (const file of readdirSync(opts.runsDir)) {
       if (!file.endsWith('.jsonl')) continue;
       try {
-        const content = readFileSync(join(runsDir, file), 'utf8');
+        const content = readFileSync(join(opts.runsDir, file), 'utf8');
         for (const line of content.split('\n')) {
           if (!line.trim()) continue;
-          try { allRecords.push(JSON.parse(line)); } catch (_e) {}
+          try { allRecords.push(JSON.parse(line)); } catch (_e) { /* skip bad lines */ }
         }
-      } catch (_e) {}
+      } catch (_e) { /* skip unreadable files */ }
     }
   } catch (e) {
     console.error('Cannot read runs dir:', e.message);
   }
-
   return { jobs, allRecords };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STAT AGGREGATION (per-job)
+// STAT AGGREGATION
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildJobStats(jobs, allRecords) {
-  // Map: jobId → stat
   const stats = new Map();
 
-  // Init stats for each job
   for (const job of jobs) {
     const id = stringify(job.id);
     stats.set(id, {
@@ -430,16 +493,18 @@ function buildJobStats(jobs, allRecords) {
       raw: job,
       totalTokens: 0, totalRuns: 0, errorRuns: 0,
       lifecycleStatus: isActiveJob({ raw: job }),
+      scheduleMinutes: parseScheduleMinutes(job.schedule),
+      rate: null,
+      pricingSource: null,
+      errorRate: 0,
+      badge: 'OK',
     });
   }
 
-  // Aggregate run records
   for (const rec of allRecords) {
     const recJobId = stringify(rec.jobId ?? rec.job_id ?? rec.job?.id ?? rec.job?.name ?? '');
-    // Try to match by job id or name
     let matched = stats.get(recJobId);
     if (!matched) {
-      // Try by job name in stats map
       for (const stat of stats.values()) {
         if (recJobId && (rec.job?.name === stat.name || rec.job_name === stat.name)) {
           matched = stat; break;
@@ -455,7 +520,6 @@ function buildJobStats(jobs, allRecords) {
       matched.totalTokens += tokens;
       if (isError) matched.errorRuns++;
     } else {
-      // Synthetic/unmapped job
       const syntheticId = recJobId || cleanFileStem(basename(rec._file || 'unknown'));
       if (!stats.has(syntheticId)) {
         stats.set(syntheticId, {
@@ -466,12 +530,39 @@ function buildJobStats(jobs, allRecords) {
           totalTokens: 0, totalRuns: 0, errorRuns: 0,
           lifecycleStatus: 'historical',
           synthetic: true,
+          scheduleMinutes: null,
+          rate: null, pricingSource: null, errorRate: 0, badge: 'OK',
         });
       }
       const s = stats.get(syntheticId);
       s.totalRuns++;
       s.totalTokens += tokens;
       if (isError) s.errorRuns++;
+    }
+  }
+
+  // Finalize per-job computed fields
+  for (const stat of stats.values()) {
+    stat.errorRate = stat.totalRuns > 0 ? stat.errorRuns / stat.totalRuns : 0;
+    if (stat.model) {
+      const ri = detectCostRate(stat.model);
+      stat.rate = ri;
+      stat.pricingSource = ri.pricingSource;
+    }
+    // Badge for waste classification
+    const agentTurn = readBoolean(stat.raw?.agentTurn ?? stat.raw?.agent_turn ?? stat.raw?.agent_turn_enabled);
+    const premiumModel = /opus|sonnet/i.test(stat.model || '');
+    const simpleCheck = stat.scheduleMinutes != null && isSimpleCheck(stat.raw || {}, stat.name || '');
+    if (agentTurn && (stat.scheduleMinutes == null || stat.scheduleMinutes < 30)) {
+      stat.badge = 'CRITICAL';
+    } else if (agentTurn) {
+      stat.badge = 'LLM_AGENT_CRON';
+    } else if (stat.errorRate > 0.1) {
+      stat.badge = 'ERROR_WASTE';
+    } else if (premiumModel && simpleCheck) {
+      stat.badge = 'PREMIUM_MODEL_WASTE';
+    } else {
+      stat.badge = 'OK';
     }
   }
 
@@ -489,12 +580,25 @@ function fmt(n) {
   return String(n);
 }
 
-function fmtCost(tokens, model) {
-  const ri = detectCostRate(model || 'unknown');
-  return `$${((tokens / 1_000_000) * ri.rate).toFixed(4)}`;
+function fmtWaste(findings, statsMap) {
+  return findings.map(f => {
+    const stat = statsMap.get(f.jobId);
+    if (!stat) return null;
+    if (stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
+      const daily = wastePerDay(stat);
+      if (daily != null) return { per: 'day', value: daily, label: `${fmt(daily)} tokens/day` };
+    }
+    const perRun = wastePerRun(stat);
+    if (perRun != null) return { per: 'run', value: perRun, label: `${fmt(perRun)} tokens/run` };
+    if (stat.errorRate > 0) {
+      const fallback = Math.round(stat.totalTokens * stat.errorRate);
+      return { per: 'fallback', value: fallback, label: `${fmt(fallback)} tokens (totalTokens × errorRate)` };
+    }
+    return null;
+  });
 }
 
-function formatFindings(findings, jobs) {
+function formatFindings(findings, statsMap) {
   const lines = [];
   lines.push('## Problem Summary\n');
   if (findings.length === 0) {
@@ -502,21 +606,29 @@ function formatFindings(findings, jobs) {
     return lines.join('\n');
   }
 
-  const ranked = rankFindings([...findings]);
-  for (let i = 0; i < ranked.length; i++) {
-    const f = ranked[i];
+  const wasteInfos = fmtWaste(findings, statsMap);
+
+  for (let i = 0; i < findings.length; i++) {
+    const f = findings[i];
     const rank = i + 1;
-    const wasteStr = f.estimatedWaste != null ? `${fmt(f.estimatedWaste)} tokens` : 'waste TBD';
-    const jobInfo = f.jobId ? `**Job:** ${f.jobId}` : '';
+    const wi = wasteInfos[i];
 
     lines.push(`**${rank}. [${f.ruleId}] ${f.message}**`);
     lines.push(`- Category: ${f.ruleId} (${f.severity})`);
     if (f.jobName) lines.push(`- Job: ${f.jobName}`);
     if (f.jobId) lines.push(`- Job ID: ${f.jobId}`);
     lines.push(`- Error rate: ${f.observedValue?.errorRate != null ? (f.observedValue.errorRate * 100).toFixed(1) + '%' : '—'}`);
-    lines.push(`- Est. recurring waste: ${wasteStr}`);
-    lines.push(`- Approx exposure: ${f.observedValue?.totalCost != null ? '$' + f.observedValue.totalCost.toFixed(2) : '—'}`);
-    if (f.observedValue?.scheduleMinutes) lines.push(`- Schedule/Model/Provider: ${f.observedValue.scheduleMinutes}min / ${f.observedValue?.model || '—'} / ${f.observedValue?.provider || '—'}`);
+    if (wi) {
+      lines.push(`- Est. recurring waste: ${wi.label}`);
+    } else {
+      lines.push(`- Est. recurring waste: —`);
+    }
+    if (f.observedValue?.totalCost != null) {
+      lines.push(`- Approx exposure: $${f.observedValue.totalCost.toFixed(2)}`);
+    }
+    if (f.observedValue?.scheduleMinutes) {
+      lines.push(`- Schedule/Model/Provider: ${f.observedValue.scheduleMinutes}min / ${f.observedValue?.model || '—'} / ${f.observedValue?.provider || '—'}`);
+    }
     lines.push(`- Why here: ${f.explanation}`);
     lines.push('');
   }
@@ -526,54 +638,49 @@ function formatFindings(findings, jobs) {
 function formatWhatToDoFirst(findings) {
   const lines = [];
   lines.push('## What To Do First\n');
-  const ranked = rankFindings([...findings]);
-  const top = ranked.slice(0, 5);
-
-  const actions = {
-    D1: 'Fix the failure loop — check failed run logs and resolve root cause.',
-    D4: 'Disable agent-turn mode OR slow schedule to ≥30 min.',
-    D3: 'Switch to MiniMax M2.7 or cheaper model for simple check jobs.',
-    D5: 'Verify model pricing — confirm actual rate with provider.',
-    D6: 'Check token counting — verify API response includes usage data.',
-    D7: 'Disable or consolidate duplicate jobs.',
-    D2: 'Review burst window — confirm it was intentional.',
-  };
-
-  for (let i = 0; i < top.length; i++) {
-    const f = top[i];
-    lines.push(`${i + 1}. **[${f.ruleId}]** ${actions[f.ruleId] || 'Review and remediate.'} (${f.jobName || f.ruleId})`);
-  }
+  lines.push('Copy the Agent Diagnosis Prompt below into **Hermes / guardian_cat / coding_cat**.');
   lines.push('');
+  lines.push('**Do not disable / edit / delete / enable / rerun anything until the agent confirms root cause and BG approves the manual change.**\n');
+  lines.push('The agent will inspect and propose a fix; BG decides whether and when to apply it.\n');
   return lines.join('\n');
 }
 
-function formatAgentPrompt(findings, jobs, stats) {
-  const ranked = rankFindings([...findings]);
-  const top3 = ranked.slice(0, 3);
-
+function formatAgentPrompt(findings, statsMap) {
   const lines = [];
   lines.push('## Agent Diagnosis Prompt\n');
   lines.push('```');
-  lines.push('You are reviewing openclaw cron jobs for token waste. Here are the top findings:');
+  lines.push('You are reviewing openclaw cron jobs for token waste. Read-only inspection only — do NOT disable, edit, delete, enable, or rerun any job.');
+  lines.push('');
+  lines.push('Here are the top findings:');
   lines.push('');
 
-  for (const f of top3) {
-    const stat = stats.find(s => s.id === f.jobId || s.name === f.jobName);
+  for (const f of findings) {
+    const stat = statsMap.get(f.jobId);
     lines.push(`Rule ${f.ruleId} [${f.severity.toUpperCase()}]: ${f.message}`);
     if (stat) {
       lines.push(`  Job: ${stat.name}`);
-      lines.push(`  Total runs: ${stat.totalRuns}, Total tokens: ${fmt(stat.totalTokens)}, Error rate: ${stat.errorRuns > 0 ? (stat.errorRuns / stat.totalRuns * 100).toFixed(1) + '%' : '0%'}`);
-      lines.push(`  Estimated cost: ${fmtCost(stat.totalTokens, stat.model)}`);
+      lines.push(`  Job ID: ${stat.id}`);
+      lines.push(`  Total runs: ${stat.totalRuns}, Total tokens: ${fmt(stat.totalTokens)}, Error rate: ${stat.totalRuns > 0 ? (stat.errorRuns / stat.totalRuns * 100).toFixed(1) + '%' : '0%'}`);
+      if (stat.scheduleMinutes != null) {
+        lines.push(`  Schedule: every ${stat.scheduleMinutes} min`);
+      }
     }
-    lines.push(`  Action: ${f.explanation}`);
+    lines.push(`  Why this ranks here: ${f.explanation}`);
     lines.push('');
   }
 
-  lines.push('For each finding:');
-  lines.push('1. openclaw cron show <job-id> — verify current config');
-  lines.push('2. openclaw cron runs --id <job-id> --limit 5 — check recent failures');
-  lines.push('3. Apply fix: slow schedule / disable agent-turn / switch model / fix error');
-  lines.push('4. openclaw cron run <job-id> — verify fix works');
+  lines.push('For each finding, run the following read-only inspection commands:');
+  for (const f of findings) {
+    if (f.jobId) {
+      lines.push(`  openclaw cron show ${f.jobId}    # inspect config for finding ${f.ruleId}`);
+      lines.push(`  openclaw cron runs --id ${f.jobId} --limit 5    # check recent runs`);
+    }
+  }
+  lines.push('');
+  lines.push('After inspection, report back with:');
+  lines.push('  1. Root cause for each finding');
+  lines.push('  2. Recommended fix (schedule change / model switch / error fix)');
+  lines.push('  3. BG approval required before any change is applied');
   lines.push('```');
   lines.push('');
   return lines.join('\n');
@@ -583,31 +690,37 @@ function formatAgentPrompt(findings, jobs, stats) {
 // MAIN
 // ─────────────────────────────────────────────────────────────────────────────
 
-function main() {
-  const { jobs, allRecords } = loadOpenClawData();
+function main(argv) {
+  const opts = parseArgs(argv);
+  const { jobs, allRecords } = loadOpenClawData(opts);
   const stats = buildJobStats(jobs, allRecords);
-  const findings = runDiagnostics(stats, allRecords);
-  const ranked = rankFindings([...findings]);
 
-  // Attach job name to findings that have jobId
+  // Build stats lookup map by id
+  const statsMap = new Map();
+  for (const s of stats) statsMap.set(s.id, s);
+
+  const findings = runDiagnostics(stats, allRecords);
+
+  // Attach job name
   for (const f of findings) {
     if (f.jobId) {
-      const s = stats.find(s => s.id === f.jobId);
+      const s = statsMap.get(f.jobId);
       if (s) f.jobName = s.name;
     }
   }
 
+  const ranked = rankFindings(findings, statsMap);
+  const limited = opts.limit != null ? ranked.slice(0, opts.limit) : ranked;
+
   const output = [
-    formatFindings(findings, jobs),
-    formatWhatToDoFirst(findings),
-    formatAgentPrompt(findings, jobs, stats),
+    formatFindings(limited, statsMap),
+    formatWhatToDoFirst(limited),
+    formatAgentPrompt(limited, statsMap),
   ].join('\n');
 
   console.log(output);
-
-  // Structured exit for testability
-  return { findings, ranked, stats };
+  return { findings: ranked, stats, statsMap };
 }
 
-const result = main();
+const result = main(process.argv);
 export { result };
