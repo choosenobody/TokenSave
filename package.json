@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "npm run build && vitest run"
+    "test": "npm run build && vitest run",
+    "audit:openclaw": "node scripts/tokensave-audit.mjs"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
