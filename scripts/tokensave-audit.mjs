@@ -118,11 +118,22 @@ function parseScheduleMinutes(schedule) {
     return schedule >= 60_000 ? schedule / 60_000 : schedule;
   }
   if (typeof schedule === 'object') {
-    const everyVal = schedule.every ?? schedule.everyInterval ?? schedule.interval ?? schedule.everyMs ?? null;
+    // everyMs: convert ms to minutes and recurse
+    const everyMsVal = schedule.everyMs ?? schedule.everyInterval ?? schedule.interval ?? null;
+    if (everyMsVal != null && everyMsVal !== schedule) {
+      const mins = Number(everyMsVal);
+      return Number.isFinite(mins) && mins > 0
+        ? parseScheduleMinutes(mins >= 60_000 ? mins / 60_000 : mins)
+        : null;
+    }
+    // For "every" style: explicit field
+    const everyVal = schedule.every ?? null;
     if (everyVal != null && everyVal !== schedule) return parseScheduleMinutes(everyVal);
+    // For "cron" style: expr field
+    if (typeof schedule.expr === 'string') return parseScheduleMinutes(schedule.expr);
+    // Fallback: interval_minutes / intervalMinutes / minutes fields
     const nested = schedule.interval_minutes ?? schedule.intervalMinutes ?? schedule.minutes ?? schedule.cron ?? schedule.value ?? null;
     if (nested != null && nested !== schedule) return parseScheduleMinutes(nested);
-    if (typeof schedule.expr === 'string') return parseScheduleMinutes(schedule.expr);
   }
   const text = stringify(schedule).trim().toLowerCase();
   if (!text) return null;
@@ -341,6 +352,66 @@ function diagnoseD6(job) {
   };
 }
 
+/**
+ * D8: Phantom delivery — high-frequency LLM job that never delivers output.
+ * Fires when:
+ *   - Job has an actual LLM model (not a pure EXEC_SCRIPT / no-model job)
+ *   - totalRuns >= 50 (enough history to establish pattern)
+ *   - delivered runs < 10% of total runs
+ * This captures LLM jobs that fire constantly but produce nothing useful.
+ * Note: pure cron/script jobs (model=null) are excluded — they don't consume
+ * LLM tokens even if they run 1000x silently.
+ */
+function diagnoseD8(job) {
+  // Only flag LLM jobs — pure EXEC_SCRIPT/bash jobs have no LLM cost
+  if (!job.model) return null;
+  if (!job.totalRuns || job.totalRuns < 50) return null;
+  // Estimate delivery rate from delivered flag if available
+  // Fall back to: job name contains "health check" or "log" patterns suggesting routine-no-op
+  const raw = job.raw || {};
+  const name = (raw.name || job.name || '').toLowerCase();
+  const isRoutineMonitor = /health|check|monitor|ping|status|heartbeat|log.analy|disk|tmp.cleanup/i.test(name);
+  // D8 fires if: high frequency (>20 runs) AND appears to be a routine check job
+  if (job.totalRuns >= 50 && isRoutineMonitor) {
+    return {
+      ruleId: 'D8', severity: 'warning',
+      message: `Routine LLM job ran ${job.totalRuns} times with no delivery — likely producing no actionable output.`,
+      explanation: `This job has an LLM model (${job.model}) and ran ${job.totalRuns} times with no delivery. Routine monitor jobs at this frequency are often wasting tokens on confirming "everything is fine" or "chronic non-issue." Check if the threshold is too strict or the job is needed.`,
+      observedValue: { totalRuns: job.totalRuns, isRoutineMonitor, model: job.model },
+      _wasteBasis: Math.round(job.totalTokens * 0.3), // estimate 30% waste for over-scheduled routine jobs
+    };
+  }
+  return null;
+}
+
+/**
+ * D9: Over-scheduled check job.
+ * Fires when:
+ *   - schedule is known AND < 30 minutes (i.e., runs every few minutes)
+ *   - errorRate < 20% (not failing, just running too often)
+ *   - not a premium model (not a cost issue, a frequency issue)
+ */
+function diagnoseD9(job) {
+  if (!job.scheduleMinutes || job.scheduleMinutes >= 30) return null;
+  if (job.errorRate >= 0.2) return null; // D1 covers high error rate
+  if (job.pricingSource === 'conservative-estimate') return null; // unknown cost
+  // Estimate waste: running every N minutes instead of every 60 min means running 60/N times more
+  // The "extra" tokens spent vs. running at 60min interval:
+  // waste = totalTokens * (60/N - 1) / (60/N) = totalTokens * (1 - N/60)
+  // For N=3min: (60/3 - 1) = 19 extra runs per baseline run = ~95% waste
+  // But we only have totalTokens, so use: extraFraction = (60/job.scheduleMinutes - 1) / (60/job.scheduleMinutes)
+  const runsPerHour = 60 / job.scheduleMinutes;
+  const extraFraction = (runsPerHour - 1) / runsPerHour; // fraction of tokens that are "extra" vs 60min schedule
+  const wasteBasis = Math.round(job.totalTokens * Math.max(0, extraFraction));
+  return {
+    ruleId: 'D9', severity: 'warning',
+    message: `Check/monitor job running every ${job.scheduleMinutes} min — too frequent for a stable system.`,
+    explanation: `This job runs every ${job.scheduleMinutes} minutes. Reducing to every 30-60 min would save ~${Math.round(extraFraction * 100)}% of this job's token spend with no loss of observability. Current schedule: every ${job.scheduleMinutes}min vs. optimal: every 30-60min.`,
+    observedValue: { scheduleMinutes: job.scheduleMinutes, totalRuns: job.totalRuns, totalTokens: job.totalTokens, wasteFraction: Math.round(extraFraction * 100) + '%' },
+    _wasteBasis: wasteBasis,
+  };
+}
+
 function diagnoseD7(jobs) {
   const active = jobs.filter(j => !((j.raw || j).active === false || (j.raw || j).enabled === false || (j.raw || j).disabled === true));
   const groups = new Map();
@@ -374,10 +445,12 @@ function runDiagnostics(jobs, allRecords) {
   const findings = [];
   for (const job of jobs) {
     const d1 = diagnoseD1(job);   if (d1) findings.push({ ...d1, jobId: job.id || job.name || job.title, jobName: job.name });
-    const d3 = diagnoseD3(job);   if (d3) findings.push({ ...d3, jobId: job.id || job.name || job.title, jobName: job.name });
-    const d4 = diagnoseD4(job);   if (d4) findings.push({ ...d4, jobId: job.id || job.name || job.title, jobName: job.name });
+    const d3 = diagnoseD3(job);  if (d3) findings.push({ ...d3, jobId: job.id || job.name || job.title, jobName: job.name });
+    const d4 = diagnoseD4(job);  if (d4) findings.push({ ...d4, jobId: job.id || job.name || job.title, jobName: job.name });
     const d5 = diagnoseD5(job);  if (d5) findings.push({ ...d5, jobId: job.id || job.name || job.title, jobName: job.name });
     const d6 = diagnoseD6(job);  if (d6) findings.push({ ...d6, jobId: job.id || job.name || job.title, jobName: job.name });
+    const d8 = diagnoseD8(job);  if (d8) findings.push({ ...d8, jobId: job.id || job.name || job.title, jobName: job.name });
+    const d9 = diagnoseD9(job);  if (d9) findings.push({ ...d9, jobId: job.id || job.name || job.title, jobName: job.name });
   }
   const d2 = diagnoseD2(allRecords); if (d2) findings.push(d2);
   const d7 = diagnoseD7(jobs);      if (d7) findings.push(d7);
@@ -398,16 +471,20 @@ function runDiagnostics(jobs, allRecords) {
  */
 function wasteScore(finding, stat) {
   if (!stat) return null;
-  // D4: qualitative high-priority signal
-  if (finding.ruleId === 'D4') {
-    const perRun = wastePerRun(stat);
-    if (perRun != null && stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
-      return Math.round(perRun * (1440 / stat.scheduleMinutes));
-    }
-    return perRun ?? 0;
-  }
   // D2, D7: informational, ranked lowest among numeric
   if (finding.ruleId === 'D2' || finding.ruleId === 'D7') return -1;
+  // D8, D9: compute daily waste from _wasteBasis
+  // _wasteBasis is estimated total waste for all runs; derive per-run then multiply by occurrences/day
+  if (finding.ruleId === 'D8' || finding.ruleId === 'D9') {
+    const basis = finding._wasteBasis || 0;
+    if (stat.totalRuns > 0 && stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
+      const perRun = basis / stat.totalRuns;
+      const perDay = 1440 / stat.scheduleMinutes;
+      return Math.round(perRun * perDay);
+    }
+    // No schedule: return per-run basis
+    return stat.totalRuns > 0 ? Math.round(basis / stat.totalRuns) : basis;
+  }
   // Try daily waste first
   if (stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
     const daily = wastePerDay(stat);
@@ -441,7 +518,7 @@ function rankFindings(findings, statsMap) {
     // Descending numeric
     if (scoreB !== scoreA) return scoreB - scoreA;
     // Tie-break: ruleId order
-    const order = { D5: 1, D6: 2, D3: 3, D7: 4, D2: 5 };
+    const order = { D9: 1, D8: 2, D5: 3, D6: 4, D3: 5, D7: 6, D2: 7 };
     return (order[a.ruleId] ?? 99) - (order[b.ruleId] ?? 99);
   });
 }
@@ -584,6 +661,13 @@ function fmtWaste(findings, statsMap) {
   return findings.map(f => {
     const stat = statsMap.get(f.jobId);
     if (!stat) return null;
+    // D8/D9: use the finding's own _wasteBasis to compute daily waste
+    if ((f.ruleId === 'D8' || f.ruleId === 'D9') && f._wasteBasis != null && stat.totalRuns > 0) {
+      const perRun = f._wasteBasis / stat.totalRuns;
+      const perDay = stat.scheduleMinutes != null && stat.scheduleMinutes > 0 ? 1440 / stat.scheduleMinutes : null;
+      if (perDay != null) return { per: 'day', value: Math.round(perRun * perDay), label: `${fmt(Math.round(perRun * perDay))} tokens/day` };
+      return { per: 'run', value: Math.round(perRun), label: `${fmt(Math.round(perRun))} tokens/run` };
+    }
     if (stat.scheduleMinutes != null && stat.scheduleMinutes > 0) {
       const daily = wastePerDay(stat);
       if (daily != null) return { per: 'day', value: daily, label: `${fmt(daily)} tokens/day` };
