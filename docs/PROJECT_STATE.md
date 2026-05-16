@@ -1,12 +1,48 @@
 # TokenSave Project State Snapshot
 
-> **⚠️ WARNING — This document is a snapshot, not a permanent source of truth.**
+> ⚠️ WARNING — This document is a snapshot, not a permanent source of truth.
 > Always verify state against GitHub (main branch, open issues, open PRs) before acting.
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-13T06:36:47Z
+**⚠️ PRODUCT STATUS: PAUSED — Strategic Validation Failed 2026-05-16**
+TokenSave standalone web app / CLI / skill direction has not proven differentiated value.
+Hermes direct cron job diagnosis is more useful than TokenSave local CLI probe.
+See "Strategic Pause — Decision Record" section below.
+
+**Last updated**: 2026-05-16T02:30:00Z
 **Source**: GitHub `origin/main` at commit `fdf7a33` (PR #137 fix(reboot): show estimated token waste on first action card; merge commit `fdf7a33`)
+
+---
+
+## Strategic Pause — Decision Record (2026-05-16)
+
+**Decision**: TokenSave product implementation PAUSED — strategic validation failure.
+
+**Why**:
+- Latest real VPS comparison shows Hermes direct diagnosis is more useful than proposed TokenSave local CLI probe.
+- TokenSave probe direction adds CLI friction and produces less useful output.
+- Normal users will not run npm commands from the correct repo cwd.
+- Professional users can likely build this themselves or already have observability.
+- TokenSave's current standalone web app / CLI / skill direction has not proven differentiated value.
+
+**What happened**:
+- PR #141 (feat(i5): tokensave-audit.mjs OpenClaw diagnostic probe) was opened for review.
+- After real VPS comparison: Hermes directly identified concrete recurring waste jobs with readable root-cause explanations.
+- PR #141 closed as validation experiment failed.
+
+**What was preserved**:
+- All merged code on main branch remains intact (PRs #1–#139).
+- docs/PROJECT_STATE.md updated to reflect PAUSED status.
+- No code was reverted.
+
+**What was NOT done** (per BG instruction):
+- No new implementation PRs started.
+- No guardian_cat review requested.
+
+**Next**:
+- BG may optionally re-evaluate TokenSave direction in the future.
+- All decisions rest with BG. No merge without explicit BG authorization.
 
 ---
 
