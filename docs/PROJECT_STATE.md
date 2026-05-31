@@ -50,7 +50,7 @@
 | dist/ | Not committed (gitignored) |
 | node_modules/ | Not committed (gitignored) |
 | README.md | Product overview — local-first token waste audit tool, local setup (git clone / npm install / npm run dev), validation commands (npm run build && npm test), privacy statement, what TokenSave does and does NOT do |
-| MVP_SPEC.md | MVP scope document — objective, workflow (Import → Diagnose → Evidence → Manual Fix), D1-D7 summary (D2 marked as review signal only), evidence boundaries, MVP does NOT include list, deferred items (Issue #5 RULES.md, PRIVACY/SECURITY later slices), privacy/local-first constraints |
+| MVP_SPEC.md | MVP scope document — objective, workflow (Import → Diagnose → Evidence → Manual Fix), D1-D7 summary (D2 marked as review signal only), evidence boundaries, MVP does NOT include list, deferred items (Issue #5 RULES.md deferred), privacy/local-first constraints |
 | PRIVACY.md | Privacy policy — local-first, no telemetry, no external API calls, no API key collection, no-network design (static build-asset scan), cost estimates (approximate, secondary), user responsibility for imported data |
 | SECURITY.md | Security policy — security model, threat model, data storage/retention (no local history store, session-only analysis), non-goals (not sandbox/endpoint protection/SaaS/kill switch), controls (local-first, no telemetry, no-network static scan, CLI text-only fix hints), vulnerability reporting (GitHub issues, no SLA) |
 
