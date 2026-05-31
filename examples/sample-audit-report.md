@@ -60,7 +60,7 @@
 **Evidence:**
 - Prompt: gather performance data + generate email — no multi-step reasoning, vision, or complex function-calling
 - Average `totalTokens` per run: 10,300 — well within gpt-4o-mini's capability
-- `gpt-4o-mini` is rated for this workload at roughly 1/4 the cost
+- A lower-cost model may be a candidate, but the actual cost impact depends on the provider pricing table supplied by the user.
 
 **Why it matters:** Potential cost reduction depends on the provider pricing table supplied by the user. TokenSave can flag this as a candidate optimization, but should not calculate exact savings unless pricing input is provided. Run 2–3 quality checks before changing the model.
 
@@ -70,7 +70,7 @@
 **Action risk:** Medium
 **Verification steps:**
 - Candidate optimization: test a lower-cost model on 2–3 representative historical inputs
-- Compare output quality for the digest email — if content reads equivalently, the change is safe
+- Compare output quality for the digest email — if content quality remains acceptable, the change may be suitable for this task
 - Only change the default model if output quality remains acceptable
 - Revert and investigate further if quality degrades
 

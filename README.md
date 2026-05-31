@@ -143,7 +143,7 @@ This is important because TokenSave is not an auto-remediation tool — it surfa
 **Action risk:** Medium
 **Verification steps:**
 - Candidate optimization: test a lower-cost model on 2–3 representative historical inputs
-- Compare output quality for the email draft — if content reads equivalently, the change is safe
+- Compare output quality for the email draft — if content quality remains acceptable, the change may be suitable for this task
 - Only change the default model if output quality remains acceptable
 - Revert and investigate if quality degrades
 
