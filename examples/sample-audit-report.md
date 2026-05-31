@@ -17,11 +17,16 @@
 - Schedule difference is exactly 3 minutes — a typical retry offset pattern
 - Combined, these jobs double every morning's token spend on this workflow
 
-**Why it matters:** Duplicate scheduling at scale compounds quickly. With each run consuming ~1600 tokens, the pair wastes ~3200 tokens/day. Over 30 days that is roughly 96,000 tokens attributed solely to duplication — not counting the original runs.
+**Why it matters:** Duplicate scheduling at scale compounds quickly. With each run consuming ~1600 tokens, the pair wastes ~3200 tokens/day. Over 30 days that is roughly 96,000 tokens attributed solely to duplication — not counting the original runs. Actual dollar impact depends on your provider's pricing table.
 
-**Manual fix:** Deactivate `job_fkd291`. If it was created as a fallback, investigate whether `job_fkd290`'s upstream fetch failures are the root cause and address those instead.
-
-**What NOT to automate automatically:** Never delete a job without confirming which instance is the canonical one. A retry wrapper that occasionally covers failures may serve a legitimate purpose — verify before removing.
+**Severity:** High
+**Confidence:** High
+**Impact type:** recurring_token_waste
+**Action risk:** Low
+**Verification steps:**
+- Confirm which job is the canonical one (check run count, error history, last_output_at)
+- Check the last 3 run logs for both jobs
+- Deactivate only the retry wrapper after confirming the primary job handles failures correctly
 
 ---
 
@@ -34,11 +39,17 @@
 - 3-minute offset from `job_fkd290` positions it as a scheduled retry, not a standalone job
 - The error count keeps growing with each run — the underlying condition has not been resolved
 
-**Why it matters:** Retry loops thatnever resolve the root cause silently burn tokens indefinitely. Each failed run consumes tokens with no output. If the root cause is a connectivity issue, the job will continue failing every day without human intervention.
+**Why it matters:** Retry loops that never resolve the root cause silently burn tokens indefinitely. Each failed run consumes tokens with no output. If the root cause is a connectivity issue, the job will continue failing every day without human intervention.
 
-**Manual fix:** Check the error logs for `job_fkd291`. The root cause is likely a fetch endpoint timeout or auth issue. Fix the upstream condition before the retry loop continues. Consider converting to a conditional trigger (only fire if `job_fkd290` fails) rather than a fixed schedule.
-
-**What NOT to automate automatically:** Do not auto-disable or auto-delete this job. Its existence may indicate a gap in error handling that needs an architectural fix, not a cleanup.
+**Severity:** High
+**Confidence:** High
+**Impact type:** retry_loop_waste
+**Action risk:** Medium
+**Verification steps:**
+- Inspect raw logs for `job_fkd291` — look for recurring error messages
+- Check whether the upstream fetch endpoint for `job_fkd290` is stable
+- Convert to a conditional trigger (only fire if the primary job fails) rather than a fixed schedule
+- Do not delete — the retry wrapper may serve a legitimate purpose once the root cause is fixed
 
 ---
 
@@ -51,11 +62,19 @@
 - Average `totalTokens` per run: 10,300 — well within gpt-4o-mini's capability
 - `gpt-4o-mini` is rated for this workload at roughly 1/4 the cost
 
-**Why it matters:** `gpt-4o` at $15/1M input + $60/1M output tokens, this job costs approximately $0.058/run. On `gpt-4o-mini` the same job costs approximately $0.015/run — roughly 4× reduction with equivalent output quality for this task type.
+**Why it matters:** Potential cost reduction depends on the provider pricing table supplied by the user. TokenSave can flag this as a candidate optimization, but should not calculate exact savings unless pricing input is provided. Run 2–3 quality checks before changing the model.
 
-**Manual fix:** Change `model` from `gpt-4o` to `gpt-4o-mini`. Run 2–3 sample executions and compare output quality. If the digest email reads equivalently, make the change permanent. If quality degrades, revert and investigate why.
+**Severity:** Medium
+**Confidence:** Medium
+**Impact type:** routing_waste_candidate
+**Action risk:** Medium
+**Verification steps:**
+- Candidate optimization: test a lower-cost model on 2–3 representative historical inputs
+- Compare output quality for the digest email — if content reads equivalently, the change is safe
+- Only change the default model if output quality remains acceptable
+- Revert and investigate further if quality degrades
 
-**What NOT to automate automatically:** Model swaps can introduce subtle output quality regressions in tasks that depend on instruction-following precision. Do not auto-switch based on token count alone.
+**What NOT to automate automatically:** Do not auto-switch models based only on token count or model name — quality regressions can be subtle and may only surface under specific conditions.
 
 ---
 
@@ -71,9 +90,15 @@
 
 **Why it matters:** Zero-output jobs are consuming tokens with no observable benefit. They may indicate a broken automation that is silently failing its intended purpose. If this job has been running for months without anyone noticing, the underlying issue has had months to compound.
 
-**Manual fix:** Inspect the raw logs for `job_hpq771`. The file read path or alert pipeline is broken. Fix the alert path so that failures are surfaced rather than silently consumed. If the job's purpose no longer applies, deactivate it.
-
-**What NOT to automate automatically:** Do not delete this job — it may be a component of a larger workflow whose failure mode would be worse if removed without understanding.
+**Severity:** Medium
+**Confidence:** High
+**Impact type:** stale_automation
+**Action risk:** Low
+**Verification steps:**
+- Inspect raw logs for `job_hpq771` — the file read path or alert pipeline is broken
+- Fix the alert path so that failures are surfaced rather than silently consumed
+- If the job's purpose no longer applies, deactivate it
+- Do not delete — it may be a component of a larger workflow whose failure mode would be worse if removed without understanding
 
 ---
 

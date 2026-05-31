@@ -27,6 +27,27 @@ npm run dev
 npm run build && npm test
 ```
 
+## Try the Sample Audit
+
+1. Run `npm run dev` to start the local app
+2. Open the app in your browser (default: `http://localhost:5173`)
+3. Load the sample data: `examples/sample-openclaw-export.json`
+4. Review the generated audit report
+
+For now, use the local app to run the sample data. CLI support is planned.
+
+## What Makes a Finding Actionable
+
+A TokenSave finding should include:
+- the affected job IDs
+- the exact evidence
+- why it matters
+- the manual fix
+- verification steps
+- what must not be changed automatically
+
+This is important because TokenSave is not an auto-remediation tool — it surfaces evidence; humans decide what to fix.
+
 ## Input Example
 
 ```json
@@ -90,9 +111,16 @@ npm run build && npm test
 - `job_abc002` has recorded 8 errors and only 12 runs vs. 84 runs for `job_abc001`
 - Schedule offset is 5 minutes — likely a retry loop configuration
 
-**Why it matters:** Double-running wastes tokens on every execution. At ~2000 tokens/run, that's ~4000 tokens/day or ~1.2M tokens/month for this pair alone.
+**Why it matters:** Double-running wastes tokens on every execution. At ~2000 tokens/run, that's ~4000 tokens/day or ~1.2M tokens/month for this pair alone. Actual dollar impact depends on your provider's pricing table.
 
-**Manual fix:** Deactivate `job_abc002`. If it exists to handle failures, move it to a conditional-only trigger instead of a fixed schedule.
+**Severity:** High
+**Confidence:** High
+**Impact type:** recurring_token_waste
+**Action risk:** Low
+**Verification steps:**
+- Confirm which job is canonical (check run count, error history)
+- Check the last 3 run logs for both jobs
+- Deactivate `job_abc002` only after confirming `job_abc001` handles failures correctly
 
 **What NOT to automate automatically:** Do not delete, stop, or rewrite jobs without human review — confirm which job is canonical first.
 
@@ -107,11 +135,19 @@ npm run build && npm test
 - No multi-step reasoning, no vision, no function-calling complexity
 - Average `totalTokens` per run: 8000 — well within mini's context window
 
-**Why it matters:** At current gpt-4o rates, this job costs ~$0.024/run. The same job on `gpt-4o-mini` would cost ~$0.006/run — 4× savings with equivalent output quality.
+**Why it matters:** Potential cost reduction depends on the provider pricing table supplied by the user. TokenSave can flag this as a candidate optimization, but should not calculate exact savings unless pricing input is provided. Run 2–3 quality checks before changing the model.
 
-**Manual fix:** Change model from `gpt-4o` to `gpt-4o-mini`. Verify output quality for 2–3 runs before setting as permanent.
+**Severity:** Medium
+**Confidence:** Medium
+**Impact type:** routing_waste_candidate
+**Action risk:** Medium
+**Verification steps:**
+- Candidate optimization: test a lower-cost model on 2–3 representative historical inputs
+- Compare output quality for the email draft — if content reads equivalently, the change is safe
+- Only change the default model if output quality remains acceptable
+- Revert and investigate if quality degrades
 
-**What NOT to automate automatically:** Model changes can affect output quality. Do not auto-switch without human sign-off on sample outputs.
+**What NOT to automate automatically:** Do not auto-switch models based only on token count or model name — quality regressions can be subtle and may only surface under specific conditions.
 
 ## Privacy
 
