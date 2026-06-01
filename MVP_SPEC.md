@@ -76,6 +76,5 @@ TokenSave cannot prove:
 
 ## Deferred / Future Items
 
-- **Issue #5 RULES.md** — B1–B3 and W1–W5 pre-flight rules
-- **PRIVACY.md / SECURITY.md** — Detailed policy docs (later slices)
+- **Issue #5 RULES.md** — B1–B3 and W1–W5 pre-flight rules (deferred)
 - **Browser extension** — Future planning only, not in MVP scope
