@@ -86,7 +86,7 @@ describe('I21 real smoke actionability rendering contract', () => {
   });
 
   it('cost chart is demoted as secondary in the primary page', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).toMatch(/Approx\. Cost by Job \(Secondary\)/);
     expect(html).not.toMatch(/<div class="pie-title">Cost by Job<\/div>/);
   });
@@ -94,7 +94,7 @@ describe('I21 real smoke actionability rendering contract', () => {
   // --- reboot/v0-action-first contract tests ---
 
   it('action section (fixGrid) appears before all report sections in index.html', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     const fixGridPos = html.indexOf('id="fixGrid"');
     const importSummaryPos = html.indexOf('id="importSummary"');
     const summaryGridPos = html.indexOf('id="summaryGrid"');
@@ -108,7 +108,7 @@ describe('I21 real smoke actionability rendering contract', () => {
   });
 
   it('fullReportDetails is a <details> block and is not open by default', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).toMatch(/<details[^>]*id="fullReportDetails"[^>]*>/);
     // Must NOT have open attribute
     expect(html).not.toMatch(/<details[^>]*id="fullReportDetails"[^>]*open/);
@@ -125,7 +125,7 @@ describe('I21 real smoke actionability rendering contract', () => {
   });
 
   it('summary labels do not include hard-coded ▼ arrows — CSS ::before controls state', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).not.toMatch(/▼ View full report/);
     expect(html).not.toMatch(/full-report-summary-label">▼/);
 

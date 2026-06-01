@@ -206,22 +206,22 @@ describe('I17-A: Top Waste priority basis', () => {
 describe('I18-C: Top Waste subtitle reflects actual tier ranking', () => {
 
   it('old stale subtitle "Ranked by absolute wasted tokens" is absent from index.html', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).not.toMatch(/Ranked by absolute wasted tokens/);
   });
 
   it('updated subtitle "Ranked by recurring token waste" is present in index.html', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).toMatch(/Ranked by recurring token waste/);
   });
 
   it('new subtitle mentions tokens/day first', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).toMatch(/tokens\/day/);
   });
 
   it('new subtitle mentions fallback tokens × error rate', () => {
-    const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8');
+    const html = readFileSync(resolve(__dirname, '../app/index.html'), 'utf8');
     expect(html).toMatch(/fallback tokens × error rate/);
   });
 });
