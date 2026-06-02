@@ -2,6 +2,10 @@
 
 TokenSave helps users find recurring AI agent job waste before it silently turns into long-term token burn.
 
+## What TokenSave Is — and Is Not
+
+TokenSave is a local-first auditor of recurring AI agent jobs (cron / scheduled / looped agent runs). It is not a semantic code graph, code-reading optimizer, repository-level token analyzer, or generic LLM cost dashboard — it reads job schedules, run logs, and per-job prompts to flag recurring waste patterns (D1–D7) with evidence-backed manual fix guidance.
+
 ## What It Audits
 
 - **D1 Duplicate Jobs** — two or more active jobs doing the same work
