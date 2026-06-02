@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-05-14T08:47:00Z
-**Source**: GitHub `origin/main` at commit `0371b79` (PR #139 feat(I22): agent prompt primary action — v3: remove cron run from first-card, source-level UI contract tests; merge commit `0371b79`)
+**Last updated**: 2026-06-02T12:55:38Z
+**Source**: GitHub `origin/main` at commit `301bcd9` (PR #148 docs(readme): clarify TokenSave scope boundary; merge commit `301bcd9`)
 
 ---
 
@@ -60,6 +60,9 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #148 | docs(readme): clarify TokenSave scope boundary | 2026-06-02 | `301bcd9` |
+| #147 | fix(seo): add sitemap.xml, robots.txt, and contact footer | 2026-06-02 | `c92688c` |
+| #146 | site: restore clean light TokenSave homepage | 2026-06-01 | `946076d` |
 | #139 | feat(I22): make agent diagnosis prompt the primary action — v3: remove cron run from first-card, source-level UI contract tests | 2026-05-14 | `0371b79` |
 | #138 | docs(PROJECT_STATE): refresh after PR #137 — first-card Estimated Recurring Waste, main SHA fdf7a33, 506 tests | 2026-05-13 | `4c9c429` |
 | #137 | fix(reboot): show estimated token waste on first action card | 2026-05-13 | `fdf7a33` |
