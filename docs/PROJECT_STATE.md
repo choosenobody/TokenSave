@@ -160,6 +160,7 @@
 |-----------|-------|-----|--------|
 | I7A (Slice A — README + MVP_SPEC) | Issue #7 (I8) docs — Slice A | #110 | **SLICE COMPLETE** |
 | I7B (Slice B — PRIVACY + SECURITY) | Issue #7 (I8) docs — Slice B | #112 | **SLICE COMPLETE** — Issue #7 remains OPEN; RULES.md pending |
+| I23 (Advisory Review-Signal Layer) | Field-test follow-up — new `src/advisory.ts` adds strictly lower-priority A1/A2/A3 review signals for sub-threshold agent waste (zero-token fast failure, premium NO_REPLY, cross-job shared signature); confirmed D-rules remain primary; `pickPresentTokenValue` helper avoids missing-token false positives; 37 new tests; total suite 591 tests / 16 files; no src/main.ts import; round 4 code review PASS | #152 | **CLOSED** |
 | reboot/v0-action-first (Action-First MVP Shell) | No issue — UX reboot | #135 | **CLOSED** |
 | post-smoke first-card waste display | Founder smoke follow-up — first Start Here card now shows estimated recurring token waste (tokens/day or tokens/run per tier logic) | #137 | **CLOSED** |
 | I22 (Agent Prompt Primary Action) | First action card now shows Agent Diagnosis Prompt as primary action; old firstActionHeader removed; first-card verification guidance no longer includes cron run; advanced details remain collapsed; 48 I22 source-level UI contract tests added; total suite 554 tests / 15 files | #139 | **CLOSED** |
