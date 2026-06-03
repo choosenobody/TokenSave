@@ -1,10 +1,170 @@
 import { detectCostRate } from './pricing';
 import { parseScheduleMinutes, readBoolean, isSimpleCheck } from './domain';
 import { stringify } from './utils';
-import type { DiagnoseRuleResult, DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence } from './types';
+import type {
+  AdvisorySignalResult,
+  DiagnoseRuleResult,
+  DiagnoseRuleId,
+  DiagnoseSeverity,
+  DiagnoseEvidence,
+  ReviewSignalOutput
+} from './types';
 
 // Re-export for consumers
 export type { DiagnoseRuleId, DiagnoseSeverity, DiagnoseEvidence, DiagnoseRuleResult };
+
+type AdvisoryRecord = Record<string, unknown>;
+
+const ZERO_TOKEN_FAST_FAILURE_MS = 300;
+const PREMIUM_LOW_VALUE_MIN_REPEATS = 2;
+
+const text = (...values: unknown[]) => values.find((value) => typeof value === 'string' && value.trim())?.toString().trim() || '';
+const nested = (value: AdvisoryRecord, key: string) => (value[key] as AdvisoryRecord | null | undefined);
+const jobId = (value: AdvisoryRecord) => stringify(value.id) || stringify(value.jobId) || stringify(value.job_id) || stringify(nested(value, 'job')?.id) || stringify(value.name) || stringify(value.jobName) || stringify(value.job_name) || stringify(value.title) || 'unknown-job';
+const modelOf = (value: AdvisoryRecord) => text(value.model, value.model_name, value.modelName, nested(value, 'payload')?.model);
+const outputOf = (value: AdvisoryRecord) => text(value.deliveredOutput, value.delivered_output, value.output, value.response, value.content, value.text);
+const delivered = (value: AdvisoryRecord) => outputOf(value).length > 0 && outputOf(value).toUpperCase() !== 'NO_REPLY';
+const noReply = (value: AdvisoryRecord) => outputOf(value).toUpperCase() === 'NO_REPLY';
+const tokensOf = (value: AdvisoryRecord) => {
+  const raw = value.totalTokens ?? value.total_tokens ?? value.tokens ?? value.token_count ?? nested(value, 'usage')?.total_tokens ?? nested(value, 'usage')?.tokens ?? nested(value, 'metrics')?.tokens;
+  const tokens = Number(raw);
+  return Number.isFinite(tokens) && tokens >= 0 ? tokens : 0;
+};
+const durationOf = (value: AdvisoryRecord) => {
+  const raw = value.durationMs ?? value.duration_ms ?? value.elapsedMs ?? value.elapsed_ms ?? value.duration ?? value.elapsed;
+  const ms = raw == null ? NaN : Number(typeof raw === 'string' ? raw.replace(/ms$/i, '').trim() : raw);
+  return Number.isFinite(ms) && ms >= 0 ? ms : null;
+};
+const failed = (value: AdvisoryRecord) => Boolean(value.error) || ['error', 'failed', 'failure', 'cancelled', 'timed_out'].includes(text(value.status, value.result, value.conclusion).toLowerCase());
+const premium = (value: AdvisoryRecord) => {
+  const model = modelOf(value);
+  const rate = model ? detectCostRate(model) : null;
+  return readBoolean(value.premiumModel ?? value.premium_model ?? false) || Boolean(rate && rate.pricingSource === 'known-local' && rate.rate >= 2.5);
+};
+const agentOrSimple = (value: AdvisoryRecord) => readBoolean(value.agentTurn ?? value.agent_turn ?? value.agent_turn_enabled ?? false) || isSimpleCheck(value, text(value.task, value.type, value.description, value.prompt, value.name, value.title));
+
+function failureSignature(value: AdvisoryRecord): string {
+  const explicit = text(value.failureSignature, value.failure_signature, value.signature);
+  if (explicit) return explicit.toLowerCase().replace(/\s+/g, '-');
+  if (tokensOf(value) === 0 && failed(value)) return 'zero-token-fast-failure';
+
+  const raw = text(value.error, value.message, value.status, value.result, value.conclusion).toLowerCase();
+  if (!raw) return '';
+  if (/allow[-\s]?list|not allowed|blocked by policy/.test(raw)) return 'allowlist-reject';
+  if (/dispatcher|route rejected|dispatch rejected/.test(raw)) return 'dispatcher-reject';
+  return raw
+    .replace(/[0-9a-f]{8,}/g, '<id>')
+    .replace(/\b\d+\b/g, '<n>')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
+export function diagnoseAdvisoryReviewSignals(
+  jobs: AdvisoryRecord[],
+  records: AdvisoryRecord[] = []
+): AdvisorySignalResult[] {
+  const allRecords = [...(jobs || []), ...(records || [])];
+  const signals: AdvisorySignalResult[] = [];
+  const zero = allRecords.find((record) => {
+    const ms = durationOf(record);
+    return tokensOf(record) === 0 && (ms == null || ms < ZERO_TOKEN_FAST_FAILURE_MS) && (failed(record) || !modelOf(record) || !delivered(record));
+  });
+
+  if (zero) {
+    const durationMs = durationOf(zero);
+    const reason =
+      failed(zero) ? 'failed status' :
+      !modelOf(zero) ? 'missing model' :
+      !delivered(zero) ? 'no delivered output' :
+      '';
+    signals.push({
+      signalId: 'A1_ZERO_TOKEN_FAST_FAILURE',
+      kind: 'review-signal',
+      severity: 'info',
+      message: 'Review signal: zero-token fast failure pattern. Not confirmed waste; inspect evidence before changing any job.',
+      affectedJobIds: [jobId(zero)],
+      firstAction: 'Inspect first: read the job definition and recent run logs for this job before proposing any change.',
+      safetyBoundary: 'Review signal only. Do not disable, edit, restart, or switch model as a first action.',
+      evidence: {
+        signalId: 'A1_ZERO_TOKEN_FAST_FAILURE',
+        explanation: 'totalTokens is zero and the run is a fast failure when duration is available, with failed status, missing model, or no delivered output.',
+        sourceFields: ['totalTokens', 'durationMs', 'status', 'model', 'output'],
+        observedValue: { totalTokens: 0, durationMs, reason },
+        threshold: { durationMsLessThanWhenAvailable: ZERO_TOKEN_FAST_FAILURE_MS },
+      },
+    });
+  }
+
+  const lowValueByJob = new Map<string, AdvisoryRecord[]>();
+  for (const record of allRecords) {
+    if (!premium(record) || !agentOrSimple(record) || (!noReply(record) && delivered(record))) continue;
+    const key = jobId(record);
+    lowValueByJob.set(key, [...(lowValueByJob.get(key) || []), record]);
+  }
+  for (const [key, group] of lowValueByJob) {
+    if (group.length < PREMIUM_LOW_VALUE_MIN_REPEATS) continue;
+    const model = modelOf(group[0]);
+    signals.push({
+      signalId: 'A2_PREMIUM_MODEL_LOW_VALUE_OUTPUT',
+      kind: 'review-signal',
+      severity: 'info',
+      message: 'Review signal: premium model with repeated NO_REPLY or no delivered output. Manual verification is required before any model or schedule change.',
+      affectedJobIds: [key],
+      firstAction: 'Inspect first: read the job definition, prompt, schedule, and recent outputs before considering any model or schedule change.',
+      safetyBoundary: 'Review signal only. No precise savings claim and no automatic fix.',
+      evidence: {
+        signalId: 'A2_PREMIUM_MODEL_LOW_VALUE_OUTPUT',
+        explanation: 'A premium known-local or explicitly marked premium model produced repeated NO_REPLY or missing delivered output on an agent/simple task.',
+        sourceFields: ['model', 'premiumModel', 'agentTurn', 'task', 'output'],
+        observedValue: { model, repeatCount: group.length, outputs: group.map(outputOf) },
+        threshold: { minRepeats: PREMIUM_LOW_VALUE_MIN_REPEATS },
+      },
+    });
+    break;
+  }
+
+  const signatureMap = new Map<string, Set<string>>();
+  for (const record of allRecords) {
+    const signature = failureSignature(record);
+    if (!signature) continue;
+    const jobsForSignature = signatureMap.get(signature) || new Set<string>();
+    jobsForSignature.add(jobId(record));
+    signatureMap.set(signature, jobsForSignature);
+  }
+  for (const [signature, jobIds] of signatureMap) {
+    if (jobIds.size < 2) continue;
+    signals.push({
+      signalId: 'A3_CROSS_JOB_SHARED_FAILURE_SIGNATURE',
+      kind: 'review-signal',
+      severity: 'info',
+      message: 'Review signal: multiple jobs share a repeated failure signature. Inspect shared dispatcher/profile/gateway layers first.',
+      affectedJobIds: Array.from(jobIds),
+      firstAction: 'Inspect first: perform read-only inspection of shared dispatcher, profile, gateway, or routing configuration before touching individual jobs.',
+      safetyBoundary: 'Review signal only. Do not directly disable jobs; this is not confirmed waste.',
+      evidence: {
+        signalId: 'A3_CROSS_JOB_SHARED_FAILURE_SIGNATURE',
+        explanation: 'Multiple jobs share the same normalized failure signature, suggesting a shared-layer issue may explain the pattern.',
+        sourceFields: ['failureSignature', 'error', 'message', 'status', 'result', 'jobId'],
+        observedValue: { signature, distinctJobCount: jobIds.size },
+        threshold: { minDistinctJobs: 2 },
+      },
+    });
+    break;
+  }
+
+  return signals;
+}
+
+export function buildReviewSignalOutput(
+  confirmedFindings: DiagnoseRuleResult[],
+  advisorySignals: AdvisorySignalResult[]
+): ReviewSignalOutput {
+  return {
+    confirmedFindings: confirmedFindings || [],
+    advisorySignals: advisorySignals || [],
+  };
+}
 
 /**
  * D5: Unknown model pricing diagnostic.

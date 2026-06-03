@@ -247,6 +247,41 @@ export interface DiagnoseRuleResult {
 }
 
 // ---------------------------------------------------------------------------
+// Advisory / review-signal types
+// ---------------------------------------------------------------------------
+
+export type AdvisorySignalId =
+  | 'A1_ZERO_TOKEN_FAST_FAILURE'
+  | 'A2_PREMIUM_MODEL_LOW_VALUE_OUTPUT'
+  | 'A3_CROSS_JOB_SHARED_FAILURE_SIGNATURE';
+
+export interface AdvisoryEvidence {
+  signalId: AdvisorySignalId;
+  explanation: string;
+  sourceFields: string[];
+  observedValue: unknown;
+  threshold?: unknown;
+}
+
+/** Review-only hint; not confirmed waste, precise savings, or mutation permission. */
+export interface AdvisorySignalResult {
+  signalId: AdvisorySignalId;
+  kind: 'review-signal';
+  severity: 'info';
+  message: string;
+  affectedJobIds: string[];
+  evidence: AdvisoryEvidence;
+  firstAction: string;
+  safetyBoundary: string;
+}
+
+/** Keeps confirmed D1-D7 findings primary and advisory signals separate. */
+export interface ReviewSignalOutput {
+  confirmedFindings: DiagnoseRuleResult[];
+  advisorySignals: AdvisorySignalResult[];
+}
+
+// ---------------------------------------------------------------------------
 // Dataset / aggregation types
 // ---------------------------------------------------------------------------
 
