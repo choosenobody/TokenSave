@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `1cf450f1` (PR #149 docs(PROJECT_STATE): refresh after PR #146, #147, #148; merge commit `1cf450f1`) |
+| Main branch SHA | `2adf51c` (PR #152 feat(advisory): add A1/A2/A3 review-signal layer (I23); merge commit `2adf51c`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
