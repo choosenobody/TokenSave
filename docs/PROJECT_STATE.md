@@ -60,6 +60,8 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #152 | feat(advisory): add A1/A2/A3 review-signal layer (I23) | 2026-06-03 | `2adf51c` |
+| #150 | docs: refresh PROJECT_STATE.md post-#149 merge | 2026-06-03 | `72a14ef` |
 | #149 | docs(PROJECT_STATE): refresh after PR #146, #147, #148 | 2026-06-02 | `1cf450f1` |
 | #148 | docs(readme): clarify TokenSave scope boundary | 2026-06-02 | `301bcd9` |
 | #147 | fix(seo): add sitemap.xml, robots.txt, and contact footer | 2026-06-02 | `c92688c` |
