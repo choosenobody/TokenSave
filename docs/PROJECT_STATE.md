@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-06-02T13:01:28Z
-**Source**: GitHub `origin/main` at commit `1cf450f1` (PR #149 docs(PROJECT_STATE): refresh after PR #146, #147, #148; merge commit `1cf450f1`)
+**Last updated**: 2026-06-03T17:09:57Z
+**Source**: GitHub `origin/main` at commit `2adf51c` (PR #152 feat(advisory): add A1/A2/A3 review-signal layer (I23); merge commit `2adf51c`)
 
 ---
 
