@@ -5,8 +5,8 @@
 > This file itself may be stale if last updated date is more than 48h ago.
 > Do not assume this file reflects current reality.
 
-**Last updated**: 2026-06-02T12:55:38Z
-**Source**: GitHub `origin/main` at commit `301bcd9` (PR #148 docs(readme): clarify TokenSave scope boundary; merge commit `301bcd9`)
+**Last updated**: 2026-06-02T13:01:28Z
+**Source**: GitHub `origin/main` at commit `1cf450f1` (PR #149 docs(PROJECT_STATE): refresh after PR #146, #147, #148; merge commit `1cf450f1`)
 
 ---
 
@@ -15,7 +15,7 @@
 | Item | Value |
 |------|-------|
 | Repo | choosenobody/TokenSave |
-| Main branch SHA | `0371b79` (PR #139 feat(I22): agent prompt primary action — v3: remove cron run from first-card, source-level UI contract tests; merge commit `0371b79`) |
+| Main branch SHA | `1cf450f1` (PR #149 docs(PROJECT_STATE): refresh after PR #146, #147, #148; merge commit `1cf450f1`) |
 | Package manager | npm |
 | package.json | vitest (devDependency), npm test script added |
 | Build tool | Vite 5 + TypeScript 5 |
@@ -60,6 +60,7 @@
 
 | PR | Title | Merged | Merge Commit |
 |----|-------|--------|-------------|
+| #149 | docs(PROJECT_STATE): refresh after PR #146, #147, #148 | 2026-06-02 | `1cf450f1` |
 | #148 | docs(readme): clarify TokenSave scope boundary | 2026-06-02 | `301bcd9` |
 | #147 | fix(seo): add sitemap.xml, robots.txt, and contact footer | 2026-06-02 | `c92688c` |
 | #146 | site: restore clean light TokenSave homepage | 2026-06-01 | `946076d` |
