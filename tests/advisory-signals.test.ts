@@ -5,6 +5,8 @@ import {
   detectA3SharedFailureSignature,
   rankAdvisorySignals,
   failureSignature,
+  pickPresentTokenValue,
+  parseTokenNumber,
   AdvisorySignal,
 } from '../src/advisory';
 
@@ -13,12 +15,19 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('A1 — zero-token fast failure review signal', () => {
-  it('fires on a single record with totalTokens=0 + durationMs<300 + failed status', () => {
+  it('fires when 2+ zero-token fast-failed runs exist for the same job', () => {
     const records = [
       {
         jobId: 'job-a1-fastfail',
         tokens: 0,
         durationMs: 50,
+        status: 'failed',
+        model: 'unknown',
+      },
+      {
+        jobId: 'job-a1-fastfail',
+        tokens: 0,
+        durationMs: 80,
         status: 'failed',
         model: 'unknown',
       },
@@ -35,6 +44,20 @@ describe('A1 — zero-token fast failure review signal', () => {
     expect(sig.firstAction.description).toMatch(/inspect/i);
     expect(sig.approximateCostExposure).not.toBeNull();
     expect(sig.approximateCostExposure!.highUsd).toBeGreaterThanOrEqual(0);
+  });
+
+  it('does NOT fire on a single qualifying fast failure (runCount=1 below MIN_A1_RUN_COUNT=2 gate)', () => {
+    const records = [
+      {
+        jobId: 'job-a1-singleton',
+        tokens: 0,
+        durationMs: 50,
+        status: 'failed',
+        model: 'unknown',
+      },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
   });
 
   it('groups multiple records of the same job into a single signal', () => {
@@ -64,13 +87,20 @@ describe('A1 — zero-token fast failure review signal', () => {
     expect(signals).toEqual([]);
   });
 
-  it('uses total_tokens / duration_ms / elapsedMs aliases', () => {
+  it('uses total_tokens / duration_ms / elapsedMs aliases (2 runs per alias, satisfies runCount gate)', () => {
     const records = [
       {
         jobId: 'job-a1-aliases',
         total_tokens: 0,
         duration_ms: 50,
         elapsedMs: 50,
+        model: null,
+      },
+      {
+        jobId: 'job-a1-aliases',
+        total_tokens: 0,
+        duration_ms: 80,
+        elapsedMs: 80,
         model: null,
       },
     ];
@@ -97,11 +127,14 @@ describe('A1 — zero-token fast failure review signal', () => {
     expect(signals).toEqual([]);
   });
 
-  it('fires when token field is explicitly 0 (not missing)', () => {
+  it('fires when token field is explicitly 0 (not missing) — 2 runs per job, satisfies runCount gate', () => {
     const records = [
       { jobId: 'explicit-zero-1', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'explicit-zero-1', tokens: 0, durationMs: 70, status: 'failed' },
       { jobId: 'explicit-zero-2', total_tokens: 0, durationMs: 80, status: 'error' },
+      { jobId: 'explicit-zero-2', total_tokens: 0, durationMs: 90, status: 'error' },
       { jobId: 'explicit-zero-3', token_count: 0, durationMs: 100, status: 'failed' },
+      { jobId: 'explicit-zero-3', token_count: 0, durationMs: 110, status: 'failed' },
     ];
     const signals = detectA1ZeroTokenFastFailure(records);
     expect(signals.length).toBe(3);
@@ -353,6 +386,418 @@ describe('A3 — cross-job shared failure signature', () => {
 });
 
 // ---------------------------------------------------------------------------
+// I24 — nested token-path coverage (Hermes cron run-record schema)
+// ---------------------------------------------------------------------------
+
+describe('I24: pickPresentTokenValue reads nested token paths (Hermes cron schema)', () => {
+  it('reads usage.total_tokens', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: 9016 } })).toBe(9016);
+  });
+
+  it('reads usage.tokens', () => {
+    expect(pickPresentTokenValue({ usage: { tokens: 4200 } })).toBe(4200);
+  });
+
+  it('reads metrics.tokens', () => {
+    expect(pickPresentTokenValue({ metrics: { tokens: 1234 } })).toBe(1234);
+  });
+
+  it('returns null (never 0) when nested token field is missing', () => {
+    expect(pickPresentTokenValue({ usage: { input_tokens: 100 } })).toBeNull();
+    expect(pickPresentTokenValue({ usage: {} })).toBeNull();
+    expect(pickPresentTokenValue({ metrics: { something_else: 5 } })).toBeNull();
+    expect(pickPresentTokenValue({})).toBeNull();
+  });
+
+  it('returns null (never 0) when nested token field is null / undefined', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: null } })).toBeNull();
+    expect(pickPresentTokenValue({ usage: { total_tokens: undefined } })).toBeNull();
+    expect(pickPresentTokenValue({ usage: null })).toBeNull();
+    expect(pickPresentTokenValue({ metrics: null })).toBeNull();
+  });
+
+  it('returns null when nested outer is a primitive (not an object)', () => {
+    expect(pickPresentTokenValue({ usage: 'string' })).toBeNull();
+    expect(pickPresentTokenValue({ usage: 42 })).toBeNull();
+    expect(pickPresentTokenValue({ usage: true })).toBeNull();
+  });
+
+  it('top-level aliases still take priority over nested paths', () => {
+    expect(pickPresentTokenValue({ tokens: 10, usage: { total_tokens: 999 } })).toBe(10);
+    expect(pickPresentTokenValue({ total_tokens: 20, usage: { total_tokens: 999 } })).toBe(20);
+    expect(pickPresentTokenValue({ token_count: 30, usage: { total_tokens: 999 } })).toBe(30);
+  });
+
+  it('returns 0 explicitly when a nested token field is exactly 0', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: 0 } })).toBe(0);
+    expect(pickPresentTokenValue({ usage: { tokens: 0 } })).toBe(0);
+    expect(pickPresentTokenValue({ metrics: { tokens: 0 } })).toBe(0);
+  });
+});
+
+describe('I24: A1 fires on nested-token zero-token fast failures (real Hermes schema)', () => {
+  it('fires on 2 runs with usage.total_tokens: 0 + durationMs < 300 for the same job', () => {
+    const records = [
+      {
+        jobId: 'real-usage-zero',
+        durationMs: 50,
+        status: 'failed',
+        model: 'minimax/MiniMax-M2.7',
+        usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 },
+      },
+      {
+        jobId: 'real-usage-zero',
+        durationMs: 80,
+        status: 'failed',
+        model: 'minimax/MiniMax-M2.7',
+        usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 },
+      },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals.length).toBe(1);
+    expect(signals[0].id).toBe('A1');
+    expect(signals[0].affectedJobIds).toContain('real-usage-zero');
+    expect(signals[0].evidence.observedValue.totalTokens).toBe(0);
+  });
+
+  it('does NOT fire when nested usage.total_tokens is present and non-zero', () => {
+    const records = [
+      { jobId: 'usage-nonzero-1', durationMs: 50, status: 'failed', usage: { total_tokens: 9016 } },
+      { jobId: 'usage-nonzero-1', durationMs: 80, status: 'failed', usage: { total_tokens: 8500 } },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire when nested token field is missing — even with durationMs<300 + failed', () => {
+    const records = [
+      { jobId: 'usage-missing-1', durationMs: 50, status: 'failed', usage: { input_tokens: 100 } },
+      { jobId: 'usage-missing-1', durationMs: 80, status: 'failed', usage: { input_tokens: 200 } },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire on a single usage.total_tokens: 0 record (runCount gate)', () => {
+    const records = [
+      {
+        jobId: 'usage-singleton',
+        durationMs: 50,
+        status: 'failed',
+        usage: { total_tokens: 0 },
+      },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+});
+
+describe('I24: failureSignature classifies nested-token zero-token fast failures', () => {
+  it('classifies usage.total_tokens: 0 + durationMs < 300 as zero-token-fast-failure', () => {
+    expect(failureSignature({ usage: { total_tokens: 0 }, durationMs: 50 })).toBe('zero-token-fast-failure');
+  });
+
+  it('classifies usage.tokens: 0 + durationMs < 300 as zero-token-fast-failure', () => {
+    expect(failureSignature({ usage: { tokens: 0 }, durationMs: 80 })).toBe('zero-token-fast-failure');
+  });
+
+  it('classifies metrics.tokens: 0 + durationMs < 300 as zero-token-fast-failure', () => {
+    expect(failureSignature({ metrics: { tokens: 0 }, durationMs: 100 })).toBe('zero-token-fast-failure');
+  });
+
+  it('does NOT classify a record with missing nested token field even if durationMs<300', () => {
+    expect(failureSignature({ usage: { input_tokens: 100 }, durationMs: 50 })).toBe('');
+    expect(failureSignature({ usage: {}, durationMs: 50 })).toBe('');
+    expect(failureSignature({ metrics: {}, durationMs: 50 })).toBe('');
+  });
+});
+
+describe('I24: A3 groups explicit nested zero-token fast failures across jobs', () => {
+  it('fires when 2+ jobs share zero-token-fast-failure signature from nested token path', () => {
+    const jobs = [
+      {
+        id: 'real-a3-1',
+        records: [
+          { durationMs: 50, usage: { total_tokens: 0 } },
+          { durationMs: 60, usage: { total_tokens: 0 } },
+        ],
+      },
+      {
+        id: 'real-a3-2',
+        records: [
+          { durationMs: 70, usage: { total_tokens: 0 } },
+        ],
+      },
+      {
+        id: 'real-a3-3',
+        records: [
+          { durationMs: 90, usage: { total_tokens: 0 } },
+        ],
+      },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals.length).toBe(1);
+    expect(signals[0].id).toBe('A3');
+    expect(signals[0].evidence.observedValue.signature).toBe('zero-token-fast-failure');
+    expect(signals[0].affectedJobIds).toContain('real-a3-1');
+    expect(signals[0].affectedJobIds).toContain('real-a3-2');
+    expect(signals[0].affectedJobIds).toContain('real-a3-3');
+  });
+
+  it('does NOT fire when nested token field is missing on all jobs (no false positive)', () => {
+    const jobs = [
+      { id: 'a3-missing-nested-1', records: [{ durationMs: 50, usage: { input_tokens: 100 } }] },
+      { id: 'a3-missing-nested-2', records: [{ durationMs: 80, usage: { input_tokens: 200 } }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
+  });
+});
+
+describe('I24: regression — existing missing-token false-positive tests still hold', () => {
+  it('A1: does NOT fire when token field is missing at top level (existing Codex P2 regression)', () => {
+    const records = [
+      { jobId: 'no-tokens-1' /* no tokens */, durationMs: 50, status: 'failed', model: 'unknown' },
+      { jobId: 'no-tokens-1', durationMs: 80, status: 'failed' },
+      { jobId: 'no-tokens-2', tokens: null, durationMs: 100, status: 'failed' },
+      { jobId: 'no-tokens-2', tokens: null, durationMs: 110, status: 'failed' },
+      { jobId: 'no-tokens-3', total_tokens: null, durationMs: 60, status: 'failed' },
+      { jobId: 'no-tokens-3', total_tokens: null, durationMs: 70, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('A3: does NOT fire shared zero-token-fast-failure when jobs have no token field at any path (existing Codex P2 regression)', () => {
+    const jobs = [
+      { id: 'a3-missing-1', records: [{ durationMs: 50, status: 'failed' }] },
+      { id: 'a3-missing-2', records: [{ durationMs: 80, status: 'failed' }] },
+      { id: 'a3-missing-3', records: [{ tokens: null, durationMs: 70, status: 'error' }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I25 — strict token parsing (guardian_cat 2026-06-04 request)
+// ---------------------------------------------------------------------------
+
+describe('I25: parseTokenNumber — strict token number parser', () => {
+  // Accepts
+  it('accepts finite positive numbers', () => {
+    expect(parseTokenNumber(0)).toBe(0);
+    expect(parseTokenNumber(1)).toBe(1);
+    expect(parseTokenNumber(9016)).toBe(9016);
+    expect(parseTokenNumber(-1)).toBe(-1);
+  });
+
+  it('accepts 0 (the A1 / A3 zero-token-fast-failure trigger value)', () => {
+    expect(parseTokenNumber(0)).toBe(0);
+  });
+
+  // Rejects — null / undefined
+  it('rejects null and undefined', () => {
+    expect(parseTokenNumber(null)).toBeNull();
+    expect(parseTokenNumber(undefined)).toBeNull();
+  });
+
+  // Rejects — blank / whitespace strings
+  it('rejects blank string ""', () => {
+    expect(parseTokenNumber('')).toBeNull();
+  });
+  it('rejects whitespace-only string "   "', () => {
+    expect(parseTokenNumber('   ')).toBeNull();
+  });
+
+  // Rejects — booleans (the exact false-zero trap guardian_cat flagged)
+  it('rejects boolean false (Number(false) === 0 trap)', () => {
+    expect(parseTokenNumber(false)).toBeNull();
+  });
+  it('rejects boolean true (Number(true) === 1 trap)', () => {
+    expect(parseTokenNumber(true)).toBeNull();
+  });
+
+  // Rejects — objects / arrays (the other half of the trap)
+  it('rejects empty array [] (Number([]) === 0 trap)', () => {
+    expect(parseTokenNumber([])).toBeNull();
+  });
+  it('rejects empty object {}', () => {
+    expect(parseTokenNumber({})).toBeNull();
+  });
+  it('rejects non-empty object', () => {
+    expect(parseTokenNumber({ total_tokens: 0 })).toBeNull();
+  });
+
+  // Rejects — NaN / Infinity
+  it('rejects NaN', () => {
+    expect(parseTokenNumber(NaN)).toBeNull();
+  });
+  it('rejects Infinity and -Infinity', () => {
+    expect(parseTokenNumber(Infinity)).toBeNull();
+    expect(parseTokenNumber(-Infinity)).toBeNull();
+  });
+
+  // Rejects — strings (numbers-only mode; even digit strings are rejected)
+  it('rejects non-numeric string "abc"', () => {
+    expect(parseTokenNumber('abc')).toBeNull();
+  });
+  it('rejects numeric string "0" (strict mode: numbers-only, no string coercion)', () => {
+    // Deliberate choice: the advisory layer is numbers-only.  Numeric
+    // strings are treated as "not present" so coercion traps cannot
+    // leak.  Documented in the parseTokenNumber JSDoc.
+    expect(parseTokenNumber('0')).toBeNull();
+  });
+  it('rejects numeric string "42"', () => {
+    expect(parseTokenNumber('42')).toBeNull();
+  });
+  it('rejects numeric string "  0  " (whitespace inside a digit string)', () => {
+    expect(parseTokenNumber('  0  ')).toBeNull();
+  });
+});
+
+describe('I25: pickPresentTokenValue rejects blank / boolean at top level (guardian_cat 2026-06-04)', () => {
+  it('returns null for top-level tokens: ""', () => {
+    expect(pickPresentTokenValue({ tokens: '' })).toBeNull();
+  });
+  it('returns null for top-level tokens: "   "', () => {
+    expect(pickPresentTokenValue({ tokens: '   ' })).toBeNull();
+  });
+  it('returns null for top-level tokens: false', () => {
+    expect(pickPresentTokenValue({ tokens: false })).toBeNull();
+  });
+  it('returns null for top-level tokens: true', () => {
+    expect(pickPresentTokenValue({ tokens: true })).toBeNull();
+  });
+  it('returns null for top-level tokens: []', () => {
+    expect(pickPresentTokenValue({ tokens: [] })).toBeNull();
+  });
+  it('returns null for top-level tokens: NaN', () => {
+    expect(pickPresentTokenValue({ tokens: NaN })).toBeNull();
+  });
+});
+
+describe('I25: pickPresentTokenValue rejects blank / boolean at nested paths (guardian_cat 2026-06-04)', () => {
+  it('returns null for nested usage.total_tokens: ""', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: '' } })).toBeNull();
+  });
+  it('returns null for nested usage.total_tokens: false', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: false } })).toBeNull();
+  });
+  it('returns null for nested usage.total_tokens: true', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: true } })).toBeNull();
+  });
+  it('returns null for nested usage.total_tokens: []', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: [] } })).toBeNull();
+  });
+  it('returns null for nested usage.total_tokens: NaN', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: NaN } })).toBeNull();
+  });
+  it('returns null for nested usage.tokens: false (second nested path)', () => {
+    expect(pickPresentTokenValue({ usage: { tokens: false } })).toBeNull();
+  });
+  it('returns null for nested metrics.tokens: false (third nested path)', () => {
+    expect(pickPresentTokenValue({ metrics: { tokens: false } })).toBeNull();
+  });
+  // Test #6 from the brief — strict mode choice: numeric strings are NOT supported
+  it('returns null for nested usage.total_tokens: "0" (numeric strings are rejected in strict mode)', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: '0' } })).toBeNull();
+  });
+});
+
+describe('I25: A1 does NOT fire on blank / boolean token values (false-zero trap closed)', () => {
+  it('does NOT fire when two runs for same job have usage.total_tokens: "" and durationMs < 300', () => {
+    // Brief test #7: blank string used to coerce to 0 via Number("") === 0
+    const records = [
+      { jobId: 'blank-zero-1', durationMs: 50, status: 'failed', usage: { total_tokens: '' } },
+      { jobId: 'blank-zero-1', durationMs: 60, status: 'failed', usage: { total_tokens: '' } },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire when two runs for same job have usage.total_tokens: false and durationMs < 300', () => {
+    // Number(false) === 0 — exact trap the prior implementation fell into
+    const records = [
+      { jobId: 'bool-zero-1', durationMs: 50, status: 'failed', usage: { total_tokens: false } },
+      { jobId: 'bool-zero-1', durationMs: 60, status: 'failed', usage: { total_tokens: false } },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire when two runs for same job have top-level tokens: false and durationMs < 300', () => {
+    const records = [
+      { jobId: 'top-bool-1', tokens: false, durationMs: 50, status: 'failed' },
+      { jobId: 'top-bool-1', tokens: false, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire when two runs for same job have top-level tokens: "" and durationMs < 300', () => {
+    const records = [
+      { jobId: 'top-blank-1', tokens: '', durationMs: 50, status: 'failed' },
+      { jobId: 'top-blank-1', tokens: '', durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  // Positive control: confirm A1 STILL fires on real zero values
+  it('STILL fires on real tokens: 0 (positive control — the gate works on real zeros)', () => {
+    const records = [
+      { jobId: 'real-zero-1', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'real-zero-1', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals.length).toBe(1);
+    expect(signals[0].id).toBe('A1');
+  });
+});
+
+describe('I25: A3 does NOT group zero-token-fast-failure from boolean / blank token values', () => {
+  it('does NOT group when two jobs have usage.total_tokens: false (was: silent false-zero group)', () => {
+    // Brief test #8: before fix, Number(false) === 0 grouped these.
+    const jobs = [
+      { id: 'a3-bool-1', records: [{ durationMs: 50, usage: { total_tokens: false } }] },
+      { id: 'a3-bool-2', records: [{ durationMs: 60, usage: { total_tokens: false } }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT group when two jobs have top-level tokens: ""', () => {
+    const jobs = [
+      { id: 'a3-blank-1', records: [{ tokens: '', durationMs: 50 }] },
+      { id: 'a3-blank-2', records: [{ tokens: '', durationMs: 60 }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT group when jobs have usage.tokens: [] (the array coercion trap)', () => {
+    const jobs = [
+      { id: 'a3-arr-1', records: [{ durationMs: 50, usage: { tokens: [] } }] },
+      { id: 'a3-arr-2', records: [{ durationMs: 60, usage: { tokens: [] } }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
+  });
+
+  // Positive control: confirm A3 STILL groups real zero-token-fast-failure
+  it('STILL groups explicit tokens: 0 across two jobs (positive control)', () => {
+    const jobs = [
+      { id: 'a3-real-1', records: [{ tokens: 0, durationMs: 50 }] },
+      { id: 'a3-real-2', records: [{ tokens: 0, durationMs: 60 }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals.length).toBe(1);
+    expect(signals[0].evidence.observedValue.signature).toBe('zero-token-fast-failure');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Safety copy — first action must not suggest disable/edit/restart/switch
 // ---------------------------------------------------------------------------
 
@@ -376,11 +821,15 @@ describe('Safety copy: first action must not contain destructive verbs', () => {
   }
 
   it('A1 first action contains no disable/edit/restart/switch-model', () => {
+    // Both records share the same jobId so the MIN_A1_RUN_COUNT=2 gate
+    // actually emits a signal — otherwise the test passes vacuously on
+    // an empty signals array (flagged by guardian_cat 2026-06-04).
     const records = [
       { jobId: 'safety-a1', tokens: 0, durationMs: 50, status: 'failed' },
-      { jobId: 'safety-a1-2', tokens: 0, durationMs: 60, status: 'failed' },
+      { jobId: 'safety-a1', tokens: 0, durationMs: 60, status: 'failed' },
     ];
     const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals.length).toBeGreaterThan(0); // guard: at least one A1 signal must fire
     const allText = collectAllStrings(signals).join('\n').toLowerCase();
     for (const word of FORBIDDEN) {
       expect(allText).not.toContain(word);
