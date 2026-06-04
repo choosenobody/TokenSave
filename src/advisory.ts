@@ -222,15 +222,52 @@ const TOKEN_FIELD_ALIASES: ReadonlyArray<string> = [
  *
  * Each entry is a tuple of [outerKey, innerKey].  BOTH keys must be
  * present via own-property check, AND the inner value must be a finite
- * number for the path to be considered "present".  This preserves the
- * invariant that a missing or null nested token field never coerces to
- * zero (same JS coercion trap the top-level helper guards against).
+ * number for the path to be considered "present".  The numeric
+ * acceptance check is delegated to `parseTokenNumber` so the same
+ * strict rules (reject blank / boolean / object / array / NaN /
+ * Infinity / numeric strings) apply at every path.
  */
 const NESTED_TOKEN_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ['usage', 'total_tokens'],
   ['usage', 'tokens'],
   ['metrics', 'tokens'],
 ];
+
+/**
+ * Strict token number parser — accepts finite numbers ONLY.
+ *
+ * Rejects (returns null):
+ *   - null / undefined
+ *   - blank / whitespace strings ""
+ *   - boolean true / false
+ *       (`Number(true) === 1`, `Number(false) === 0` — a real false-zero
+ *        trap the prior `Number(raw)` path fell into)
+ *   - objects / arrays
+ *       (`Number([]) === 0`, `Number({}) === NaN` — same trap class)
+ *   - NaN / Infinity
+ *   - non-numeric strings
+ *   - numeric strings like "0"
+ *       (intentional: the advisory layer is numbers-only; any
+ *        string-shaped value is treated as "not present" so coercion
+ *        traps cannot leak)
+ *
+ * Rationale (guardian_cat 2026-06-04): the prior `Number(raw)` path
+ * silently converted blank strings / `false` / empty arrays to 0,
+ * letting A1 fire and A3 group `zero-token-fast-failure` on records
+ * that carried no real numeric token count.  This helper closes that
+ * gap with a strict, easy-to-reason-about whitelist.
+ *
+ * @param raw - value to inspect
+ * @returns finite number, or null when the value is not a real number
+ */
+export function parseTokenNumber(raw: unknown): number | null {
+  if (raw == null) return null;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? raw : null;
+  }
+  // Reject everything else: booleans, strings, objects, arrays, etc.
+  return null;
+}
 
 /**
  * Returns the numeric token count when an alias is actually present and is
@@ -244,14 +281,21 @@ const NESTED_TOKEN_FIELDS: ReadonlyArray<readonly [string, string]> = [
  * records as zero-token fast failures.  A1 and the A3 failureSignature
  * helper both depend on this to avoid that false positive.
  *
+ * All numeric acceptance is delegated to `parseTokenNumber`, which
+ * rejects blank strings, booleans, objects, arrays, NaN, Infinity,
+ * and numeric strings.  This means a record that only has
+ * `usage.total_tokens: ""` or `tokens: false` will be treated as
+ * "no token field meaningfully present" — never as zero.
+ *
  * Path priority (first match wins):
  *   1. Top-level: `tokens`, `total_tokens`, `token_count`
  *   2. Nested:    `usage.total_tokens`, `usage.tokens`, `metrics.tokens`
  *
  * A nested path is considered "present" only when BOTH the outer object
- * and the inner field are own-properties AND the inner value is a finite
- * number.  A missing or null outer / inner value returns null (never 0)
- * so A1 cannot be tricked by a record that simply lacks a token field.
+ * and the inner field are own-properties AND the inner value passes
+ * `parseTokenNumber`.  A missing or null outer / inner value returns
+ * null (which the caller treats as "no token field meaningfully
+ * present" — never as 0).
  *
  * @param record - run-like record
  * @returns finite number, or null when no token field is meaningfully present
@@ -263,13 +307,8 @@ export function pickPresentTokenValue(record: any): number | null {
   for (const alias of TOKEN_FIELD_ALIASES) {
     if (!Object.prototype.hasOwnProperty.call(record, alias)) continue;
     const raw = (record as Record<string, unknown>)[alias];
-    if (raw == null) continue; // explicit null / undefined → not present
-    if (typeof raw === 'number') {
-      return Number.isFinite(raw) ? raw : null;
-    }
-    // Non-numeric (e.g. string) — try to coerce; only accept if finite
-    const n = Number(raw);
-    if (Number.isFinite(n)) return n;
+    const n = parseTokenNumber(raw);
+    if (n !== null) return n;
   }
 
   // (2) Nested token paths — Hermes cron run record schema.  Each path
@@ -284,13 +323,8 @@ export function pickPresentTokenValue(record: any): number | null {
     if (outer == null || typeof outer !== 'object') continue;
     if (!Object.prototype.hasOwnProperty.call(outer, innerKey)) continue;
     const inner = (outer as Record<string, unknown>)[innerKey];
-    if (inner == null) continue; // explicit null / undefined → not present
-    if (typeof inner === 'number') {
-      if (Number.isFinite(inner)) return inner;
-      continue; // NaN / Infinity → fall through, do not coerce to null
-    }
-    const n = Number(inner);
-    if (Number.isFinite(n)) return n;
+    const n = parseTokenNumber(inner);
+    if (n !== null) return n;
   }
 
   return null;
