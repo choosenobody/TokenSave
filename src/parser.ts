@@ -293,10 +293,13 @@ export function detectImportSource(dataset) {
  * `renderImportSummary` displays in a dedicated section.  W-light scope:
  *
  *  - Reads `sourceShape` and returns a single short paragraph.
- *  - Strict copy rules: no A1/A2/A3 names, no PR #155/#156 references,
- *    no Hermes real-dataset findings, no precise savings figures, no
- *    quota-exhaustion claims, no auto-fix / agent-cron-fix hints, no
- *    first-action verbs that are not "read-only inspect".
+ *  - Copy is intentionally conservative and read-only-first.
+ *  - Copy never names internal detectors or references specific PRs.
+ *  - Copy avoids precise savings figures, hard guarantees, or any
+ *    "service is down" framing.
+ *  - Copy never suggests automatic remediation or skill-level write
+ *    actions; the user retains full control.
+ *  - First-action verb is always "inspect" or "review" only.
  *  - Unknown shape always falls back to the most conservative
  *    read-only-inspect copy.
  *
