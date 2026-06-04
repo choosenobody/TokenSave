@@ -5,6 +5,7 @@ import {
   detectA3SharedFailureSignature,
   rankAdvisorySignals,
   failureSignature,
+  pickPresentTokenValue,
   AdvisorySignal,
 } from '../src/advisory';
 
@@ -13,12 +14,19 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('A1 — zero-token fast failure review signal', () => {
-  it('fires on a single record with totalTokens=0 + durationMs<300 + failed status', () => {
+  it('fires when 2+ zero-token fast-failed runs exist for the same job', () => {
     const records = [
       {
         jobId: 'job-a1-fastfail',
         tokens: 0,
         durationMs: 50,
+        status: 'failed',
+        model: 'unknown',
+      },
+      {
+        jobId: 'job-a1-fastfail',
+        tokens: 0,
+        durationMs: 80,
         status: 'failed',
         model: 'unknown',
       },
@@ -35,6 +43,20 @@ describe('A1 — zero-token fast failure review signal', () => {
     expect(sig.firstAction.description).toMatch(/inspect/i);
     expect(sig.approximateCostExposure).not.toBeNull();
     expect(sig.approximateCostExposure!.highUsd).toBeGreaterThanOrEqual(0);
+  });
+
+  it('does NOT fire on a single qualifying fast failure (runCount=1 below MIN_A1_RUN_COUNT=2 gate)', () => {
+    const records = [
+      {
+        jobId: 'job-a1-singleton',
+        tokens: 0,
+        durationMs: 50,
+        status: 'failed',
+        model: 'unknown',
+      },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
   });
 
   it('groups multiple records of the same job into a single signal', () => {
@@ -64,13 +86,20 @@ describe('A1 — zero-token fast failure review signal', () => {
     expect(signals).toEqual([]);
   });
 
-  it('uses total_tokens / duration_ms / elapsedMs aliases', () => {
+  it('uses total_tokens / duration_ms / elapsedMs aliases (2 runs per alias, satisfies runCount gate)', () => {
     const records = [
       {
         jobId: 'job-a1-aliases',
         total_tokens: 0,
         duration_ms: 50,
         elapsedMs: 50,
+        model: null,
+      },
+      {
+        jobId: 'job-a1-aliases',
+        total_tokens: 0,
+        duration_ms: 80,
+        elapsedMs: 80,
         model: null,
       },
     ];
@@ -97,11 +126,14 @@ describe('A1 — zero-token fast failure review signal', () => {
     expect(signals).toEqual([]);
   });
 
-  it('fires when token field is explicitly 0 (not missing)', () => {
+  it('fires when token field is explicitly 0 (not missing) — 2 runs per job, satisfies runCount gate', () => {
     const records = [
       { jobId: 'explicit-zero-1', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'explicit-zero-1', tokens: 0, durationMs: 70, status: 'failed' },
       { jobId: 'explicit-zero-2', total_tokens: 0, durationMs: 80, status: 'error' },
+      { jobId: 'explicit-zero-2', total_tokens: 0, durationMs: 90, status: 'error' },
       { jobId: 'explicit-zero-3', token_count: 0, durationMs: 100, status: 'failed' },
+      { jobId: 'explicit-zero-3', token_count: 0, durationMs: 110, status: 'failed' },
     ];
     const signals = detectA1ZeroTokenFastFailure(records);
     expect(signals.length).toBe(3);
@@ -349,6 +381,200 @@ describe('A3 — cross-job shared failure signature', () => {
     expect(signals[0].evidence.observedValue.signature).toBe('zero-token-fast-failure');
     expect(signals[0].affectedJobIds).toContain('a3-explicit-1');
     expect(signals[0].affectedJobIds).toContain('a3-explicit-2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I24 — nested token-path coverage (Hermes cron run-record schema)
+// ---------------------------------------------------------------------------
+
+describe('I24: pickPresentTokenValue reads nested token paths (Hermes cron schema)', () => {
+  it('reads usage.total_tokens', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: 9016 } })).toBe(9016);
+  });
+
+  it('reads usage.tokens', () => {
+    expect(pickPresentTokenValue({ usage: { tokens: 4200 } })).toBe(4200);
+  });
+
+  it('reads metrics.tokens', () => {
+    expect(pickPresentTokenValue({ metrics: { tokens: 1234 } })).toBe(1234);
+  });
+
+  it('returns null (never 0) when nested token field is missing', () => {
+    expect(pickPresentTokenValue({ usage: { input_tokens: 100 } })).toBeNull();
+    expect(pickPresentTokenValue({ usage: {} })).toBeNull();
+    expect(pickPresentTokenValue({ metrics: { something_else: 5 } })).toBeNull();
+    expect(pickPresentTokenValue({})).toBeNull();
+  });
+
+  it('returns null (never 0) when nested token field is null / undefined', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: null } })).toBeNull();
+    expect(pickPresentTokenValue({ usage: { total_tokens: undefined } })).toBeNull();
+    expect(pickPresentTokenValue({ usage: null })).toBeNull();
+    expect(pickPresentTokenValue({ metrics: null })).toBeNull();
+  });
+
+  it('returns null when nested outer is a primitive (not an object)', () => {
+    expect(pickPresentTokenValue({ usage: 'string' })).toBeNull();
+    expect(pickPresentTokenValue({ usage: 42 })).toBeNull();
+    expect(pickPresentTokenValue({ usage: true })).toBeNull();
+  });
+
+  it('top-level aliases still take priority over nested paths', () => {
+    expect(pickPresentTokenValue({ tokens: 10, usage: { total_tokens: 999 } })).toBe(10);
+    expect(pickPresentTokenValue({ total_tokens: 20, usage: { total_tokens: 999 } })).toBe(20);
+    expect(pickPresentTokenValue({ token_count: 30, usage: { total_tokens: 999 } })).toBe(30);
+  });
+
+  it('returns 0 explicitly when a nested token field is exactly 0', () => {
+    expect(pickPresentTokenValue({ usage: { total_tokens: 0 } })).toBe(0);
+    expect(pickPresentTokenValue({ usage: { tokens: 0 } })).toBe(0);
+    expect(pickPresentTokenValue({ metrics: { tokens: 0 } })).toBe(0);
+  });
+});
+
+describe('I24: A1 fires on nested-token zero-token fast failures (real Hermes schema)', () => {
+  it('fires on 2 runs with usage.total_tokens: 0 + durationMs < 300 for the same job', () => {
+    const records = [
+      {
+        jobId: 'real-usage-zero',
+        durationMs: 50,
+        status: 'failed',
+        model: 'minimax/MiniMax-M2.7',
+        usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 },
+      },
+      {
+        jobId: 'real-usage-zero',
+        durationMs: 80,
+        status: 'failed',
+        model: 'minimax/MiniMax-M2.7',
+        usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 },
+      },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals.length).toBe(1);
+    expect(signals[0].id).toBe('A1');
+    expect(signals[0].affectedJobIds).toContain('real-usage-zero');
+    expect(signals[0].evidence.observedValue.totalTokens).toBe(0);
+  });
+
+  it('does NOT fire when nested usage.total_tokens is present and non-zero', () => {
+    const records = [
+      { jobId: 'usage-nonzero-1', durationMs: 50, status: 'failed', usage: { total_tokens: 9016 } },
+      { jobId: 'usage-nonzero-1', durationMs: 80, status: 'failed', usage: { total_tokens: 8500 } },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire when nested token field is missing — even with durationMs<300 + failed', () => {
+    const records = [
+      { jobId: 'usage-missing-1', durationMs: 50, status: 'failed', usage: { input_tokens: 100 } },
+      { jobId: 'usage-missing-1', durationMs: 80, status: 'failed', usage: { input_tokens: 200 } },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('does NOT fire on a single usage.total_tokens: 0 record (runCount gate)', () => {
+    const records = [
+      {
+        jobId: 'usage-singleton',
+        durationMs: 50,
+        status: 'failed',
+        usage: { total_tokens: 0 },
+      },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+});
+
+describe('I24: failureSignature classifies nested-token zero-token fast failures', () => {
+  it('classifies usage.total_tokens: 0 + durationMs < 300 as zero-token-fast-failure', () => {
+    expect(failureSignature({ usage: { total_tokens: 0 }, durationMs: 50 })).toBe('zero-token-fast-failure');
+  });
+
+  it('classifies usage.tokens: 0 + durationMs < 300 as zero-token-fast-failure', () => {
+    expect(failureSignature({ usage: { tokens: 0 }, durationMs: 80 })).toBe('zero-token-fast-failure');
+  });
+
+  it('classifies metrics.tokens: 0 + durationMs < 300 as zero-token-fast-failure', () => {
+    expect(failureSignature({ metrics: { tokens: 0 }, durationMs: 100 })).toBe('zero-token-fast-failure');
+  });
+
+  it('does NOT classify a record with missing nested token field even if durationMs<300', () => {
+    expect(failureSignature({ usage: { input_tokens: 100 }, durationMs: 50 })).toBe('');
+    expect(failureSignature({ usage: {}, durationMs: 50 })).toBe('');
+    expect(failureSignature({ metrics: {}, durationMs: 50 })).toBe('');
+  });
+});
+
+describe('I24: A3 groups explicit nested zero-token fast failures across jobs', () => {
+  it('fires when 2+ jobs share zero-token-fast-failure signature from nested token path', () => {
+    const jobs = [
+      {
+        id: 'real-a3-1',
+        records: [
+          { durationMs: 50, usage: { total_tokens: 0 } },
+          { durationMs: 60, usage: { total_tokens: 0 } },
+        ],
+      },
+      {
+        id: 'real-a3-2',
+        records: [
+          { durationMs: 70, usage: { total_tokens: 0 } },
+        ],
+      },
+      {
+        id: 'real-a3-3',
+        records: [
+          { durationMs: 90, usage: { total_tokens: 0 } },
+        ],
+      },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals.length).toBe(1);
+    expect(signals[0].id).toBe('A3');
+    expect(signals[0].evidence.observedValue.signature).toBe('zero-token-fast-failure');
+    expect(signals[0].affectedJobIds).toContain('real-a3-1');
+    expect(signals[0].affectedJobIds).toContain('real-a3-2');
+    expect(signals[0].affectedJobIds).toContain('real-a3-3');
+  });
+
+  it('does NOT fire when nested token field is missing on all jobs (no false positive)', () => {
+    const jobs = [
+      { id: 'a3-missing-nested-1', records: [{ durationMs: 50, usage: { input_tokens: 100 } }] },
+      { id: 'a3-missing-nested-2', records: [{ durationMs: 80, usage: { input_tokens: 200 } }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
+  });
+});
+
+describe('I24: regression — existing missing-token false-positive tests still hold', () => {
+  it('A1: does NOT fire when token field is missing at top level (existing Codex P2 regression)', () => {
+    const records = [
+      { jobId: 'no-tokens-1' /* no tokens */, durationMs: 50, status: 'failed', model: 'unknown' },
+      { jobId: 'no-tokens-1', durationMs: 80, status: 'failed' },
+      { jobId: 'no-tokens-2', tokens: null, durationMs: 100, status: 'failed' },
+      { jobId: 'no-tokens-2', tokens: null, durationMs: 110, status: 'failed' },
+      { jobId: 'no-tokens-3', total_tokens: null, durationMs: 60, status: 'failed' },
+      { jobId: 'no-tokens-3', total_tokens: null, durationMs: 70, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals).toEqual([]);
+  });
+
+  it('A3: does NOT fire shared zero-token-fast-failure when jobs have no token field at any path (existing Codex P2 regression)', () => {
+    const jobs = [
+      { id: 'a3-missing-1', records: [{ durationMs: 50, status: 'failed' }] },
+      { id: 'a3-missing-2', records: [{ durationMs: 80, status: 'failed' }] },
+      { id: 'a3-missing-3', records: [{ tokens: null, durationMs: 70, status: 'error' }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs);
+    expect(signals).toEqual([]);
   });
 });
 

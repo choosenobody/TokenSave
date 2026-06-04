@@ -111,6 +111,22 @@ export interface AdvisorySignal {
 const FAST_FAILURE_DURATION_MS = 300;
 
 /**
+ * Minimum number of qualifying zero-token fast-failure runs required for
+ * A1 to emit a signal for a single job.
+ *
+ * Rationale (from 2026-06-03 advisory proof on Dataset B): a single
+ * run that meets the A1 admission guard could be a one-off dispatcher
+ * jitter — humans would correctly not act on it.  Requiring ≥ 2 runs
+ * per job drops the obvious single-event noise and makes every A1
+ * signal a confirmed multi-event pattern, which is the inspect-worthy
+ * shape the advisory layer was built to surface.
+ *
+ * Kept conservative (default 2) so the gate is a small tightening of
+ * the prior "any qualifying run" behavior, not a major behavior change.
+ */
+const MIN_A1_RUN_COUNT = 2;
+
+/**
  * Approximate upper bound on a single zero-token fast failure's "exposure"
  * when cost is unknown.  Conservative and approximate only — never a
  * precise figure.
@@ -194,6 +210,29 @@ const TOKEN_FIELD_ALIASES: ReadonlyArray<string> = [
 ];
 
 /**
+ * Nested token field paths recognized by the advisory layer.
+ *
+ * Real Hermes cron run records keep the token count under a nested
+ * `usage` / `metrics` object (e.g. `record.usage.total_tokens`), not at
+ * the top level.  The original detector only checked top-level fields,
+ * which made A1 blind to the real Hermes output schema (proven by the
+ * 2026-06-03 advisory proof on Dataset E: 0 A1 firings on 3,206 real
+ * records).  These nested paths are now scanned after the top-level
+ * aliases, in priority order.
+ *
+ * Each entry is a tuple of [outerKey, innerKey].  BOTH keys must be
+ * present via own-property check, AND the inner value must be a finite
+ * number for the path to be considered "present".  This preserves the
+ * invariant that a missing or null nested token field never coerces to
+ * zero (same JS coercion trap the top-level helper guards against).
+ */
+const NESTED_TOKEN_FIELDS: ReadonlyArray<readonly [string, string]> = [
+  ['usage', 'total_tokens'],
+  ['usage', 'tokens'],
+  ['metrics', 'tokens'],
+];
+
+/**
  * Returns the numeric token count when an alias is actually present and is
  * a finite number, OR null when the token field is missing / null /
  * undefined / non-numeric.
@@ -205,11 +244,22 @@ const TOKEN_FIELD_ALIASES: ReadonlyArray<string> = [
  * records as zero-token fast failures.  A1 and the A3 failureSignature
  * helper both depend on this to avoid that false positive.
  *
+ * Path priority (first match wins):
+ *   1. Top-level: `tokens`, `total_tokens`, `token_count`
+ *   2. Nested:    `usage.total_tokens`, `usage.tokens`, `metrics.tokens`
+ *
+ * A nested path is considered "present" only when BOTH the outer object
+ * and the inner field are own-properties AND the inner value is a finite
+ * number.  A missing or null outer / inner value returns null (never 0)
+ * so A1 cannot be tricked by a record that simply lacks a token field.
+ *
  * @param record - run-like record
  * @returns finite number, or null when no token field is meaningfully present
  */
 export function pickPresentTokenValue(record: any): number | null {
   if (!record || typeof record !== 'object') return null;
+
+  // (1) Top-level aliases — preserved from the original detector.
   for (const alias of TOKEN_FIELD_ALIASES) {
     if (!Object.prototype.hasOwnProperty.call(record, alias)) continue;
     const raw = (record as Record<string, unknown>)[alias];
@@ -221,6 +271,28 @@ export function pickPresentTokenValue(record: any): number | null {
     const n = Number(raw);
     if (Number.isFinite(n)) return n;
   }
+
+  // (2) Nested token paths — Hermes cron run record schema.  Each path
+  //     is gated on the outer object being a real own-property object
+  //     (not null / not a primitive) AND the inner field being present
+  //     and finite.  Any "missing" link in the chain returns null
+  //     (which the caller treats as "no token field meaningfully
+  //     present" — never as 0).
+  for (const [outerKey, innerKey] of NESTED_TOKEN_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(record, outerKey)) continue;
+    const outer = (record as Record<string, unknown>)[outerKey];
+    if (outer == null || typeof outer !== 'object') continue;
+    if (!Object.prototype.hasOwnProperty.call(outer, innerKey)) continue;
+    const inner = (outer as Record<string, unknown>)[innerKey];
+    if (inner == null) continue; // explicit null / undefined → not present
+    if (typeof inner === 'number') {
+      if (Number.isFinite(inner)) return inner;
+      continue; // NaN / Infinity → fall through, do not coerce to null
+    }
+    const n = Number(inner);
+    if (Number.isFinite(n)) return n;
+  }
+
   return null;
 }
 
@@ -351,10 +423,19 @@ export function detectA1ZeroTokenFastFailure(records: any[]): AdvisorySignal[] {
 
   const signals: AdvisorySignal[] = [];
   for (const [jobId, jobRecords] of byJob) {
+    // Gate: require at least MIN_A1_RUN_COUNT qualifying runs per job
+    // before emitting.  A single zero-token fast-failed run can be a
+    // one-off dispatcher jitter; a multi-run pattern is the inspect-
+    // worthy shape the layer was built to surface.  This is a
+    // conservative tightening — jobs with runCount < 2 are not
+    // misclassified, they are simply below the A1 noise floor.
+    if (jobRecords.length < MIN_A1_RUN_COUNT) continue;
+
     const first = jobRecords[0];
     // Reuse pickPresentTokenValue so the evidence matches the admission
     // guard exactly — no second coercion path that could disagree on a
-    // missing / null / undefined token field.
+    // missing / null / undefined token field (including the new nested
+    // usage.* / metrics.* paths).
     const tokenCount = pickPresentTokenValue(first);
     const durationMs = first.durationMs ?? first.duration_ms ?? first.elapsedMs;
     const model = first.model ?? first.model_name ?? null;
@@ -395,7 +476,12 @@ export function detectA1ZeroTokenFastFailure(records: any[]): AdvisorySignal[] {
       evidence: {
         id: 'A1',
         explanation,
-        sourceFields: ['tokens', 'total_tokens', 'token_count', 'durationMs', 'duration_ms', 'elapsedMs', 'status', 'result', 'model', 'model_name'],
+        sourceFields: [
+          'tokens', 'total_tokens', 'token_count',
+          'usage.total_tokens', 'usage.tokens', 'metrics.tokens',
+          'durationMs', 'duration_ms', 'elapsedMs',
+          'status', 'result', 'model', 'model_name',
+        ],
         observedValue: {
           runCount: jobRecords.length,
           totalTokens: tokenCount,
