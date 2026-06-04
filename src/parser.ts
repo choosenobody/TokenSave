@@ -201,6 +201,58 @@ export function detectImportSource(dataset) {
     detectedSource = 'zip-mixed';
   }
 
+  // W-light sourceShape (advisory-interpretation axis) — independent of the
+  // 5-value detectedSource enum above.  This is a hint the advisory layer
+  // uses to pick shape-specific wording.  W-light scope rules:
+  //   - No filesystem reads
+  //   - No network reads
+  //   - Inference based purely on the in-memory dataset shape
+  //   - Conservative: hermes-cron wins over openclaw-export when both
+  //     nested and flat token fields are present in the same dataset,
+  //     because nested usage.total_tokens is a strong Hermes-cron signal
+  //     even if some flat fields happen to appear.
+  let sourceShape: 'openclaw-export' | 'hermes-cron' | 'unknown' = 'unknown';
+  let hasNestedTokenField = false;
+  let hasFlatTokenField = false;
+  const NESTED_TOKEN_PATHS = [
+    ['usage', 'total_tokens'],
+    ['usage', 'tokens'],
+    ['metrics', 'tokens'],
+  ] as const;
+  for (const bundle of runBundles) {
+    for (const record of bundle.records.slice(0, 20)) {
+      if (!record || typeof record !== 'object') continue;
+      for (const [outerKey, innerKey] of NESTED_TOKEN_PATHS) {
+        const outer = (record as Record<string, unknown>)[outerKey];
+        if (outer && typeof outer === 'object' && (outer as Record<string, unknown>)[innerKey] !== undefined) {
+          hasNestedTokenField = true;
+          break;
+        }
+      }
+      if (
+        record.tokens !== undefined ||
+        record.total_tokens !== undefined ||
+        record.token_count !== undefined
+      ) {
+        hasFlatTokenField = true;
+      }
+    }
+  }
+  // OpenClaw-export evidence: meta has openclaw_version, OR any job has
+  // agentTurn, OR any record has flat top-level token fields.
+  const hasOpenclawMeta = !!(meta && (meta.openclaw_version || meta.export_date));
+  const hasAgentTurnJob = jobs.slice(0, 20).some(
+    (j) => j && (j.agent_turn_enabled !== undefined || j.agentTurn !== undefined)
+  );
+
+  if (hasNestedTokenField) {
+    sourceShape = 'hermes-cron';
+  } else if (hasFlatTokenField || hasOpenclawMeta || hasAgentTurnJob) {
+    sourceShape = 'openclaw-export';
+  } else {
+    sourceShape = 'unknown';
+  }
+
   // Confidence
   let confidence = 'low';
   if (recordCount > 0 && evidenceHint.hasTokens) {
@@ -231,8 +283,39 @@ export function detectImportSource(dataset) {
     recordCount,
     confidence,
     supportedRuleHint,
-    evidenceHint
+    evidenceHint,
+    sourceShape,
   };
+}
+
+/**
+ * Build the user-facing source-shape interpretation copy that
+ * `renderImportSummary` displays in a dedicated section.  W-light scope:
+ *
+ *  - Reads `sourceShape` and returns a single short paragraph.
+ *  - Strict copy rules: no A1/A2/A3 names, no PR #155/#156 references,
+ *    no Hermes real-dataset findings, no precise savings figures, no
+ *    quota-exhaustion claims, no auto-fix / agent-cron-fix hints, no
+ *    first-action verbs that are not "read-only inspect".
+ *  - Unknown shape always falls back to the most conservative
+ *    read-only-inspect copy.
+ *
+ * The returned string is meant to be HTML-escaped by the caller (e.g.
+ * via the `escapeHtml` utility) before being injected into a `render*`
+ * function.  This function is pure: no DOM, no network, no filesystem.
+ */
+export function buildSourceShapeCopy(
+  sourceShape: 'openclaw-export' | 'hermes-cron' | 'unknown' | string | undefined | null
+): string {
+  switch (sourceShape) {
+    case 'openclaw-export':
+      return 'Imported data looks like an OpenClaw export. Token, schedule, model, and failure fields can support recurring job review signals. Treat findings as review signals until you manually inspect the job.';
+    case 'hermes-cron':
+      return 'Imported data looks like Hermes cron-style records. Shared failure signatures are usually more useful than zero-token patterns here, because failed runs may omit usage data rather than report tokens=0. Treat this as a review signal, not confirmed waste. Start with read-only inspection.';
+    case 'unknown':
+    default:
+      return 'Source shape is unclear. TokenSave will keep findings conservative and prioritize read-only inspection before any manual change.';
+  }
 }
 
 /**

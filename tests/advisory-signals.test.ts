@@ -216,7 +216,10 @@ describe('A2 — premium model + repeated NO_REPLY review signal', () => {
       { id: 'job-a2-cust', model: 'Claude Opus', noReplyRuns: 2, agentTurn: true },
     ];
     const withDefault = detectA2PremiumNoReply(jobs);
-    const withHigherThreshold = detectA2PremiumNoReply(jobs, undefined, 3);
+    // W-light: signature is now (jobs, options?, premiumModelPatterns?, minNoReplyRuns?).
+    // Pass options as the 2nd arg and minNoReplyRuns as the 4th arg to keep the
+    // contract explicit.
+    const withHigherThreshold = detectA2PremiumNoReply(jobs, undefined, undefined, 3);
     expect(withDefault.length).toBe(1);
     expect(withHigherThreshold).toEqual([]);
   });
@@ -328,7 +331,9 @@ describe('A3 — cross-job shared failure signature', () => {
       { id: 'job-a3-min-3', records: [{ error: 'shared error msg' }] },
     ];
     const defaultMin = detectA3SharedFailureSignature(jobs);
-    const withMin3 = detectA3SharedFailureSignature(jobs, 3);
+    // W-light: signature is now (jobs, options?, minSharedJobs?).  Pass
+    // options as the 2nd arg (undefined) and minSharedJobs as the 3rd arg.
+    const withMin3 = detectA3SharedFailureSignature(jobs, undefined, 3);
     expect(defaultMin.length).toBe(1);
     expect(defaultMin[0].affectedJobIds.length).toBe(3);
     expect(withMin3.length).toBe(1);
@@ -969,5 +974,228 @@ describe('Ranking: confirmed D1-D7 findings remain primary; advisory signals dem
     const snapshot = JSON.stringify(original);
     rankAdvisorySignals(original, ['D1']);
     expect(JSON.stringify(original)).toBe(snapshot);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Source-shape awareness (W-light slice)
+// ---------------------------------------------------------------------------
+//
+// Each advisory detector accepts an optional `sourceShape` parameter.  When
+// the caller passes `sourceShape: 'hermes-cron'`, the detector's `explanation`
+// is amended with a shape-specific note that frames the signal as
+// shape-dependent and review-only.  When the caller passes
+// `sourceShape: 'openclaw-export'` or omits the parameter (treated as
+// 'unknown'), the explanation must be byte-for-byte identical to the original
+// (no Hermes-cron note, no other copy drift).
+//
+// The invariant is: thresholds, first-action, approximateCostExposure,
+// ranking, MIN_A1_RUN_COUNT, minSharedJobs, and minNoReplyRuns are all
+// UNCHANGED.  Only the explanation text and the optional `sourceShape` field
+// on the returned signal may change.
+
+describe('source-shape awareness — A1', () => {
+  it('hermes-cron: explanation contains the "Shape-specific note" framing', () => {
+    const records = [
+      { jobId: 'a1-shape-1', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-1', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].explanation).toMatch(/Shape-specific note/i);
+  });
+
+  it('hermes-cron: explanation still contains the "Review signal (not confirmed waste)" disclaimer', () => {
+    const records = [
+      { jobId: 'a1-shape-2', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-2', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].explanation).toMatch(/Review signal \(not confirmed waste\)/);
+  });
+
+  it('hermes-cron: first action command is still the read-only inspect command (no disable/edit/restart verbs)', () => {
+    const records = [
+      { jobId: 'a1-shape-3', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-3', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    const cmd = signals[0].firstAction.command;
+    expect(cmd).toContain('openclaw cron runs --id');
+    expect(cmd).not.toMatch(/disable|edit|restart|switch-model|switch model/);
+  });
+
+  it('hermes-cron: A1 still fires — thresholds (MIN_A1_RUN_COUNT=2) unchanged', () => {
+    const records = [
+      { jobId: 'a1-shape-4', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-4', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].id).toBe('A1');
+    expect(signals[0].evidence.threshold.maxDurationMs).toBe(300);
+  });
+
+  it('openclaw-export: explanation matches the pre-W-light wording (no Hermes note)', () => {
+    const records = [
+      { jobId: 'a1-shape-5', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-5', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signalsOpenclaw = detectA1ZeroTokenFastFailure(records, { sourceShape: 'openclaw-export' });
+    const signalsDefault = detectA1ZeroTokenFastFailure(records);
+    expect(signalsOpenclaw.length).toBe(1);
+    expect(signalsDefault.length).toBe(1);
+    // openclaw-export and default (unknown) produce the same baseline wording
+    expect(signalsOpenclaw[0].explanation).toBe(signalsDefault[0].explanation);
+    // neither contains the Hermes-specific note
+    expect(signalsOpenclaw[0].explanation).not.toMatch(/Shape-specific note/i);
+  });
+
+  it('unknown (omitted options): explanation matches the pre-W-light wording (no Hermes note)', () => {
+    const records = [
+      { jobId: 'a1-shape-6', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-6', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records);
+    expect(signals.length).toBe(1);
+    expect(signals[0].explanation).not.toMatch(/Shape-specific note/i);
+  });
+
+  it('hermes-cron: emitted signal carries sourceShape: "hermes-cron" on the signal itself', () => {
+    const records = [
+      { jobId: 'a1-shape-7', tokens: 0, durationMs: 50, status: 'failed' },
+      { jobId: 'a1-shape-7', tokens: 0, durationMs: 60, status: 'failed' },
+    ];
+    const signals = detectA1ZeroTokenFastFailure(records, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].sourceShape).toBe('hermes-cron');
+  });
+});
+
+describe('source-shape awareness — A2', () => {
+  it('hermes-cron: explanation contains the "shared job/task layer" framing', () => {
+    const jobs = [
+      { id: 'a2-shape-1', model: 'Claude Opus', noReplyRuns: 3, agentTurn: true },
+    ];
+    const signals = detectA2PremiumNoReply(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].explanation).toMatch(/shared job\/task layer/i);
+  });
+
+  it('hermes-cron: explanation still contains the "Review signal (not confirmed waste)" disclaimer', () => {
+    const jobs = [
+      { id: 'a2-shape-2', model: 'Claude Sonnet', noReplyRuns: 4, task: 'health check' },
+    ];
+    const signals = detectA2PremiumNoReply(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].explanation).toMatch(/Review signal \(not confirmed waste\)/);
+  });
+
+  it('hermes-cron: first action is still the read-only inspect command', () => {
+    const jobs = [
+      { id: 'a2-shape-3', model: 'Claude Opus', noReplyRuns: 3, agentTurn: true },
+    ];
+    const signals = detectA2PremiumNoReply(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].firstAction.command).toContain('openclaw cron runs --id');
+  });
+
+  it('openclaw-export and unknown: explanation matches the pre-W-light wording (no shared-layer note)', () => {
+    const jobs = [
+      { id: 'a2-shape-4', model: 'Claude Opus', noReplyRuns: 3, agentTurn: true },
+    ];
+    const signalsOpenclaw = detectA2PremiumNoReply(jobs, { sourceShape: 'openclaw-export' });
+    const signalsDefault = detectA2PremiumNoReply(jobs);
+    expect(signalsOpenclaw[0].explanation).toBe(signalsDefault[0].explanation);
+    expect(signalsOpenclaw[0].explanation).not.toMatch(/shared job\/task layer/i);
+  });
+
+  it('hermes-cron: A2 still fires — minNoReplyRuns threshold unchanged', () => {
+    const jobs = [
+      { id: 'a2-shape-5', model: 'Claude Opus', noReplyRuns: 2, agentTurn: true },
+    ];
+    const signals = detectA2PremiumNoReply(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].evidence.threshold.minNoReplyRuns).toBe(2);
+  });
+
+  it('hermes-cron: signal carries sourceShape: "hermes-cron" on the signal itself', () => {
+    const jobs = [
+      { id: 'a2-shape-6', model: 'Claude Opus', noReplyRuns: 3, agentTurn: true },
+    ];
+    const signals = detectA2PremiumNoReply(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals[0].sourceShape).toBe('hermes-cron');
+  });
+});
+
+describe('source-shape awareness — A3', () => {
+  it('hermes-cron: explanation contains the "primary signal-bearing detector on real Hermes cron output" framing', () => {
+    const jobs = [
+      { id: 'a3-shape-1', records: [{ tokens: 0, durationMs: 50, error: '' }] },
+      { id: 'a3-shape-2', records: [{ tokens: 0, durationMs: 60, error: '' }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].explanation).toMatch(/primary signal-bearing detector on real Hermes cron output/i);
+  });
+
+  it('hermes-cron: explanation still contains the "Review signal (not confirmed waste)" disclaimer', () => {
+    const jobs = [
+      { id: 'a3-shape-3', records: [{ tokens: 0, durationMs: 50, error: '' }] },
+      { id: 'a3-shape-4', records: [{ tokens: 0, durationMs: 60, error: '' }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals[0].explanation).toMatch(/Review signal \(not confirmed waste\)/);
+  });
+
+  it('hermes-cron: A3 still fires — minSharedJobs threshold unchanged', () => {
+    const jobs = [
+      { id: 'a3-shape-5', records: [{ tokens: 0, durationMs: 50, error: '' }] },
+      { id: 'a3-shape-6', records: [{ tokens: 0, durationMs: 60, error: '' }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals.length).toBe(1);
+    expect(signals[0].evidence.threshold.minSharedJobs).toBe(2);
+  });
+
+  it('openclaw-export and unknown: explanation matches the pre-W-light wording (no primary-signal note)', () => {
+    const jobs = [
+      { id: 'a3-shape-7', records: [{ tokens: 0, durationMs: 50, error: '' }] },
+      { id: 'a3-shape-8', records: [{ tokens: 0, durationMs: 60, error: '' }] },
+    ];
+    const signalsOpenclaw = detectA3SharedFailureSignature(jobs, { sourceShape: 'openclaw-export' });
+    const signalsDefault = detectA3SharedFailureSignature(jobs);
+    expect(signalsOpenclaw[0].explanation).toBe(signalsDefault[0].explanation);
+    expect(signalsOpenclaw[0].explanation).not.toMatch(/primary signal-bearing detector on real Hermes cron output/i);
+  });
+
+  it('hermes-cron: signal carries sourceShape: "hermes-cron" on the signal itself', () => {
+    const jobs = [
+      { id: 'a3-shape-9', records: [{ tokens: 0, durationMs: 50, error: '' }] },
+      { id: 'a3-shape-10', records: [{ tokens: 0, durationMs: 60, error: '' }] },
+    ];
+    const signals = detectA3SharedFailureSignature(jobs, { sourceShape: 'hermes-cron' });
+    expect(signals[0].sourceShape).toBe('hermes-cron');
+  });
+});
+
+describe('source-shape awareness — invariants', () => {
+  it('ranking helper is unaffected by sourceShape: hermes-cron advisory signals are demoted the same way as default', () => {
+    const hermesSignal: AdvisorySignal = {
+      id: 'A1',
+      title: 't',
+      explanation: 'Review signal (not confirmed waste): zero-token fast failure',
+      affectedJobIds: ['j'],
+      approximateCostExposure: { lowUsd: 0, highUsd: 1 },
+      firstAction: { description: 'Inspect', command: 'openclaw cron runs --id j --limit 5' },
+      evidence: { id: 'A1', explanation: 'x', sourceFields: [], observedValue: {}, threshold: null },
+      sourceShape: 'hermes-cron',
+    };
+    const rankedWithHermes = rankAdvisorySignals([hermesSignal], ['D1']);
+    const rankedWithout = rankAdvisorySignals([{ ...hermesSignal, sourceShape: undefined }], ['D1']);
+    expect(rankedWithHermes.reviewSignals.length).toBe(rankedWithout.reviewSignals.length);
+    expect(rankedWithHermes.primarySignals.length).toBe(rankedWithout.primarySignals.length);
   });
 });

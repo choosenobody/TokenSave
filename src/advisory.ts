@@ -54,6 +54,34 @@
 export type AdvisoryId = 'A1' | 'A2' | 'A3';
 
 /**
+ * Source-shape tag passed in by the caller to indicate what kind of
+ * exported data the records originated from.  W-light (2026-06-04) added
+ * this type as a local advisory-layer concept — it is NOT part of the
+ * public `ImportSummary.detectedSource` enum (which is parser-layer and
+ * covers 5 input-shape values).
+ *
+ * The advisory layer is still dormant: no caller in `src/main.ts` invokes
+ * these detectors.  When a future wire-up PR passes one of these tags,
+ * `explanation` text becomes shape-specific and the `sourceShape` field is
+ * attached to the returned signal.  Thresholds, first action, cost
+ * exposure, and ranking are all unchanged.
+ *
+ * - 'openclaw-export' — OpenClaw-style flat job/run export
+ * - 'hermes-cron'      — Hermes-style cron run records (nested usage block)
+ * - 'unknown'          — caller did not know / did not pass a tag
+ */
+export type SourceShape = 'openclaw-export' | 'hermes-cron' | 'unknown';
+
+/**
+ * Optional second argument accepted by every advisory detector.  When
+ * `sourceShape` is provided, the detector amends its `explanation` text
+ * (only) to add a shape-specific note.  All other fields are unchanged.
+ */
+export interface DetectOptions {
+  sourceShape?: SourceShape;
+}
+
+/**
  * A review-only signal.  Carries structured evidence and a first-action
  * read-only inspect command, but is NOT confirmed waste.
  */
@@ -97,6 +125,13 @@ export interface AdvisorySignal {
     /** Comparison thresholds (where applicable) */
     threshold?: Record<string, unknown> | null;
   };
+  /**
+   * Optional source-shape tag echoed from the caller's `DetectOptions`.
+   * When the caller did not pass a tag, this field is absent (NOT set to
+   * 'unknown') so existing callers and tests see no behavior change.  When
+   * present, it is one of the three `SourceShape` values.
+   */
+  sourceShape?: SourceShape;
 }
 
 // ---------------------------------------------------------------------------
@@ -418,8 +453,12 @@ export function failureSignature(record: {
  * @param records - run-like records with totalTokens / durationMs / status / model
  * @returns array of A1 advisory signals (one per distinct affected job)
  */
-export function detectA1ZeroTokenFastFailure(records: any[]): AdvisorySignal[] {
+export function detectA1ZeroTokenFastFailure(
+  records: any[],
+  options?: DetectOptions
+): AdvisorySignal[] {
   if (!Array.isArray(records) || records.length === 0) return [];
+  const sourceShape = options?.sourceShape;
 
   // Group records by job identifier
   const byJob = new Map<string, any[]>();
@@ -476,12 +515,24 @@ export function detectA1ZeroTokenFastFailure(records: any[]): AdvisorySignal[] {
     const status = first.status ?? first.result ?? null;
 
     // Build conservative explanation
-    const explanation =
+    let explanation =
       `Review signal (not confirmed waste): ${jobRecords.length} run(s) by this job ` +
       `ended with zero tokens consumed in under ${FAST_FAILURE_DURATION_MS} ms. ` +
       `This pattern is unusual and may reflect dispatcher / profile / gateway ` +
       `rejection before model invocation, but it could also be a normal fast ` +
       `no-op. Inspect the run history first.`;
+
+    // W-light source-shape awareness: amend explanation only when caller
+    // explicitly tagged hermes-cron.  Thresholds, first action, cost
+    // exposure, and the 'Review signal (not confirmed waste)' disclaimer
+    // are all preserved.  The note frames the signal as shape-specific,
+    // not as a universal finding.
+    if (sourceShape === 'hermes-cron') {
+      explanation +=
+        ` Shape-specific note: in real Hermes cron output, zero-token fast ` +
+        `failures are uncommon because failed runs typically lack a usage ` +
+        `block rather than reporting tokens=0.`;
+    }
 
     const firstAction = {
       description:
@@ -529,6 +580,9 @@ export function detectA1ZeroTokenFastFailure(records: any[]): AdvisorySignal[] {
         },
       },
     };
+    if (sourceShape) {
+      signal.sourceShape = sourceShape;
+    }
     signals.push(signal);
   }
 
@@ -557,10 +611,12 @@ export function detectA1ZeroTokenFastFailure(records: any[]): AdvisorySignal[] {
  */
 export function detectA2PremiumNoReply(
   jobs: any[],
+  options?: DetectOptions,
   premiumModelPatterns: RegExp[] = [/opus/i, /sonnet/i],
   minNoReplyRuns: number = 2
 ): AdvisorySignal[] {
   if (!Array.isArray(jobs) || jobs.length === 0) return [];
+  const sourceShape = options?.sourceShape;
 
   const signals: AdvisorySignal[] = [];
   for (const job of jobs) {
@@ -587,11 +643,21 @@ export function detectA2PremiumNoReply(
     const jobId = pickJobId(job);
     if (!jobId) continue;
 
-    const explanation =
+    let explanation =
       `Review signal (not confirmed waste): job uses a premium model ("${model}") ` +
       `and recorded ${noReplyRuns} NO_REPLY run(s). Confirm manually that this ` +
       `combination is intentional before changing the model or schedule. ` +
       `Inspect the run history first.`;
+
+    // W-light source-shape awareness: amend explanation only when caller
+    // explicitly tagged hermes-cron.  Thresholds, first action, cost
+    // exposure, and the 'Review signal (not confirmed waste)' disclaimer
+    // are all preserved.
+    if (sourceShape === 'hermes-cron') {
+      explanation +=
+        ` Review the shared job/task layer; this signal is shape-dependent ` +
+        `and not a confirmed finding.`;
+    }
 
     const firstAction = {
       description:
@@ -624,6 +690,9 @@ export function detectA2PremiumNoReply(
         },
       },
     };
+    if (sourceShape) {
+      signal.sourceShape = sourceShape;
+    }
     signals.push(signal);
   }
 
@@ -650,9 +719,11 @@ export function detectA2PremiumNoReply(
  */
 export function detectA3SharedFailureSignature(
   jobs: any[],
+  options?: DetectOptions,
   minSharedJobs: number = 2
 ): AdvisorySignal[] {
   if (!Array.isArray(jobs) || jobs.length === 0) return [];
+  const sourceShape = options?.sourceShape;
 
   // Map signature → list of job ids
   const sigToJobs = new Map<string, string[]>();
@@ -690,12 +761,23 @@ export function detectA3SharedFailureSignature(
 
     const samples = sigToSamples.get(sig) || [];
 
-    const explanation =
+    let explanation =
       `Review signal (not confirmed waste): ${jobIds.length} jobs share the same ` +
       `failure signature ("${sig}"). This pattern often reflects a shared ` +
       `upstream cause in the dispatcher / profile / gateway layer. Inspect the ` +
       `shared layer first; do not change the affected jobs on the basis of ` +
       `this signal alone.`;
+
+    // W-light source-shape awareness: amend explanation only when caller
+    // explicitly tagged hermes-cron.  Thresholds, first action, cost
+    // exposure, and the 'Review signal (not confirmed waste)' disclaimer
+    // are all preserved.
+    if (sourceShape === 'hermes-cron') {
+      explanation +=
+        ` This is the primary signal-bearing detector on real Hermes cron ` +
+        `output because the shared failure signature is the only universal ` +
+        `cross-job pattern.`;
+    }
 
     const firstAction = {
       description:
@@ -732,6 +814,9 @@ export function detectA3SharedFailureSignature(
         },
       },
     };
+    if (sourceShape) {
+      signal.sourceShape = sourceShape;
+    }
     signals.push(signal);
   }
 

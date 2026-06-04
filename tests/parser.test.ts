@@ -438,6 +438,109 @@ describe('detectImportSource', () => {
 });
 
 // ---------------------------------------------------------------------------
+// sourceShape (W-light slice)
+// ---------------------------------------------------------------------------
+//
+// detectImportSource is extended with an optional `sourceShape` field on
+// the returned ImportSummary.  This is a NEW independent axis (advisory-
+// layer interpretation) — it does NOT replace the existing 5-value
+// detectedSource enum.  sourceShape is one of:
+//   - 'openclaw-export' — flat job/run export (OpenClaw-style)
+//   - 'hermes-cron'     — Hermes-style nested usage block on run records
+//   - 'unknown'         — could not determine from the dataset
+
+describe('sourceShape (W-light slice)', () => {
+  it('returns sourceShape: "openclaw-export" when meta.openclaw_version is present', () => {
+    const result = detectImportSource({ jobs: [], meta: { openclaw_version: '1.0.0' }, runBundles: [] });
+    expect(result.sourceShape).toBe('openclaw-export');
+  });
+
+  it('returns sourceShape: "openclaw-export" when jobs have agentTurn', () => {
+    const result = detectImportSource({ jobs: [{ id: '1', name: 'agent', agentTurn: true }], meta: null, runBundles: [] });
+    expect(result.sourceShape).toBe('openclaw-export');
+  });
+
+  it('returns sourceShape: "openclaw-export" when run records have flat top-level tokens field (no nested usage block)', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ tokens: 100, status: 'ok' }] }],
+    });
+    expect(result.sourceShape).toBe('openclaw-export');
+  });
+
+  it('returns sourceShape: "hermes-cron" when run records carry nested usage.total_tokens (Hermes-style)', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{
+        fileName: 'runs.jsonl',
+        records: [
+          { jobId: 'h-1', usage: { total_tokens: 9016 }, status: 'ok' },
+          { jobId: 'h-1', usage: { total_tokens: 8500 }, status: 'error' },
+        ],
+      }],
+    });
+    expect(result.sourceShape).toBe('hermes-cron');
+  });
+
+  it('returns sourceShape: "hermes-cron" when run records carry nested usage.tokens', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ usage: { tokens: 4200 } }] }],
+    });
+    expect(result.sourceShape).toBe('hermes-cron');
+  });
+
+  it('returns sourceShape: "hermes-cron" when run records carry nested metrics.tokens', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ metrics: { tokens: 1234 } }] }],
+    });
+    expect(result.sourceShape).toBe('hermes-cron');
+  });
+
+  it('returns sourceShape: "unknown" when the dataset is empty', () => {
+    const result = detectImportSource({ jobs: [], meta: null, runBundles: [] });
+    expect(result.sourceShape).toBe('unknown');
+  });
+
+  it('returns sourceShape: "unknown" when no nested usage/metrics block AND no flat top-level token field', () => {
+    const result = detectImportSource({
+      jobs: [],
+      meta: null,
+      runBundles: [{ fileName: 'runs.jsonl', records: [{ status: 'ok' }] }],
+    });
+    expect(result.sourceShape).toBe('unknown');
+  });
+
+  it('does not break the existing detectedSource 5-enum values', () => {
+    const r1 = detectImportSource({ jobs: [], meta: { openclaw_version: '1.0.0' }, runBundles: [] });
+    expect(r1.detectedSource).toBe('openclaw-like');
+    expect(r1.sourceShape).toBe('openclaw-export');
+
+    const r2 = detectImportSource({ jobs: [], meta: null, runBundles: [{ fileName: 'runs.jsonl', records: [{ tokens: 100 }] }] });
+    expect(r2.detectedSource).toBe('jsonl-records');
+    expect(r2.sourceShape).toBe('openclaw-export');
+
+    // r3 has jobs but no agentTurn, no openclaw_version, no token fields
+    // and no nested usage/metrics.  It is generic-json by detectedSource
+    // and 'unknown' by sourceShape — the advisory layer has no signal
+    // to interpret it as openclaw-export, hermes-cron, or anything else.
+    const r3 = detectImportSource({ jobs: [{ id: '1', name: 'test' }], meta: null, runBundles: [] });
+    expect(r3.detectedSource).toBe('generic-json');
+    expect(r3.sourceShape).toBe('unknown');
+
+    // r4 has jobs with agentTurn → openclaw-export on the sourceShape axis
+    const r4 = detectImportSource({ jobs: [{ id: '1', name: 'agent', agentTurn: true }], meta: null, runBundles: [] });
+    expect(r4.detectedSource).toBe('openclaw-like');
+    expect(r4.sourceShape).toBe('openclaw-export');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // buildReadinessGaps
 // ---------------------------------------------------------------------------
 
