@@ -2,7 +2,7 @@
 import { stringify, normalizeKey, slugify, cleanFileStem, escapeHtml, formatInteger, formatCurrency, formatPercent, formatDate, formatShortDuration } from './utils';
 import { FIX_BADGES } from './constants';
 import { detectCostRate } from './pricing';
-import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps } from './parser';
+import { parseJson, parseJsonl, parseZipEntries, detectImportSource, buildReadinessGaps, buildSourceShapeCopy } from './parser';
 import { classifyWaste, buildWasteEvidence, extractTokenCount, isErrorRecord, isJobLike, isMetaLike, isRunLike, isSimpleCheck, buildFixSuggestion, normalizeJobs, createJobStat, ensureSyntheticStat, resolveJob, applyRunRecord, parseScheduleMinutes, formatFrequency, compareJobs, estimateWastePerRun, estimateDailyWasteTokens, isActiveJob } from './domain';
 import { buildFixCards, formatEvidenceBlurb } from './fixes';
 
@@ -580,6 +580,7 @@ import { buildFixCards, formatEvidenceBlurb } from './fixes';
           ${gapSections.length > 0 ? `<div class="gap-list">${gapSections}</div>` : ''}
           ${gapSections.length > 0 ? importTip : ''}
           ${staleSnapshotWarning}
+          ${summary.sourceShape ? `<div class="gap-section" style="margin-top:8px;border-left-color:#94a3b8"><div class="gap-label" style="color:#94a3b8">Source-shape interpretation</div><div style="font-size:11px;color:#94a3b8;line-height:1.6">${escapeHtml(buildSourceShapeCopy(summary.sourceShape))}</div></div>` : ''}
           <div class="import-privacy-note">All analysis stays on your device — no data is sent anywhere.</div>
         </div>
       `;
