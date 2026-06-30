@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TokenSave — Local-first Agent Job Waste Audit</title>
-  <meta name="description" content="Local-first recurring AI agent job waste audit tool. Find duplicate jobs, retry loops, stale automations, routing waste, and silent failure patterns.">
+  <meta name="description" content="Local-first recurring AI agent job waste audit. Inspect your imported scheduled and repeated agent runs, see evidence, then manually decide what to fix.">
   <link rel="canonical" href="https://tokensave.cloud/">
   <meta property="og:title" content="TokenSave — Local-first Agent Job Waste Audit">
-  <meta property="og:description" content="Find duplicate jobs, retry loops, stale automations, routing/model waste, context bloat, and silent failure patterns before they quietly burn tokens.">
+  <meta property="og:description" content="Find recurring AI agent jobs that quietly waste tokens before the waste compounds. Local-first. Evidence-backed. Manual fix only.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://tokensave.cloud/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="TokenSave — Local-first Agent Job Waste Audit">
-  <meta name="twitter:description" content="Local-first recurring AI agent job waste audit tool. Find duplicate jobs, retry loops, stale automations, routing waste, and silent failure patterns.">
+  <meta name="twitter:description" content="Find recurring AI agent jobs that quietly waste tokens before the waste compounds. Local-first. Evidence-backed. Manual fix only.">
 
   <style>
     /* ── Design tokens ──────────────────────────────────────── */
@@ -100,18 +100,18 @@
     }
 
     h1 {
-      font-size: clamp(2.2rem, 5vw, 3rem);
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
       font-weight: 800;
-      letter-spacing: -0.04em;
-      line-height: 1.05;
+      letter-spacing: -0.035em;
+      line-height: 1.12;
       margin-bottom: 14px;
       color: var(--text);
     }
 
     .hero-tagline {
-      font-size: clamp(1.05rem, 2.5vw, 1.2rem);
+      font-size: clamp(1.02rem, 2.5vw, 1.15rem);
       color: var(--text-muted);
-      max-width: 620px;
+      max-width: 660px;
       margin-bottom: 32px;
       line-height: 1.65;
     }
@@ -193,7 +193,21 @@
       font-size: 1.25rem;
       font-weight: 700;
       letter-spacing: -0.025em;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .section-body {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 40px;
+      max-width: 720px;
+    }
+
+    .section-body em {
+      font-style: normal;
+      font-weight: 600;
       color: var(--text);
     }
 
@@ -283,6 +297,28 @@
       line-height: 1.65;
     }
 
+    .boundary-ok {
+      background: var(--green-bg);
+      border-color: #bbf7d0;
+      color: var(--green-text);
+    }
+
+    .boundary-list {
+      list-style: disc;
+      padding-left: 20px;
+      margin-top: 10px;
+    }
+
+    .boundary-list li { margin-bottom: 4px; }
+
+    .boundary-note {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed currentColor;
+      font-size: 0.82rem;
+      opacity: 0.92;
+    }
+
     /* ── Footer ──────────────────────────────────────────────── */
     .footer {
       border-top: 1px solid var(--border);
@@ -325,10 +361,10 @@
 
     <!-- Hero -->
     <div class="eyebrow">Local-first &nbsp;&middot;&nbsp; No telemetry &nbsp;&middot;&nbsp; No external API calls</div>
-    <h1>TokenSave</h1>
+    <h1>Find recurring AI agent jobs that quietly waste tokens before the waste compounds.</h1>
     <p class="hero-tagline">
-      Local-first recurring AI agent job waste audit.<br>
-      Find duplicate jobs, retry loops, stale automations, routing/model waste, context bloat, and silent failure patterns before they quietly burn tokens.
+      Audit scheduled and repeated agent runs locally, with evidence before manual fixes.<br>
+      TokenSave helps you find avoidable recurring agent waste in your own imported logs. It does not prove vendor overbilling.
     </p>
 
     <!-- CTAs -->
@@ -348,6 +384,7 @@
       <div class="trust-item">No external API calls</div>
       <div class="trust-item">No auto-remediation</div>
       <div class="trust-item">Evidence-backed manual fixes</div>
+      <div class="trust-item">No upload. No account.</div>
     </div>
 
     <!-- How it works -->
@@ -375,8 +412,24 @@
       </div>
     </div>
 
-    <!-- What it audits -->
-    <h2>What it audits</h2>
+    <!-- Why AI agent costs become hard to see -->
+    <h2>Why AI agent costs become hard to see</h2>
+    <p class="section-body">
+      Agent jobs can keep consuming tokens in the background before you notice. A scheduled cron, a recurring
+      subagent, or a long-running automation may keep firing while you are away from the keyboard. Token counts
+      shown by the provider are local estimates &mdash; the per-session dollar figure is computed from token usage
+      and may differ from your actual bill. Multi-instance usage, MCP tool calls, plugin activity, and
+      background skills all add to the total. The hard part is rarely the total spend; the hard part is finding
+      the avoidable recurring burn inside it.
+    </p>
+
+    <!-- What TokenSave can actually audit -->
+    <h2>What TokenSave can actually audit</h2>
+    <p class="section-body">
+      TokenSave reads a job export and its run logs locally, then surfaces evidence-backed findings.
+      Cost is shown as <em>approximate exposure</em>, not a guaranteed saving. Findings are surfaced only when
+      your import contains the underlying signal. Categories we can detect when evidence is present:
+    </p>
     <div class="audit-grid">
       <div class="audit-item">
         <div class="audit-dot"></div>
@@ -384,29 +437,68 @@
       </div>
       <div class="audit-item">
         <div class="audit-dot"></div>
-        <span>Retry loops</span>
+        <span>Failure and retry loops</span>
       </div>
       <div class="audit-item">
         <div class="audit-dot"></div>
-        <span>Context bloat</span>
+        <span>Context growth across runs</span>
       </div>
       <div class="audit-item">
         <div class="audit-dot"></div>
-        <span>Model / routing waste</span>
+        <span>Stale active jobs</span>
       </div>
       <div class="audit-item">
         <div class="audit-dot"></div>
-        <span>Stale automations</span>
+        <span>Risky silent runs (low-output, high-token jobs)</span>
       </div>
       <div class="audit-item">
         <div class="audit-dot"></div>
-        <span>Silent failure patterns</span>
+        <span>Model and routing risk</span>
+      </div>
+      <div class="audit-item">
+        <div class="audit-dot"></div>
+        <span>Tool and MCP overhead when logs include those signals</span>
       </div>
     </div>
 
-    <!-- Boundary statement -->
+    <!-- From confusing usage to local evidence -->
+    <h2>From confusing usage to local evidence</h2>
+    <p class="section-body">
+      Run a local audit, see evidence, then manually decide what to fix. TokenSave never touches your provider
+      account, never calls an external LLM, and never writes back to your scheduler. Fix guidance is text only;
+      you copy the command, you run it. No upload, no account, no auto-fix.
+    </p>
+
+    <!-- What this is -->
+    <h2>What this is</h2>
+    <div class="boundary boundary-ok">
+      <strong>TokenSave is:</strong>
+      <ul class="boundary-list">
+        <li>local-first &mdash; your export never leaves the device</li>
+        <li>import-based &mdash; you bring the evidence, TokenSave reads it</li>
+        <li>evidence-backed &mdash; every finding points to a job ID, run, and observed value</li>
+        <li>focused on recurring, scheduled, and repeated agent jobs</li>
+        <li>designed for manual fix decisions &mdash; you stay in control</li>
+        <li>token, waste, and action first &mdash; cost is shown only as approximate exposure</li>
+      </ul>
+    </div>
+
+    <!-- What this is not -->
+    <h2>What this is not</h2>
     <div class="boundary">
-      <strong>TokenSave will not:</strong> upload logs, collect API keys, call external LLMs or pricing APIs, auto-edit jobs, or claim exact dollar savings without verifiable pricing input. Cost figures are approximate and secondary — the primary signal is token waste and avoidable burn.
+      <strong>TokenSave is not:</strong>
+      <ul class="boundary-list">
+        <li>a billing dispute service</li>
+        <li>an invoice reconciliation tool</li>
+        <li>a refund recovery service</li>
+        <li>a provider overbilling detector</li>
+        <li>a generic LLM cost dashboard</li>
+        <li>an auto-remediation or kill-switch system</li>
+      </ul>
+      <div class="boundary-note">
+        Cost figures shown are approximate exposure based on local token counts and the pricing table you
+        supply. They are not a guaranteed saving and they are not proof that any provider overcharged you.
+      </div>
     </div>
 
     <!-- Footer -->
